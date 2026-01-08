@@ -1,0 +1,20 @@
+FROM node:16-buster
+
+WORKDIR /usr/app
+
+# Copy package files
+COPY ./package.json ./package-lock.json ./
+
+# Install dependencies (skip Cypress binary download - not needed in container)
+ENV CYPRESS_INSTALL_BINARY=0
+RUN npm install --force
+
+# Copy source code
+COPY ./ /usr/app
+
+# Expose port 5001 for Vite dev server
+EXPOSE 5001
+
+# Run development server with host binding for Docker
+CMD ["npm", "run", "dev"]
+
