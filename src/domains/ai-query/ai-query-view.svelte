@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
-  import { answerQuestion, checkOllamaAvailable, getAvailableModels, type AIQueryResponse } from './ai-query-service'
+  import { answerQuestion, checkOllamaAvailable, getAvailableModels, handleEntryCreation, createTrackerAndEntry, parseValueFromMessage, type AIQueryResponse } from './ai-query-service'
   import { Interact } from '../../store/interact'
+  import ListItemLog from '../../components/list-item-log/list-item-log.svelte'
+  import NLog from '../../domains/nomie-log/nomie-log'
 
   let question = ''
   let loading = false
@@ -9,11 +11,24 @@
   let ollamaAvailable = false
   let availableModels: string[] = []
   let selectedModel = 'llama3.2'
-  let messages: Array<{ id: string; role: 'user' | 'assistant' | 'error'; content: string; timestamp: Date }> = []
+  let messages: Array<{ 
+    id: string; 
+    role: 'user' | 'assistant' | 'error'; 
+    content: string; 
+    timestamp: Date;
+    action?: 'needs_value' | 'needs_tracker_creation';
+    trackerTag?: string;
+    trackerType?: string;
+    originalMessage?: string;
+    log?: NLog;
+  }> = []
   let chatContainer: HTMLDivElement
   let showModelSelector = false
   let modelSelectorContainer: HTMLDivElement
   let inputElement: HTMLDivElement
+  
+  // Conversation state for pending value requests
+  let pendingValueRequest: { trackerTag: string; trackerType: string; messageId: string } | null = null
 
   // Stable function reference for event listener to prevent memory leaks
   const handleClickOutside = (event: MouseEvent) => {
@@ -63,7 +78,7 @@
           {
             id: 'welcome',
             role: 'assistant',
-            content: 'Hello! I\'m Nomie AI. Ask me anything about your tracking data. For example: "How was my anxiety level when I slept for only 6 hours?"',
+            content: 'Hello! I\'m Nomie AI. I can help you in two ways:\n\n1. Ask questions about your data: "How was my anxiety level when I slept for only 6 hours?"\n2. Add entries: "add intraworkout" or "track water 8"\n\nTry asking a question or adding an entry!',
             timestamp: new Date(),
           }
         ]
@@ -104,15 +119,172 @@
     }, 100)
   }
 
+  async function handleButtonClick(action: 'create_tracker' | 'cancel_tracker' | 'submit_value', messageId: string, trackerTag?: string, originalMessage?: string, value?: number) {
+    const message = messages.find(m => m.id === messageId)
+    if (!message) return
+
+    loading = true
+    error = ''
+
+    // Add loading message
+    const loadingMessageId = generateMessageId('loading')
+    const loadingMessage = {
+      id: loadingMessageId,
+      role: 'assistant' as const,
+      content: '...',
+      timestamp: new Date(),
+    }
+    messages = [...messages, loadingMessage]
+    scrollToBottom()
+
+    try {
+      if (action === 'create_tracker' && trackerTag) {
+        const response = await createTrackerAndEntry(trackerTag.replace('#', ''), originalMessage, value)
+        
+        // Remove loading message
+        messages = messages.filter(m => m.id !== loadingMessageId)
+        
+        // Remove the action buttons from the original message
+        messages = messages.map(m => {
+          if (m.id === messageId) {
+            return { ...m, action: undefined }
+          }
+          return m
+        })
+        
+        if (response.error) {
+          messages = [
+            ...messages,
+            {
+              id: generateMessageId('error'),
+              role: 'error',
+              content: `Error: ${response.error}`,
+              timestamp: new Date(),
+            }
+          ]
+        } else if (response.answer) {
+          messages = [
+            ...messages,
+            {
+              id: generateMessageId('assistant'),
+              role: 'assistant',
+              content: response.answer,
+              timestamp: new Date(),
+              log: response.data?.log ? new NLog(response.data.log) : undefined,
+            }
+          ]
+        }
+      } else if (action === 'cancel_tracker') {
+        // Remove loading message
+        messages = messages.filter(m => m.id !== loadingMessageId)
+        
+        // Remove the action buttons from the original message
+        messages = messages.map(m => {
+          if (m.id === messageId) {
+            return { ...m, action: undefined }
+          }
+          return m
+        })
+        
+        messages = [
+          ...messages,
+          {
+            id: generateMessageId('assistant'),
+            role: 'assistant',
+            content: 'Okay, I won\'t create the tracker. You can create it manually if you\'d like.',
+            timestamp: new Date(),
+          }
+        ]
+      } else if (action === 'submit_value' && message) {
+        const response = await handleEntryCreation('', message.trackerTag?.replace('#', '') || '', value)
+        
+        // Remove loading message
+        messages = messages.filter(m => m.id !== loadingMessageId)
+        
+        // Remove the action buttons from the original message
+        messages = messages.map(m => {
+          if (m.id === messageId) {
+            return { ...m, action: undefined }
+          }
+          return m
+        })
+        
+        if (response.error) {
+          messages = [
+            ...messages,
+            {
+              id: generateMessageId('error'),
+              role: 'error',
+              content: `Error: ${response.error}`,
+              timestamp: new Date(),
+            }
+          ]
+        } else if (response.answer) {
+          messages = [
+            ...messages,
+            {
+              id: generateMessageId('assistant'),
+              role: 'assistant',
+              content: response.answer,
+              timestamp: new Date(),
+              log: response.data?.log ? new NLog(response.data.log) : undefined,
+            }
+          ]
+        }
+        
+        pendingValueRequest = null
+      }
+      
+      scrollToBottom()
+    } catch (e: any) {
+      messages = messages.filter(m => m.id !== loadingMessageId)
+      messages = [
+        ...messages,
+        {
+          id: generateMessageId('error'),
+          role: 'error',
+          content: e.message || 'Failed to process request',
+          timestamp: new Date(),
+        }
+      ]
+      scrollToBottom()
+    } finally {
+      loading = false
+    }
+  }
+
   async function handleSubmit() {
     if (!question.trim()) return
-    if (!ollamaAvailable) {
-      await Interact.alert('Ollama Not Available', 'Please make sure Ollama is running on localhost:11434')
-      return
-    }
-
+    
+    // Entry creation doesn't require Ollama, so we'll check later for questions
     const questionToAsk = question.trim()
     question = '' // Clear input immediately
+
+    // Check for pending value request first
+    if (pendingValueRequest) {
+      const value = parseValueFromMessage(questionToAsk)
+      if (value !== null) {
+        const message = messages.find(m => m.id === pendingValueRequest.messageId)
+        if (message) {
+          await handleButtonClick('submit_value', pendingValueRequest.messageId, undefined, undefined, value)
+        }
+        return
+      } else {
+        // Invalid value, ask again
+        messages = [
+          ...messages,
+          {
+            id: generateMessageId('assistant'),
+            role: 'assistant',
+            content: 'Please enter a valid number.',
+            timestamp: new Date(),
+          }
+        ]
+        loading = false
+        scrollToBottom()
+        return
+      }
+    }
 
     // Add user message
     const userMessage = {
@@ -126,6 +298,13 @@
 
     loading = true
     error = ''
+
+    // Check Ollama availability for questions (entry creation doesn't need it)
+    if (!ollamaAvailable && !pendingValueRequest) {
+      await Interact.alert('Ollama Not Available', 'Please make sure Ollama is running on localhost:11434')
+      loading = false
+      return
+    }
 
     // Add loading message
     const loadingMessageId = generateMessageId('loading')
@@ -159,15 +338,30 @@
           }
         ]
       } else if (response.answer) {
-        messages = [
-          ...messages,
-          {
-            id: generateMessageId('assistant'),
-            role: 'assistant',
-            content: response.answer,
-            timestamp: new Date(),
+        const assistantMessage = {
+          id: generateMessageId('assistant'),
+          role: 'assistant' as const,
+          content: response.answer,
+          timestamp: new Date(),
+          action: response.action,
+          trackerTag: response.trackerTag,
+          trackerType: response.trackerType,
+          originalMessage: response.originalMessage,
+          log: response.data?.log ? new NLog(response.data.log) : undefined,
+        }
+        messages = [...messages, assistantMessage]
+        
+        // Handle special actions
+        if (response.action === 'needs_value') {
+          pendingValueRequest = {
+            trackerTag: response.trackerTag || '',
+            trackerType: response.trackerType || '',
+            messageId: assistantMessage.id,
           }
-        ]
+        } else if (response.action === 'add_entry') {
+          // Entry created successfully, clear any pending requests
+          pendingValueRequest = null
+        }
       } else {
         messages = [
           ...messages,
@@ -273,6 +467,82 @@
             </div>
           {:else}
             <div class="whitespace-pre-wrap text-sm leading-relaxed selectable-text">{message.content}</div>
+            
+            {#if message.log}
+              <div class="mt-3 -mx-2">
+                <ListItemLog 
+                  log={message.log} 
+                  className="max-w-full"
+                  on:textClick={(evt) => {
+                    // Text click handled by ListItemLog
+                  }}
+                />
+              </div>
+            {/if}
+            
+            {#if message.action === 'needs_tracker_creation' && message.trackerTag}
+              <div class="mt-3 flex gap-2">
+                <button
+                  on:click={() => handleButtonClick('create_tracker', message.id, message.trackerTag, message.originalMessage)}
+                  class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                  disabled={loading}
+                >
+                  Yes, create it
+                </button>
+                <button
+                  on:click={() => handleButtonClick('cancel_tracker', message.id)}
+                  class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+                  disabled={loading}
+                >
+                  No, cancel
+                </button>
+              </div>
+            {/if}
+            
+            {#if message.action === 'needs_value' && message.trackerTag}
+              {@const valueInputId = `value-input-${message.id}`}
+              <div class="mt-3">
+                <div class="flex gap-2 items-center">
+                  <input
+                    id={valueInputId}
+                    type="number"
+                    step="any"
+                    placeholder="Enter value..."
+                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                    on:keypress={(e) => {
+                      if (e.key === 'Enter') {
+                        const inputEl = document.getElementById(valueInputId)
+                        if (inputEl && 'value' in inputEl) {
+                          const value = parseFloat(String(inputEl.value))
+                          if (!isNaN(value)) {
+                            handleButtonClick('submit_value', message.id, undefined, undefined, value)
+                            inputEl.value = ''
+                          }
+                        }
+                      }
+                    }}
+                    disabled={loading}
+                  />
+                  <button
+                    on:click={() => {
+                      const inputEl = document.getElementById(valueInputId)
+                      if (inputEl && 'value' in inputEl) {
+                        const value = parseFloat(String(inputEl.value))
+                        if (!isNaN(value)) {
+                          handleButtonClick('submit_value', message.id, undefined, undefined, value)
+                          inputEl.value = ''
+                        }
+                      }
+                    }}
+                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                    disabled={loading}
+                  >
+                    Submit
+                  </button>
+                </div>
+              </div>
+            {/if}
+            
             <div class="text-xs mt-2 opacity-70 selectable-text">
               {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
             </div>
@@ -301,9 +571,9 @@
       <textarea
         bind:value={question}
         on:keypress={handleKeyPress}
-        placeholder="Ask a question about your data..."
+        placeholder={pendingValueRequest ? "Enter a number..." : "Ask a question or add an entry (e.g., 'add intraworkout')..."}
         class="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 min-h-[60px] max-h-[120px] bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-        disabled={loading || !ollamaAvailable}
+        disabled={loading || (!ollamaAvailable && !pendingValueRequest)}
         rows="2"
       />
       <button

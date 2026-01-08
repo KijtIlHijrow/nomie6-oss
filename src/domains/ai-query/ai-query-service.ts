@@ -1,10 +1,18 @@
 import dayjs from 'dayjs'
 import { get } from 'svelte/store'
-import { LedgerStore } from '../ledger/LedgerStore'
-import { TrackableStore, getTrackablesFromStorage } from '../trackable/TrackableStore'
-import type { Trackable } from '../trackable/Trackable.class'
+import { LedgerStore, saveLog } from '../ledger/LedgerStore'
+import { TrackableStore, getTrackablesFromStorage, saveTrackersToStorage } from '../trackable/TrackableStore'
+import { Trackable } from '../trackable/Trackable.class'
 import logsToTrackableUsage from '../usage/usage-utils'
-import type NLog from '../nomie-log/nomie-log'
+import NLog from '../nomie-log/nomie-log'
+import TrackerClass, { toTag } from '../../modules/tracker/TrackerClass'
+import ScoreNote from '../../modules/scoring/score-note'
+import type { ITrackers } from '../../modules/import/import'
+import { Interact } from '../../store/interact'
+import UOM from '../uom/uom'
+import UOMS from '../uom/uom.config'
+import type { PopMenuButton } from '../../components/pop-menu/usePopmenu'
+import type { UOMElement } from '../uom/uom-types'
 
 /**
  * Format date for AI display in a human-readable format
@@ -21,6 +29,18 @@ export interface AIQueryResponse {
   answer: string
   data?: any
   error?: string
+  action?: 'add_entry' | 'question' | 'needs_value' | 'needs_tracker_creation'
+  trackerTag?: string
+  trackerType?: string
+  value?: number
+  originalMessage?: string
+}
+
+export interface IntentDetectionResult {
+  type: 'add_entry' | 'question'
+  trackerName?: string
+  value?: number
+  trackerNames?: string[] // For multiple trackers
 }
 
 /**
@@ -336,6 +356,586 @@ async function getRelevantData(question: string): Promise<{
 }
 
 /**
+ * Detect intent from user message - whether they want to add an entry or ask a question
+ */
+function detectIntent(message: string, availableTrackers: Array<{ tag: string; label: string }>): IntentDetectionResult {
+  const lowerMessage = message.toLowerCase().trim()
+  
+  // Keywords that indicate entry creation intent
+  const addKeywords = ['add', 'track', 'log', 'record', 'enter', 'create entry', 'new entry']
+  const questionKeywords = ['how', 'what', 'when', 'where', 'why', 'which', 'who', '?', 'show', 'tell', 'analyze', 'compare']
+  
+  // Check for explicit add keywords
+  const hasAddKeyword = addKeywords.some(keyword => lowerMessage.includes(keyword))
+  const hasQuestionKeyword = questionKeywords.some(keyword => lowerMessage.includes(keyword))
+  
+  // If it has question keywords and no add keywords, it's a question
+  if (hasQuestionKeyword && !hasAddKeyword) {
+    return { type: 'question' }
+  }
+  
+  // If it has add keywords, it's likely an entry creation
+  if (hasAddKeyword) {
+    // Try to extract tracker name(s) and value
+    const trackerNames: string[] = []
+    let value: number | undefined
+    
+    // Extract value from message (e.g., "add intraworkout 5")
+    const valueMatch = lowerMessage.match(/(?:add|track|log|record|enter)\s+\w+\s+(\d+(?:\.\d+)?)/i)
+    if (valueMatch) {
+      value = parseFloat(valueMatch[1])
+    }
+    
+    // Try to find tracker names by matching against available trackers first
+    for (const tracker of availableTrackers) {
+      const tagLower = tracker.tag.toLowerCase().replace('#', '')
+      const labelLower = tracker.label.toLowerCase()
+      
+      // Check if message contains tracker tag or label
+      if (lowerMessage.includes(tagLower) || lowerMessage.includes(labelLower)) {
+        trackerNames.push(tracker.tag)
+      }
+    }
+    
+    // If no tracker found by name, try to extract from message
+    if (trackerNames.length === 0) {
+      // Look for patterns like "for 'X'", "for X", "called X", "named X"
+      let extractedName: string | null = null
+      
+      // Pattern 1: "for 'X'" or "for "X""
+      const forQuotedMatch = message.match(/for\s+['"]([^'"]+)['"]/i)
+      if (forQuotedMatch) {
+        extractedName = forQuotedMatch[1].trim()
+      }
+      
+      // Pattern 2: "for X" (where X is capitalized or a single word)
+      if (!extractedName) {
+        const forMatch = lowerMessage.match(/for\s+([a-z0-9_]+)/i)
+        if (forMatch) {
+          // Check if the word after "for" is capitalized in original message (likely a name)
+          const originalMatch = message.match(/for\s+([A-Z][a-z]+)/)
+          if (originalMatch) {
+            extractedName = originalMatch[1].toLowerCase()
+          } else {
+            extractedName = forMatch[1]
+          }
+        }
+      }
+      
+      // Pattern 3: "called X" or "named X"
+      if (!extractedName) {
+        const calledMatch = lowerMessage.match(/(?:called|named)\s+([a-z0-9_]+)/i)
+        if (calledMatch) {
+          extractedName = calledMatch[1]
+        }
+      }
+      
+      // Pattern 4: Look for quoted strings anywhere in the message
+      if (!extractedName) {
+        const quotedMatch = message.match(/['"]([^'"]+)['"]/i)
+        if (quotedMatch) {
+          extractedName = quotedMatch[1].trim().toLowerCase()
+        }
+      }
+      
+      // Pattern 5: Look for capitalized words (likely proper nouns/tracker names)
+      if (!extractedName) {
+        const capitalizedMatch = message.match(/\b([A-Z][a-z]+)\b/)
+        if (capitalizedMatch) {
+          extractedName = capitalizedMatch[1].toLowerCase()
+        }
+      }
+      
+      // Pattern 6: Fallback - look for words after "add", "track", etc., but skip common words
+      if (!extractedName) {
+        const skipWords = ['new', 'a', 'an', 'the', 'tracker', 'entry', 'log']
+        const addMatch = lowerMessage.match(/(?:add|track|log|record|enter)\s+(?:new\s+)?(?:tracker\s+for\s+)?(?:a\s+)?(?:an\s+)?(?:the\s+)?([a-z0-9_]+)/i)
+        if (addMatch) {
+          const potentialTag = addMatch[1]
+          if (!skipWords.includes(potentialTag)) {
+            extractedName = potentialTag
+          }
+        }
+      }
+      
+      if (extractedName) {
+        // Try fuzzy match against available trackers
+        for (const tracker of availableTrackers) {
+          const tagLower = tracker.tag.toLowerCase().replace('#', '')
+          if (tagLower.includes(extractedName) || extractedName.includes(tagLower)) {
+            trackerNames.push(tracker.tag)
+            break
+          }
+        }
+        // If still no match, use the extracted name as potential tracker name
+        if (trackerNames.length === 0) {
+          trackerNames.push(extractedName)
+        }
+      }
+    }
+    
+    return {
+      type: 'add_entry',
+      trackerNames: trackerNames.length > 0 ? trackerNames : undefined,
+      trackerName: trackerNames.length > 0 ? trackerNames[0] : undefined,
+      value,
+    }
+  }
+  
+  // Default: treat as question if no clear intent
+  return { type: 'question' }
+}
+
+/**
+ * Parse numeric value from user message
+ */
+export function parseValueFromMessage(message: string): number | null {
+  // Try to extract numbers (integers and decimals)
+  const numberMatch = message.match(/(\d+(?:\.\d+)?)/)
+  if (numberMatch) {
+    return parseFloat(numberMatch[1])
+  }
+  return null
+}
+
+/**
+ * Find tracker by name (fuzzy matching)
+ */
+async function findTrackerByName(trackerName: string): Promise<Trackable | null> {
+  const trackables = await getTrackablesFromStorage()
+  const normalizedName = trackerName.toLowerCase().replace('#', '').trim()
+  
+  // First try exact match
+  for (const tag in trackables) {
+    const trackable = trackables[tag]
+    if (trackable.type === 'tracker') {
+      const tagNormalized = tag.toLowerCase().replace('#', '')
+      if (tagNormalized === normalizedName) {
+        return trackable
+      }
+    }
+  }
+  
+  // Then try fuzzy match
+  for (const tag in trackables) {
+    const trackable = trackables[tag]
+    if (trackable.type === 'tracker') {
+      const tagNormalized = tag.toLowerCase().replace('#', '')
+      const labelNormalized = (trackable.label || '').toLowerCase()
+      
+      // Check if normalized name is contained in tag or label
+      if (tagNormalized.includes(normalizedName) || normalizedName.includes(tagNormalized) ||
+          labelNormalized.includes(normalizedName) || normalizedName.includes(labelNormalized)) {
+        return trackable
+      }
+    }
+  }
+  
+  return null
+}
+
+/**
+ * Parse UOM hint from message (e.g., "grams", "kg", "pounds")
+ */
+function parseUOMHint(message: string): string | null {
+  const lowerMessage = message.toLowerCase()
+  
+  // Common UOM mappings
+  const uomMap: { [key: string]: string } = {
+    'gram': 'gram',
+    'grams': 'gram',
+    'g': 'gram',
+    'kilogram': 'kg',
+    'kilograms': 'kg',
+    'kg': 'kg',
+    'pound': 'lb',
+    'pounds': 'lb',
+    'lbs': 'lb',
+    'lb': 'lb',
+    'ounce': 'oz',
+    'ounces': 'oz',
+    'oz': 'oz',
+    'count': 'num',
+    'number': 'num',
+    'times': 'num',
+    'calorie': 'calorie',
+    'calories': 'calorie',
+    'cal': 'calorie',
+    'kcal': 'kcal',
+    'cup': 'cup',
+    'cups': 'cup',
+    'ml': 'ml',
+    'milliliter': 'ml',
+    'milliliters': 'ml',
+    'liter': 'liter',
+    'liters': 'liter',
+    'l': 'liter',
+  }
+  
+  // Check for UOM mentions
+  for (const [keyword, uomKey] of Object.entries(uomMap)) {
+    if (lowerMessage.includes(keyword)) {
+      return uomKey
+    }
+  }
+  
+  return null
+}
+
+/**
+ * Prompt user to select UOM (Unit of Measure)
+ */
+async function promptForUOM(hint: string | null = null): Promise<string> {
+  return new Promise((resolve) => {
+    const popMenuId = 'select-uom'
+    const groupedUOM = UOM.toGroupedArray()
+    const buttons: PopMenuButton[] = []
+    
+    // Add hint as first option if provided
+    if (hint) {
+      const hintUOM = UOMS[hint]
+      if (hintUOM) {
+        buttons.push({
+          title: `${UOM.plural(hint)} (${hintUOM.symbol || ''})`,
+          click: () => {
+            resolve(hint)
+          },
+        })
+        buttons.push({ title: '---', divider: true })
+      }
+    }
+    
+    // Add all UOM options grouped by type
+    Object.keys(groupedUOM).forEach((groupKey) => {
+      if (groupKey !== 'Timer') {
+        buttons.push({ title: `-- ${groupKey} --`, divider: true })
+        groupedUOM[groupKey].forEach((uom: any) => {
+          const displayName = `${UOM.plural(uom.key)}${uom.symbol ? ` (${uom.symbol})` : ''}`
+          buttons.push({
+            title: displayName,
+            click: () => {
+              resolve(uom.key)
+            },
+          })
+        })
+      }
+    })
+    
+    Interact.popmenu({
+      id: popMenuId,
+      title: 'Measure By',
+      description: 'How should this tracker be measured?',
+      buttons,
+    })
+  })
+}
+
+/**
+ * Prompt user to select tracker type
+ */
+async function promptForTrackerType(): Promise<'tick' | 'value' | 'range' | 'picker' | 'note' | 'timer'> {
+  return new Promise((resolve) => {
+    const popMenuId = 'select-tracker-type'
+    const buttons: PopMenuButton[] = [
+      {
+        title: 'Tally (Yes/No)',
+        click: () => resolve('tick'),
+      },
+      {
+        title: 'Value (Number)',
+        click: () => resolve('value'),
+      },
+      {
+        title: 'Range (Slider)',
+        click: () => resolve('range'),
+      },
+      {
+        title: 'Picker (Choices)',
+        click: () => resolve('picker'),
+      },
+      {
+        title: 'Note (Text)',
+        click: () => resolve('note'),
+      },
+    ]
+    
+    Interact.popmenu({
+      id: popMenuId,
+      title: 'Input Type',
+      description: 'How will you track this?',
+      buttons,
+    })
+  })
+}
+
+/**
+ * Prompt user to select math calculation
+ */
+async function promptForMath(): Promise<'sum' | 'mean'> {
+  return new Promise((resolve) => {
+    const popMenuId = 'select-math'
+    const buttons: PopMenuButton[] = [
+      {
+        title: 'Sum (Total)',
+        click: () => resolve('sum'),
+      },
+      {
+        title: 'Average (Mean)',
+        click: () => resolve('mean'),
+      },
+    ]
+    
+    Interact.popmenu({
+      id: popMenuId,
+      title: 'Calculate Totals',
+      description: 'How should totals be calculated?',
+      buttons,
+    })
+  })
+}
+
+/**
+ * Create a tracker with configuration prompts
+ */
+async function createBasicTracker(
+  trackerName: string,
+  userMessage?: string,
+  config?: { type?: string; uom?: string; math?: string }
+): Promise<Trackable | null> {
+  try {
+    const tag = toTag(trackerName)
+    
+    // Parse hints from user message
+    const uomHint = userMessage ? parseUOMHint(userMessage) : null
+    
+    // Determine tracker type - if user mentioned a unit, it's likely a value tracker
+    let trackerType: 'tick' | 'value' | 'range' | 'picker' | 'note' | 'timer' = 'tick'
+    if (uomHint || userMessage?.toLowerCase().includes('measure') || userMessage?.toLowerCase().includes('gram')) {
+      trackerType = 'value'
+    }
+    
+    // Use provided config or prompt for settings
+    let finalType = config?.type || trackerType
+    let finalUOM = config?.uom || 'num'
+    let finalMath = (config?.math || 'sum') as 'sum' | 'mean'
+    
+    // If we have a UOM hint, ask to confirm or select
+    if (uomHint && !config?.uom) {
+      finalUOM = await promptForUOM(uomHint)
+    } else if (!config?.uom && trackerType === 'value') {
+      // If it's a value tracker and no UOM specified, ask
+      finalUOM = await promptForUOM()
+    }
+    
+    // If type is value/range and no config provided, ask about math
+    if ((finalType === 'value' || finalType === 'range') && !config?.math) {
+      finalMath = await promptForMath()
+    }
+    
+    const tracker = new TrackerClass({
+      tag: tag,
+      label: trackerName,
+      type: finalType,
+      uom: finalUOM,
+      math: finalMath,
+      emoji: '📝',
+    })
+    
+    const trackable = new Trackable({
+      type: 'tracker',
+      tracker: tracker,
+    })
+    
+    const saved = await saveTrackersToStorage([trackable])
+    if (saved) {
+      // Refresh trackables
+      await getTrackablesFromStorage()
+      return trackable
+    }
+    return null
+  } catch (e) {
+    console.error('Error creating tracker:', e)
+    return null
+  }
+}
+
+/**
+ * Create a log entry for a tracker
+ */
+async function createLogEntry(tracker: Trackable, value?: number): Promise<{ success: boolean; error?: string; log?: NLog }> {
+  try {
+    if (!tracker || tracker.type !== 'tracker' || !tracker.tracker) {
+      return { success: false, error: 'Invalid tracker' }
+    }
+    
+    const trackerObj = tracker.tracker
+    let note = ''
+    
+    // Build note based on tracker type
+    if (trackerObj.type === 'tick') {
+      // Tick type: just the tag
+      note = tracker.tag
+      if (trackerObj.include) {
+        note += ` ${trackerObj.getIncluded(1).trim()}`
+      }
+    } else if (trackerObj.type === 'note' || trackerObj.type === 'picker') {
+      // Note or picker: just the tag
+      note = tracker.tag
+    } else {
+      // Value, range, timer: need a value
+      if (value !== undefined && value !== null) {
+        note = `${tracker.tag}(${value})`
+      } else {
+        // Use default if available
+        if (trackerObj.default !== undefined && trackerObj.default !== null) {
+          note = `${tracker.tag}(${trackerObj.default})`
+        } else {
+          note = tracker.tag
+        }
+      }
+      
+      // Add include if present
+      if (trackerObj.include) {
+        const val = value !== undefined ? value : (trackerObj.default || 1)
+        note += ` ${trackerObj.getIncluded(val).trim()}`
+      }
+    }
+    
+    // Create log
+    const log = new NLog({
+      note: note,
+      end: new Date(),
+    })
+    
+    // Score the note
+    const trackables = await getTrackablesFromStorage()
+    const knownTrackers: ITrackers = {}
+    Object.keys(trackables).forEach((tag) => {
+      if (tag.substring(0, 1) === '#') {
+        const trackable = trackables[tag]
+        if (trackable.type === 'tracker' && trackable.tracker) {
+          knownTrackers[tag.replace('#', '')] = trackable.tracker
+        }
+      }
+    })
+    log.score = ScoreNote(log.note, log.end, knownTrackers)
+    
+    // Save log
+    await saveLog(log)
+    
+    return { success: true, log }
+  } catch (e: any) {
+    console.error('Error creating log entry:', e)
+    return { success: false, error: e.message || 'Failed to create log entry' }
+  }
+}
+
+/**
+ * Handle entry creation request
+ */
+export async function handleEntryCreation(
+  message: string,
+  trackerName?: string,
+  value?: number
+): Promise<AIQueryResponse> {
+  try {
+    // Get available trackers for matching
+    const trackables = await getTrackablesFromStorage()
+    const trackerList = Object.values(trackables)
+      .filter((t: Trackable) => t.type === 'tracker')
+      .map((t: Trackable) => ({
+        tag: t.tag || '',
+        label: t.label || '',
+      }))
+    
+    // Find tracker
+    let tracker: Trackable | null = null
+    let suggestedTag = ''
+    
+    if (trackerName) {
+      tracker = await findTrackerByName(trackerName)
+      if (!tracker) {
+        // Suggest tag name
+        suggestedTag = toTag(trackerName)
+        return {
+          answer: `I don't see a tracker called "${trackerName}". Would you like me to create a tracker called #${suggestedTag}?`,
+          action: 'needs_tracker_creation',
+          trackerTag: suggestedTag,
+          originalMessage: message,
+        }
+      }
+    } else {
+      return {
+        answer: 'I need to know which tracker you want to add an entry for. Please specify the tracker name.',
+        action: 'needs_tracker_creation',
+      }
+    }
+    
+    // Check if tracker needs a value
+    const trackerType = tracker.tracker?.type || 'tick'
+    const needsValue = ['value', 'range', 'picker'].includes(trackerType)
+    
+    if (needsValue && (value === undefined || value === null)) {
+      return {
+        answer: `How much ${tracker.label || tracker.tag}? (e.g., enter a number)`,
+        action: 'needs_value',
+        trackerTag: tracker.tag,
+        trackerType: trackerType,
+      }
+    }
+    
+    // Create the entry
+    const result = await createLogEntry(tracker, value)
+    
+    if (result.success && result.log) {
+      const valueStr = value !== undefined ? `(${value})` : ''
+      return {
+        answer: `✓ Added ${tracker.tag}${valueStr}`,
+        action: 'add_entry',
+        trackerTag: tracker.tag,
+        value: value,
+        data: {
+          log: result.log,
+        },
+      }
+    } else {
+      return {
+        answer: `Sorry, I couldn't add that entry: ${result.error || 'Unknown error'}`,
+        error: result.error,
+      }
+    }
+  } catch (error: any) {
+    return {
+      answer: '',
+      error: error.message || 'Failed to create entry',
+    }
+  }
+}
+
+/**
+ * Create tracker if user confirms
+ */
+export async function createTrackerAndEntry(trackerName: string, userMessage?: string, value?: number): Promise<AIQueryResponse> {
+  try {
+    const tracker = await createBasicTracker(trackerName, userMessage)
+    if (tracker) {
+      // Now create the entry
+      return await handleEntryCreation(`add ${trackerName}`, trackerName, value)
+    } else {
+      return {
+        answer: `Sorry, I couldn't create the tracker "${trackerName}".`,
+        error: 'Failed to create tracker',
+      }
+    }
+  } catch (error: any) {
+    return {
+      answer: '',
+      error: error.message || 'Failed to create tracker',
+    }
+  }
+}
+
+/**
  * Parse the question to extract relevant information
  */
 function parseQuestion(question: string): {
@@ -410,6 +1010,16 @@ export async function answerQuestion(question: string, model: string = DEFAULT_M
   try {
     // Get relevant data
     const data = await getRelevantData(question)
+    
+    // Check intent first
+    const intent = detectIntent(question, data.trackers)
+    
+    // If it's an entry creation intent, handle it
+    if (intent.type === 'add_entry') {
+      return await handleEntryCreation(question, intent.trackerName, intent.value)
+    }
+    
+    // Otherwise, proceed with question answering
     const parsed = parseQuestion(question)
     
     // Enhance parsed trackers with fuzzy matching from natural language
