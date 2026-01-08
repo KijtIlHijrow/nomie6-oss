@@ -492,7 +492,14 @@ export async function answerQuestion(question: string, model: string = DEFAULT_M
           }
           
           if (usage.lastPeriod) {
-            periodInfo += `, last: ${formatDateForAI(usage.lastPeriod.start)} to ${formatDateForAI(usage.lastPeriod.end)} (${usage.lastPeriod.duration} days)`
+            // Make it very clear what the dates mean - the end date is already calculated correctly
+            const startDate = formatDateForAI(usage.lastPeriod.start)
+            const endDate = formatDateForAI(usage.lastPeriod.end)
+            const duration = usage.lastPeriod.duration
+            periodInfo += `, last period: from ${startDate} to ${endDate} (${duration} day${duration !== 1 ? 's' : ''} total)`
+            if (usage.contextDuration && usage.contextDuration > 1) {
+              periodInfo += ` [Note: This period was calculated from a log entry on ${startDate} with a ${usage.contextDuration}-day duration, so it extends through ${endDate}]`
+            }
           }
           if (usage.longestPeriod && usage.longestPeriod.duration > 0) {
             periodInfo += `, longest: ${usage.longestPeriod.duration} days`
@@ -565,7 +572,12 @@ export async function answerQuestion(question: string, model: string = DEFAULT_M
       })
       .join('\n')
 
+    const today = dayjs()
+    const todayFormatted = formatDateForAI(today)
+    
     const context = `You are an AI assistant analyzing personal tracking data from Nomie.
+
+TODAY'S DATE: ${todayFormatted} (${today.format('YYYY-MM-DD')})
 
 Available Trackers (${data.trackers.length} total):
 ${trackerList}
@@ -598,7 +610,25 @@ ${isIntervalQuestion ? `
 - All entries have timestamps with exact times (hours and minutes) - use these for precise calculations.
 - Contexts are marked with + prefix (e.g., +bulk) and are designed for tracking periods/situations.
 - Contexts can have a duration setting (e.g., 30 days). When a context has a duration, each log entry is expanded to cover that many days. For example, if +bulk has a 30-day duration and was logged on Jan 1st, it covers Jan 1-30. Period detection accounts for this expansion.
-- When the usage summary shows "[AVERAGE TIME BETWEEN ENTRIES: X]", that is the actual calculated average based on timestamps, use that value directly.`
+- ⚠️ CRITICAL: When period info shows "last period: from [START DATE] to [END DATE] (X days total)", the END DATE is ALREADY CALCULATED and CORRECT. DO NOT recalculate or reinterpret it. The period information already accounts for the duration expansion. If you see "from Jan 8 to Feb 6 (30 days total)", that means the period runs from Jan 8 through Feb 6 - the end date is already correct, don't say it ends on Jan 8 or any other date. Use the END DATE shown in the period info as-is.
+- When the usage summary shows "[AVERAGE TIME BETWEEN ENTRIES: X]", that is the actual calculated average based on timestamps, use that value directly.
+
+⚠️ CRITICAL: USE CORRECT TENSE BASED ON DATES ⚠️
+- Compare ALL dates to TODAY'S DATE (${todayFormatted} / ${today.format('YYYY-MM-DD')}) when writing your response.
+- If a date is BEFORE today: use PAST TENSE (e.g., "ended", "was", "started", "lasted")
+- If a date is TODAY: use PRESENT TENSE (e.g., "ends", "is", "starts", "lasts")
+- If a date is AFTER today: use FUTURE TENSE (e.g., "will end", "will be", "will start", "will last")
+- Examples:
+  * If a period ends on Feb 6, 2026 and today is Jan 15, 2026: say "will end on" or "ends on" (future)
+  * If a period ended on Dec 1, 2025 and today is Jan 15, 2026: say "ended on" (past)
+  * If a period ends today: say "ends today" (present)
+- Always check the date against TODAY before choosing your tense!
+
+⚠️ STYLE: BE CONCISE AND DIRECT ⚠️
+- Provide direct answers without explaining your reasoning process
+- Do NOT include meta-commentary like "Since this period includes today...", "We will use future tense...", etc.
+- Just state the facts directly: "The blast phase ends on February 6, 2026" (not "Since this period includes today and extends beyond it, we will use future tense. The blast phase ends on...")
+- Answer the question directly and concisely without explaining how you arrived at the answer.`
 
     // Query AI
     const answer = await queryOllama(context, model)
