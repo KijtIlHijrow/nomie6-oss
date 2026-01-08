@@ -1,0 +1,283 @@
+You are an expert in Svelte 4, TypeScript, Vite, Tailwind CSS, Jest, Cypress, and modern web development best practices.
+
+# Project Context
+
+This is Nomie 6, a self-hosted personal data tracking application built with:
+- Svelte 4 for UI components
+- TypeScript for type safety
+- Vite for build tooling and development
+- Tailwind CSS for styling
+- Jest for unit testing
+- Cypress for end-to-end testing
+- PouchDB for local storage
+- Service Workers for offline functionality
+
+# Code Style and Structure
+
+- Write concise, maintainable, and technically accurate TypeScript code with relevant examples
+- Use functional and declarative programming patterns; prefer composition over inheritance
+- Favor iteration and modularization to adhere to DRY principles and avoid code duplication
+- Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError)
+- Organize files systematically: each file should contain only related content
+- Keep components small and focused on a single responsibility
+- Structure files: component logic, markup, styles, helpers, types
+
+# Naming Conventions
+
+- Use lowercase with hyphens for component files (e.g., `components/auth-form.svelte`)
+- Use PascalCase for component names in imports and usage
+- Use camelCase for variables, functions, and props
+- Use UPPER_CASE for constants
+- Use descriptive names that reveal purpose and intent
+- Prefix interfaces for component props with appropriate context (e.g., ButtonProps, TrackerConfig)
+
+# TypeScript Usage
+
+- Use TypeScript for all code; prefer interfaces over types for object definitions
+- Use type for unions, intersections, and mapped types
+- Avoid using `any`, prefer `unknown` for unknown types
+- Enable strict mode in TypeScript for better type safety
+- Use explicit return types for public functions
+- Use arrow functions for callbacks and methods
+- Prefer async/await over Promises
+- Leverage TypeScript's built-in utility types (Pick, Omit, Partial, etc.)
+- Use generics for reusable type patterns
+- Keep type definitions close to where they're used
+- Export types and interfaces from dedicated type files when shared across modules
+- Use readonly for immutable properties
+- Leverage discriminated unions for type safety
+- Use type guards for runtime type checking
+- Implement proper null checking
+
+# Svelte Component Development
+
+## Component Structure
+- Keep components small and focused on a single responsibility
+- Use proper TypeScript integration with Svelte
+- Implement proper props typing using TypeScript interfaces
+- Use proper event dispatching with typed events
+- Keep markup clean and readable
+- Use proper slot implementation for composability
+
+## Reactivity
+- Use proper reactive declarations with `$:` for derived state
+- Implement proper Svelte stores for global state management
+- Use proper reactive statements for side effects
+- Handle derived values properly using reactive declarations
+- Use proper lifecycle functions (`onMount`, `onDestroy`, `beforeUpdate`, `afterUpdate`)
+- Implement proper bindings (bind:value, bind:this, etc.)
+
+## State Management
+- Use Svelte stores (writable, readable, derived) for shared state
+- Keep stores modular and focused
+- Use proper derived stores for computed values
+- Implement proper store subscriptions and cleanup
+- Handle async state properly with reactive declarations
+- Use local component state for component-specific data
+
+## Performance
+- Use proper component lazy loading with dynamic imports
+- Implement proper transitions and animations using Svelte's built-in transitions
+- Avoid unnecessary reactivity - only make reactive what needs to be
+- Use proper event forwarding when needed
+- Implement proper key blocks for list rendering
+- Use `{#each}` blocks efficiently with proper keys
+
+## Forms
+- Use proper form bindings (`bind:value`, `bind:group`, etc.)
+- Implement proper form validation
+- Handle form submission properly with event handlers
+- Show proper loading states during async operations
+- Use proper error handling and display
+
+# Tailwind CSS Best Practices
+
+## Component Styling
+- Use utility classes over custom CSS whenever possible
+- Group related utilities logically (layout, spacing, colors, etc.)
+- Use proper responsive design utilities (sm:, md:, lg:, xl:, 2xl:)
+- Implement dark mode properly using Tailwind's dark mode utilities
+- Use proper state variants (hover:, focus:, active:, disabled:)
+- Keep component styles consistent across the application
+
+## Layout
+- Use Flexbox and Grid utilities effectively
+- Implement proper spacing system using Tailwind's spacing scale
+- Use proper padding and margin utilities (p-, m-, px-, py-, etc.)
+- Implement proper alignment utilities (items-, justify-, etc.)
+- Use container utilities when appropriate
+
+## Typography
+- Use proper font size utilities (text-sm, text-base, text-lg, etc.)
+- Implement proper line height utilities (leading-tight, leading-normal, etc.)
+- Use proper font weight utilities (font-normal, font-medium, font-bold, etc.)
+- Use proper text alignment utilities (text-left, text-center, text-right)
+- Implement proper text decoration when needed
+
+## Colors
+- Use semantic color naming when customizing the theme
+- Implement proper color contrast for accessibility
+- Use opacity utilities effectively
+- Use proper gradient utilities when needed
+- Implement proper hover and active states with color variants
+
+## Responsive Design
+- Use mobile-first approach - base styles for mobile, then add breakpoints
+- Implement proper breakpoints (sm: 640px, md: 768px, lg: 1024px, xl: 1280px, 2xl: 1536px)
+- Handle different screen sizes properly with responsive utilities
+- Implement proper responsive typography
+- Use proper responsive spacing
+
+## Performance
+- Minimize custom CSS - prefer Tailwind utilities
+- Ensure proper purging configuration in production builds
+- Use proper caching strategies
+- Monitor bundle size
+
+# Vite Configuration and Optimization
+
+- Leverage Vite's fast HMR (Hot Module Replacement) during development
+- Use proper code splitting strategies
+- Implement proper asset handling (images, fonts, etc.)
+- Use environment variables properly with Vite's import.meta.env
+- Configure proper build optimizations
+- Use proper plugin configuration (Svelte plugin, etc.)
+- Implement proper path aliases for cleaner imports
+- Use proper pre-bundling configuration for dependencies
+
+# Error Handling
+
+- Create custom error types for domain-specific errors
+- Use Result types for operations that can fail
+- Implement proper error boundaries in components
+- Use try-catch blocks with typed error handling
+- Handle Promise rejections properly
+- Display user-friendly error messages
+- Log errors appropriately for debugging
+
+# Testing Practices
+
+## Jest (Unit Testing)
+- Write unit tests for utility functions and pure functions
+- Test component logic in isolation
+- Use proper mocking for dependencies
+- Test edge cases and error conditions
+- Keep tests readable and maintainable
+- Use descriptive test names that explain what is being tested
+- Follow Arrange-Act-Assert pattern
+
+## Cypress (Integration/E2E Testing)
+- Focus on critical user flows and state transitions
+- Use data-testid attributes for reliable element selection
+- Mock API responses using cy.intercept to control test scenarios
+- Validate state updates and error handling across integration points
+- Test both success paths and error scenarios
+- Group related tests in descriptive describe blocks
+- Avoid testing visual styles or pixel-perfect layouts
+- Create 3-5 focused tests per feature for maintainability
+- Verify UI state updates correctly based on API responses
+
+# Code Quality Guidelines
+
+## Clean Code Principles
+- Replace hard-coded values with named constants
+- Use meaningful names that reveal purpose
+- Don't comment on what the code does - make code self-documenting
+- Use comments to explain why, not what
+- Each function should do exactly one thing
+- Functions should be small and focused
+- Extract repeated code into reusable functions
+- Maintain single sources of truth
+
+## File Organization
+- Keep related code together
+- Organize code in a logical hierarchy
+- Use consistent file and folder naming conventions
+- Co-locate component files with their tests when possible
+- Place shared types in appropriate locations
+- Use barrel exports (index.ts) for organizing exports when appropriate
+
+## Best Practices
+- Enable strict mode in TypeScript configuration
+- Implement proper null checking
+- Avoid type assertions unless absolutely necessary
+- Refactor continuously to reduce technical debt
+- Leave code cleaner than you found it
+- Write clear commit messages following conventional commits
+- Make small, focused commits
+- Document complex logic and non-obvious side effects
+
+# Performance Optimization
+
+- Leverage Svelte's compile-time optimizations
+- Use proper lazy loading for images and components
+- Implement proper code splitting using dynamic imports
+- Profile and monitor performance using browser developer tools
+- Minimize bundle size by removing unused code
+- Optimize images: use appropriate formats, include size data
+- Implement proper caching strategies
+- Optimize for Core Web Vitals (LCP, FID, CLS)
+
+# Accessibility
+
+- Ensure proper semantic HTML structure in Svelte components
+- Implement ARIA attributes where necessary
+- Ensure keyboard navigation support for interactive elements
+- Use proper heading hierarchy (h1, h2, h3, etc.)
+- Provide proper alt text for images
+- Ensure proper color contrast ratios
+- Use proper focus management
+- Test with screen readers when possible
+
+# Project-Specific Guidelines
+
+## Storage
+- Use PouchDB for local data persistence
+- Handle offline scenarios gracefully
+- Implement proper data synchronization patterns
+- Handle storage errors appropriately
+
+## Service Workers
+- Use service workers for offline functionality
+- Implement proper caching strategies
+- Handle service worker updates properly
+- Ensure proper fallbacks when service workers are unavailable
+
+## Internationalization
+- Use the existing i18n structure in src/lang/
+- Follow the language file structure (base.ts, en.ts, de.ts, etc.)
+- Use proper translation keys
+- Handle RTL layouts if needed
+
+## Component Organization
+- Organize components by domain in src/domains/
+- Use src/components/ for shared/reusable components
+- Keep domain-specific logic in domain folders
+- Use src/modules/ for utility modules
+
+# Documentation
+
+- Document complex algorithms and non-obvious side effects
+- Use JSDoc comments for public APIs
+- Keep README files up to date
+- Document architectural decisions
+- Provide examples for complex usage patterns
+
+# Security
+
+- Validate and sanitize user input
+- Use proper authentication and authorization
+- Implement proper CORS policies
+- Handle sensitive data securely
+- Avoid exposing sensitive information in error messages
+- Use HTTPS in production
+- Implement proper Content Security Policy (CSP)
+
+Refer to official documentation for:
+- Svelte: https://svelte.dev/docs
+- TypeScript: https://www.typescriptlang.org/docs/
+- Vite: https://vitejs.dev/
+- Tailwind CSS: https://tailwindcss.com/docs
+- Jest: https://jestjs.io/docs/getting-started
+- Cypress: https://docs.cypress.io/
+
