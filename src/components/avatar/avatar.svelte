@@ -21,6 +21,7 @@
   let classList: Array<string> = []
   $: {
     classList = [className]
+    styles = [] // Reset styles array
     styles.push(`--avatar-size:${size}px`)
     styles.push(`height:${size}px; min-width:${size}px; width:${size}px`)
     // if (!emoji) {
@@ -74,7 +75,7 @@
     src={src}
     alt={label || ''}
     class="n-avatar-img"
-    style={`--avatar-size:${size}px; width: calc(var(--avatar-size) * 1.3); height: calc(var(--avatar-size) * 1.3); max-width: calc(var(--avatar-size) * 1.3); max-height: calc(var(--avatar-size) * 1.3); object-fit: contain; object-position: center; background: transparent !important; background-color: transparent !important; border-radius: 0 !important; display: block; ${style}`}
+    style={`--avatar-size:${size}px; width: calc(var(--avatar-size) * 1.3); height: calc(var(--avatar-size) * 1.3); max-width: calc(var(--avatar-size) * 1.3); max-height: calc(var(--avatar-size) * 1.3); object-fit: contain; object-position: center; background: transparent !important; background-color: transparent !important; display: block; ${style}`}
     on:click|preventDefault={click}
     loading="lazy"
   />
@@ -107,28 +108,10 @@
     @apply text-gray-900 dark:text-gray-100;
   }
   
-  /* Remove default border-radius for images */
-  .n-avatar-img {
-    border-radius: 0 !important;
-  }
-
   .n-avatar.rounded {
     width: var(--avatar-size);
     height: var(--avatar-size);
     border-radius: calc(var(--avatar-size) * 0.33 + 1px);
-  }
-  
-  /* Remove rounded corners and any background for images */
-  .n-avatar.rounded.src,
-  .n-avatar-img.rounded,
-  .n-avatar-img {
-    border-radius: 0 !important;
-    background: transparent !important;
-    background-color: transparent !important;
-  }
-  
-  .n-avatar.rounded.src {
-    border-radius: 0 !important;
   }
 
   .n-avatar.circle {
@@ -166,21 +149,11 @@
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
-    border-radius: 0 !important;
+    border-radius: calc(var(--avatar-size) * 0.33 + 1px);
     mix-blend-mode: normal;
     padding: 0 !important;
     margin: 0 !important;
-    /* Force browser to respect transparency */
     image-rendering: auto;
-    -webkit-background-clip: padding-box;
-    background-clip: padding-box;
-  }
-  
-  /* Ensure no white background shows through on any browser */
-  .n-avatar-img::before,
-  .n-avatar-img::after {
-    display: none !important;
-    background: transparent !important;
   }
   
   /* For shortcut buttons, ensure no background and proper blending */
