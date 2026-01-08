@@ -274,7 +274,7 @@
           {:else}
             <div class="whitespace-pre-wrap text-sm leading-relaxed selectable-text">{message.content}</div>
             <div class="text-xs mt-2 opacity-70 selectable-text">
-              {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
             </div>
           {/if}
         </div>
