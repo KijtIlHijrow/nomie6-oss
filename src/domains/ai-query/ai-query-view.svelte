@@ -297,7 +297,7 @@
         </ul>
       </div>
     {/if}
-    <div class="flex items-end gap-2">
+    <div class="flex items-stretch gap-2">
       <textarea
         bind:value={question}
         on:keypress={handleKeyPress}
@@ -309,7 +309,7 @@
       <button
         on:click={handleSubmit}
         disabled={loading || !ollamaAvailable || !question.trim()}
-        class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center min-w-[80px]"
+        class="px-6 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center min-w-[80px]"
       >
         {#if loading}
           <span class="animate-pulse">...</span>
