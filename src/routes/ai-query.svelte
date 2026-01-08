@@ -4,6 +4,8 @@
 </script>
 
 <Layout showCapture={false} pageTitle="AI Query">
-  <AIQueryView />
+  <div class="h-full min-h-0 flex flex-col">
+    <AIQueryView />
+  </div>
 </Layout>
 
