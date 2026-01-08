@@ -4,8 +4,9 @@ import type { SvelteComponentDev } from 'svelte/internal';
 
   import { fade, fly } from 'svelte/transition'
 
-  import { BackdropStore2 } from './BackdropStore2'
+  import { BackdropStore2, closeModal } from './BackdropStore2'
   import ScrollStopper from './scroll-stopper.svelte'
+  import KeyDown from '../../modules/keyDown/keyDown.svelte'
 
   const zIndex: number = 5000
   let focusedId: string;
@@ -26,21 +27,32 @@ import type { SvelteComponentDev } from 'svelte/internal';
       modalComponent.$destroy();
     } catch(e) {}
   }
+
+  function handleEscape() {
+    if (last && (last.tappable !== false)) {
+      closeModal(last.id)
+    }
+  }
   
 </script>
 
 {#if $BackdropStore2.length}
   <ScrollStopper />
+  <KeyDown
+    on:Escape={() => {
+      handleEscape()
+    }}
+  />
 {/if}
 
 <div
   on:click|self={() => {
     
-    if (last.tappable) {
-      $BackdropStore2 = $BackdropStore2.slice(0, -1)
+    if (last && last.tappable) {
+      closeModal(last.id)
     }
   }}
-  class="backdrop2 {last.transparent ? 'bg-transparent' : 'bg-nnormal'}"
+  class="backdrop2 {last?.transparent ? 'bg-transparent' : 'bg-nnormal'}"
 
   style="--zIndex: {zIndex}"
 >

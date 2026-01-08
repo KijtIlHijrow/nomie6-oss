@@ -6,6 +6,7 @@
   import Button from '../button/button.svelte'
   import IonIcon from '../icon/ion-icon.svelte'
   import { CloseOutline } from '../icon/nicons'
+  import KeyDown from '../../modules/keyDown/keyDown.svelte'
 
   const dispatch = createEventDispatcher()
   // Props
@@ -18,7 +19,7 @@
   export let className: string = ''
   export let type: string = 'normal' // cover, fullscreen, bottom, bottom-slide-up
   export let bodyClass: string = ''
-  export let closeOnBackgroundTap: boolean = false
+  export let closeOnBackgroundTap: boolean | undefined = undefined
   export let ariaLabel: string = 'modal'
   export let level: number = undefined
 
@@ -30,6 +31,11 @@
 
   let domVisible = false
   let showModal = false
+
+  // Default closeOnBackgroundTap to true if allowClose is true, otherwise use the prop value or default to true
+  $: shouldCloseOnBackgroundTap = closeOnBackgroundTap !== undefined 
+    ? closeOnBackgroundTap 
+    : (allowClose !== undefined ? allowClose : true)
 
   // Stagger showing and dom showing for CSS effects
   $: if (show) {
@@ -48,9 +54,15 @@
     }, 400)
   }
 
-  function backgroundTap() {
-    if (closeOnBackgroundTap == true) {
+  function closeModal() {
+    if (allowClose !== false) {
       dispatch('close')
+    }
+  }
+
+  function backgroundTap() {
+    if (shouldCloseOnBackgroundTap) {
+      closeModal()
     }
   }
 
@@ -58,6 +70,14 @@
     // document.body.classList.remove("no-scroll");
   })
 </script>
+
+{#if showModal && domVisible}
+  <KeyDown
+    on:Escape={() => {
+      closeModal()
+    }}
+  />
+{/if}
 
 <div
   on:click={backgroundTap}
@@ -89,7 +109,7 @@
                   icon
                   className="tap-icon"
                   on:click={() => {
-                    dispatch('close')
+                    closeModal()
                   }}
                 >
                   <IonIcon icon={CloseOutline} />

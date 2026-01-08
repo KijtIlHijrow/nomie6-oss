@@ -117,10 +117,16 @@ function calculateIntervals(logs: Array<NLog>, trackerTag: string): {
   averageMinutes: number
   averageFormatted: string
 } {
+  // Normalize tag - remove # prefix if present, since tracker.id doesn't include it
+  const normalizedTag = trackerTag.startsWith('#') ? trackerTag.slice(1) : trackerTag
+  
   // Filter logs that contain this tracker
   const trackerLogs = logs
     .filter((log) => {
-      const trackerFound = log.trackers?.find((t) => t.id === trackerTag)
+      if (!log.trackers) {
+        log.getMeta() // Ensure meta is loaded
+      }
+      const trackerFound = log.trackers?.find((t) => t.id === normalizedTag || t.id === trackerTag)
       return !!trackerFound
     })
     .sort((a, b) => dayjs(a.end).valueOf() - dayjs(b.end).valueOf())
@@ -164,18 +170,15 @@ function calculateIntervals(logs: Array<NLog>, trackerTag: string): {
   const avgHoursDecimal = averageMinutes / 60
 
   let avgFormatted = ''
-  if (avgHours > 0) {
-    // Show decimal hours if less than 1 hour total, otherwise show hours and minutes
-    if (avgHoursDecimal < 1) {
-      avgFormatted = `${avgHoursDecimal.toFixed(1)} hours`
-    } else {
-      avgFormatted = `${avgHours} hour${avgHours !== 1 ? 's' : ''}`
-      if (avgMins > 0) {
-        avgFormatted += ` ${avgMins} minute${avgMins !== 1 ? 's' : ''}`
-      }
-    }
+  // Show decimal hours if less than 1 hour total (e.g., "0.5 hours")
+  if (avgHoursDecimal < 1) {
+    avgFormatted = `${avgHoursDecimal.toFixed(1)} hours`
   } else {
-    avgFormatted = `${Math.round(averageMinutes)} minute${Math.round(averageMinutes) !== 1 ? 's' : ''}`
+    // Show hours and minutes for intervals >= 1 hour
+    avgFormatted = `${avgHours} hour${avgHours !== 1 ? 's' : ''}`
+    if (avgMins > 0) {
+      avgFormatted += ` ${avgMins} minute${avgMins !== 1 ? 's' : ''}`
+    }
   }
 
   return {
@@ -208,10 +211,15 @@ async function getRelevantData(question: string): Promise<{
 
   const contextList = Object.values(trackables)
     .filter((t: Trackable) => t.type === 'context')
-    .map((t: Trackable) => ({
-      tag: t.tag || '',
-      label: t.label || t.ctx?.label || t.tag?.replace('+', '') || '',
-    }))
+    .map((t: Trackable) => {
+      const tag = t.tag || ''
+      // Safe to call replace since tag is guaranteed to be a string (fallback to '')
+      const label = t.label || t.ctx?.label || tag.replace('+', '') || ''
+      return {
+        tag,
+        label,
+      }
+    })
 
   // Get logs from last 90 days (adjust as needed)
   const end = dayjs().endOf('day')
@@ -227,49 +235,78 @@ async function getRelevantData(question: string): Promise<{
     trackables: trackables,
   })
 
-  // Enhance usage data with period detection for contexts and tick trackers
-  // Also add interval calculations for trackers
-  const enhancedUsageData = Object.keys(usageData).reduce((acc, tag) => {
-    const usage = usageData[tag]
-    const dates = usage.dates.map((d: any) => d.format('YYYY-MM-DD'))
-    const trackable = usage.trackable
-    
-    const baseData = {
-      tag: usage.trackable?.tag,
-      label: usage.trackable?.label,
-      values: usage.values,
-      dates: dates,
-      average: usage.values.filter((v: number) => !isNaN(v)).length > 0
-        ? usage.values.filter((v: number) => !isNaN(v)).reduce((a: number, b: number) => a + b, 0) /
-          usage.values.filter((v: number) => !isNaN(v)).length
-        : 0,
-      count: usage.values.filter((v: number) => !isNaN(v)).length,
-    }
-    
-    // Add period detection for contexts and tick-type trackers (which are good for period tracking)
-    if (trackable?.type === 'context' || (trackable?.type === 'tracker' && trackable?.tracker?.type === 'tick')) {
-      const periods = detectPeriods(dates)
-      baseData['periods'] = periods
-      baseData['periodCount'] = periods.length
-      if (periods.length > 0) {
-        // Get the most recent period
-        const sortedPeriods = [...periods].sort((a, b) => dayjs(b.end).diff(dayjs(a.end)))
-        baseData['lastPeriod'] = sortedPeriods[0]
-        baseData['longestPeriod'] = periods.reduce((longest, p) => p.duration > longest.duration ? p : longest, periods[0])
+    // Enhance usage data with period detection for contexts and tick trackers
+    // Also add interval calculations for trackers
+    const enhancedUsageData = Object.keys(usageData).reduce((acc, tag) => {
+      const usage = usageData[tag]
+      const trackable = usage.trackable
+      
+      // For contexts with duration, expand dates to include all days within the duration
+      let dates = usage.dates.map((d: any) => d.format('YYYY-MM-DD'))
+      let expandedDates = dates
+      
+      if (trackable?.type === 'context' && trackable?.ctx?.duration && trackable.ctx.duration > 1) {
+        // Expand each log entry date to include all days within the duration
+        const duration = trackable.ctx.duration
+        expandedDates = []
+        const dateSet = new Set<string>()
+        
+        dates.forEach((dateStr: string) => {
+          const startDate = dayjs(dateStr)
+          // Add all days from the log entry date through the duration
+          for (let i = 0; i < duration; i++) {
+            const dayDate = startDate.add(i, 'day').format('YYYY-MM-DD')
+            dateSet.add(dayDate)
+          }
+        })
+        
+        expandedDates = Array.from(dateSet).sort()
       }
-    }
+      
+      const baseData = {
+        tag: usage.trackable?.tag,
+        label: usage.trackable?.label,
+        values: usage.values,
+        dates: dates, // Original log entry dates
+        expandedDates: expandedDates, // Expanded dates (for contexts with duration)
+        average: usage.values.filter((v: number) => !isNaN(v)).length > 0
+          ? usage.values.filter((v: number) => !isNaN(v)).reduce((a: number, b: number) => a + b, 0) /
+            usage.values.filter((v: number) => !isNaN(v)).length
+          : 0,
+        count: usage.values.filter((v: number) => !isNaN(v)).length,
+        contextDuration: trackable?.type === 'context' ? (trackable.ctx?.duration || 1) : undefined,
+      }
+      
+      // Add period detection for contexts and tick-type trackers (which are good for period tracking)
+      if (trackable?.type === 'context' || (trackable?.type === 'tracker' && trackable?.tracker?.type === 'tick')) {
+        // Use expanded dates for period detection (accounts for context duration)
+        const periods = detectPeriods(expandedDates)
+        baseData['periods'] = periods
+        baseData['periodCount'] = periods.length
+        if (periods.length > 0) {
+          // Get the most recent period
+          const sortedPeriods = [...periods].sort((a, b) => dayjs(b.end).diff(dayjs(a.end)))
+          baseData['lastPeriod'] = sortedPeriods[0]
+          baseData['longestPeriod'] = periods.reduce((longest, p) => p.duration > longest.duration ? p : longest, periods[0])
+        }
+      }
     
     // Add interval calculations for all trackers (useful for "average time between" questions)
-    if (trackable?.type === 'tracker' && usage.count > 1) {
+    if (trackable?.type === 'tracker' && baseData.count > 1) {
       const intervalData = calculateIntervals(logs, tag)
       baseData['intervals'] = intervalData.intervals
       baseData['averageInterval'] = intervalData.averageFormatted
       baseData['averageIntervalHours'] = intervalData.averageHours
       baseData['averageIntervalMinutes'] = intervalData.averageMinutes
       // Include entry timestamps for detailed analysis
+      // Normalize tag - remove # prefix if present, since tracker.id doesn't include it
+      const normalizedTag = tag.startsWith('#') ? tag.slice(1) : tag
       const trackerLogs = logs
         .filter((log) => {
-          const trackerFound = log.trackers?.find((t) => t.id === tag)
+          if (!log.trackers) {
+            log.getMeta() // Ensure meta is loaded
+          }
+          const trackerFound = log.trackers?.find((t) => t.id === normalizedTag || t.id === tag)
           return !!trackerFound
         })
         .sort((a, b) => dayjs(a.end).valueOf() - dayjs(b.end).valueOf())
@@ -425,32 +462,50 @@ export async function answerQuestion(question: string, model: string = DEFAULT_M
       }
     }
 
+    // Check if question is about time intervals (needed for determining which trackers to show details for)
+    const isIntervalQuestion = /average.*time.*between|time.*between|how.*often|how.*long.*between/i.test(question)
+    
     // Build context for AI - limit size to avoid timeout
     const trackerList = data.trackers.slice(0, 30).map((t) => `- ${t.tag} (${t.label}) - Type: ${t.type}`).join('\n')
     const contextList = data.contexts.slice(0, 20).map((c) => `- ${c.tag} (${c.label})`).join('\n')
     
     // Build usage summary with period information and interval data
+    // Prioritize interval data for trackers when available
     const usageSummary = Object.keys(data.usageData)
       .slice(0, 20)
       .map((tag) => {
         const usage = data.usageData[tag]
         let summary = `${usage.tag} (${usage.label}): ${usage.count} entries`
         
+        // PRIORITIZE interval information - this uses actual timestamps and is what you need for "time between" questions
+        if (usage.averageInterval) {
+          summary += ` [AVERAGE TIME BETWEEN ENTRIES: ${usage.averageInterval} - calculated from actual timestamps]`
+        }
+        
+        // Period information is about consecutive days, NOT about time between individual entries
         if (usage.periods && usage.periods.length > 0) {
-          summary += `, ${usage.periodCount} period(s)`
+          let periodInfo = `, Period info (consecutive days): ${usage.periodCount} period(s)`
+          
+          // Note if context duration was applied
+          if (usage.contextDuration && usage.contextDuration > 1) {
+            periodInfo += ` [context duration: ${usage.contextDuration} days - periods expanded accordingly]`
+          }
+          
           if (usage.lastPeriod) {
-            summary += `, last: ${formatDateForAI(usage.lastPeriod.start)} to ${formatDateForAI(usage.lastPeriod.end)} (${usage.lastPeriod.duration} days)`
+            periodInfo += `, last: ${formatDateForAI(usage.lastPeriod.start)} to ${formatDateForAI(usage.lastPeriod.end)} (${usage.lastPeriod.duration} days)`
           }
           if (usage.longestPeriod && usage.longestPeriod.duration > 0) {
-            summary += `, longest: ${usage.longestPeriod.duration} days`
+            periodInfo += `, longest: ${usage.longestPeriod.duration} days`
           }
-        } else if (usage.count > 0) {
+          
+          summary += periodInfo
+        } else if (usage.count > 0 && !usage.averageInterval) {
           summary += `, avg: ${usage.average.toFixed(2)}`
         }
         
-        // Add interval information if available (for "average time between" questions)
-        if (usage.averageInterval) {
-          summary += `, avg time between entries: ${usage.averageInterval}`
+        // Note context duration even if no periods detected yet
+        if (usage.contextDuration && usage.contextDuration > 1 && (!usage.periods || usage.periods.length === 0)) {
+          summary += ` [context duration: ${usage.contextDuration} days - each entry expands to ${usage.contextDuration} days]`
         }
         
         return summary
@@ -458,11 +513,24 @@ export async function answerQuestion(question: string, model: string = DEFAULT_M
       .join('\n')
     
     // Build detailed entry list for trackers mentioned in the question
+    // For interval questions, always show detailed entries for relevant trackers
     let detailedTrackerEntries = ''
-    if (parsed.trackers && parsed.trackers.length > 0) {
-      const detailedEntries = parsed.trackers
+    const trackersToShow = parsed.trackers && parsed.trackers.length > 0 
+      ? parsed.trackers 
+      : (isIntervalQuestion 
+          ? Object.keys(data.usageData).filter(tag => {
+              const usage = data.usageData[tag]
+              return usage && usage.entries && usage.entries.length > 1
+            })
+          : [])
+    
+    if (trackersToShow.length > 0) {
+      const detailedEntries = trackersToShow
         .map((trackerTag: string) => {
-          const usage = data.usageData[trackerTag]
+          // Handle tag format - might be with or without #
+          const normalizedTag = trackerTag.startsWith('#') ? trackerTag.slice(1) : trackerTag
+          const usage = data.usageData[normalizedTag] || data.usageData[`#${normalizedTag}`] || data.usageData[trackerTag]
+          
           if (usage && usage.entries && usage.entries.length > 0) {
             const entriesList = usage.entries
               .map((entry: any, idx: number) => {
@@ -473,7 +541,10 @@ export async function answerQuestion(question: string, model: string = DEFAULT_M
                 return entryStr
               })
               .join('\n')
-            return `Detailed entries for ${usage.tag} (${usage.label}):\n${entriesList}\nAverage time between: ${usage.averageInterval}`
+            const summaryLine = usage.averageInterval 
+              ? `\n⭐ AVERAGE TIME BETWEEN ENTRIES: ${usage.averageInterval} (calculated from ${usage.entries.length} entries with actual timestamps)`
+              : `\n(${usage.entries.length} entries)`
+            return `📊 Detailed entries for ${usage.tag} (${usage.label}):\n${entriesList}${summaryLine}`
           }
           return null
         })
@@ -481,7 +552,7 @@ export async function answerQuestion(question: string, model: string = DEFAULT_M
         .join('\n\n')
       
       if (detailedEntries) {
-        detailedTrackerEntries = '\n\nDetailed Entry Timestamps:\n' + detailedEntries
+        detailedTrackerEntries = '\n\n' + '='.repeat(60) + '\n📋 DETAILED ENTRY TIMESTAMPS (for time interval calculations):\n' + '='.repeat(60) + '\n' + detailedEntries
       }
     }
     
@@ -504,7 +575,7 @@ ${contextList || 'None'}
 
 Date Range: ${formatDateForAI(data.dateRange.start)} to ${formatDateForAI(data.dateRange.end)}
 
-Usage Summary (includes period detection for contexts and tick trackers, and interval calculations for trackers):
+Usage Summary:
 ${usageSummary}${detailedTrackerEntries}
 
 Recent Logs:
@@ -512,14 +583,22 @@ ${recentLogs}
 
 User Question: ${question}
 
-Provide a concise, helpful answer based on the data above. 
+CRITICAL INSTRUCTIONS:
+${isIntervalQuestion ? `
+⚠️ THIS IS A QUESTION ABOUT TIME BETWEEN ENTRIES ⚠️
+- DO NOT use "period" information - periods show consecutive days, NOT time between individual entries
+- DO use the "[AVERAGE TIME BETWEEN ENTRIES: ...]" data shown in the usage summary - this uses actual timestamps
+- DO use the "Detailed Entry Timestamps" section above if available - it shows exact times and intervals between entries
+- The average time between entries is calculated from actual entry timestamps, not from day counts
+` : `
 - If asking about periods (like "when was my last bulk"), use the period information from the usage summary.
-- If asking about specific values, use the actual numbers from the usage summary.
-- If asking about "average time between" entries (e.g., "average time between pees"), use the "avg time between entries" data from the usage summary, or calculate from the detailed entry timestamps if provided.
-- All entries have timestamps - use these to calculate intervals when needed.
+- Period information shows consecutive days where something was tracked, NOT time between individual entries.
+`}
+- If asking about "average time between" entries (e.g., "average time between pees"), you MUST use the "[AVERAGE TIME BETWEEN ENTRIES: ...]" field which is calculated from actual timestamps.
+- All entries have timestamps with exact times (hours and minutes) - use these for precise calculations.
 - Contexts are marked with + prefix (e.g., +bulk) and are designed for tracking periods/situations.
-- Periods are detected by finding consecutive days where a context or tracker was used.
-- When multiple entries exist with timestamps, you CAN calculate average time between entries using the provided interval data or by analyzing the detailed entry timestamps.`
+- Contexts can have a duration setting (e.g., 30 days). When a context has a duration, each log entry is expanded to cover that many days. For example, if +bulk has a 30-day duration and was logged on Jan 1st, it covers Jan 1-30. Period detection accounts for this expansion.
+- When the usage summary shows "[AVERAGE TIME BETWEEN ENTRIES: X]", that is the actual calculated average based on timestamps, use that value directly.`
 
     // Query AI
     const answer = await queryOllama(context, model)
