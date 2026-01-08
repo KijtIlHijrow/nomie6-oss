@@ -6,6 +6,14 @@ import type { Trackable } from '../trackable/Trackable.class'
 import logsToTrackableUsage from '../usage/usage-utils'
 import type NLog from '../nomie-log/nomie-log'
 
+/**
+ * Format date for AI display in a human-readable format
+ * Example: "Thursday, 8th January 2026"
+ */
+function formatDateForAI(date: string | dayjs.Dayjs): string {
+  return dayjs(date).format('dddd, Do MMMM YYYY')
+}
+
 const OLLAMA_ENDPOINT = 'http://localhost:11434/api/generate'
 const DEFAULT_MODEL = 'llama3.2' // You can change this to any model you have installed
 
@@ -59,10 +67,52 @@ async function queryOllama(prompt: string, model: string = DEFAULT_MODEL, timeou
 }
 
 /**
+ * Detect periods (consecutive days) from an array of dates
+ */
+function detectPeriods(dates: string[]): Array<{ start: string; end: string; duration: number }> {
+  if (dates.length === 0) return []
+  
+  const sortedDates = [...dates].sort()
+  const periods: Array<{ start: string; end: string; duration: number }> = []
+  let currentPeriodStart = sortedDates[0]
+  let currentPeriodEnd = sortedDates[0]
+  
+  for (let i = 1; i < sortedDates.length; i++) {
+    const currentDate = dayjs(sortedDates[i])
+    const previousDate = dayjs(sortedDates[i - 1])
+    const daysDiff = currentDate.diff(previousDate, 'day')
+    
+    if (daysDiff <= 1) {
+      // Consecutive or same day - extend current period
+      currentPeriodEnd = sortedDates[i]
+    } else {
+      // Gap detected - save current period and start new one
+      periods.push({
+        start: currentPeriodStart,
+        end: currentPeriodEnd,
+        duration: dayjs(currentPeriodEnd).diff(dayjs(currentPeriodStart), 'day') + 1,
+      })
+      currentPeriodStart = sortedDates[i]
+      currentPeriodEnd = sortedDates[i]
+    }
+  }
+  
+  // Add the last period
+  periods.push({
+    start: currentPeriodStart,
+    end: currentPeriodEnd,
+    duration: dayjs(currentPeriodEnd).diff(dayjs(currentPeriodStart), 'day') + 1,
+  })
+  
+  return periods
+}
+
+/**
  * Get relevant data from Nomie based on the question
  */
 async function getRelevantData(question: string): Promise<{
   trackers: Array<{ tag: string; label: string; type: string }>
+  contexts: Array<{ tag: string; label: string }>
   logs: Array<NLog>
   usageData: any
   dateRange: { start: string; end: string }
@@ -75,6 +125,13 @@ async function getRelevantData(question: string): Promise<{
       tag: t.tag || '',
       label: t.label || '',
       type: t.tracker?.type || 'tick',
+    }))
+
+  const contextList = Object.values(trackables)
+    .filter((t: Trackable) => t.type === 'context')
+    .map((t: Trackable) => ({
+      tag: t.tag || '',
+      label: t.label || t.ctx?.label || t.tag.replace('+', ''),
     }))
 
   // Get logs from last 90 days (adjust as needed)
@@ -91,24 +148,46 @@ async function getRelevantData(question: string): Promise<{
     trackables: trackables,
   })
 
+  // Enhance usage data with period detection for contexts and tick trackers
+  const enhancedUsageData = Object.keys(usageData).reduce((acc, tag) => {
+    const usage = usageData[tag]
+    const dates = usage.dates.map((d: any) => d.format('YYYY-MM-DD'))
+    const trackable = usage.trackable
+    
+    const baseData = {
+      tag: usage.trackable?.tag,
+      label: usage.trackable?.label,
+      values: usage.values,
+      dates: dates,
+      average: usage.values.filter((v: number) => !isNaN(v)).length > 0
+        ? usage.values.filter((v: number) => !isNaN(v)).reduce((a: number, b: number) => a + b, 0) /
+          usage.values.filter((v: number) => !isNaN(v)).length
+        : 0,
+      count: usage.values.filter((v: number) => !isNaN(v)).length,
+    }
+    
+    // Add period detection for contexts and tick-type trackers (which are good for period tracking)
+    if (trackable?.type === 'context' || (trackable?.type === 'tracker' && trackable?.tracker?.type === 'tick')) {
+      const periods = detectPeriods(dates)
+      baseData['periods'] = periods
+      baseData['periodCount'] = periods.length
+      if (periods.length > 0) {
+        // Get the most recent period
+        const sortedPeriods = [...periods].sort((a, b) => dayjs(b.end).diff(dayjs(a.end)))
+        baseData['lastPeriod'] = sortedPeriods[0]
+        baseData['longestPeriod'] = periods.reduce((longest, p) => p.duration > longest.duration ? p : longest, periods[0])
+      }
+    }
+    
+    acc[tag] = baseData
+    return acc
+  }, {} as any)
+
   return {
     trackers: trackerList,
+    contexts: contextList,
     logs: logs.slice(0, 1000), // Limit to recent logs for performance
-    usageData: Object.keys(usageData).reduce((acc, tag) => {
-      const usage = usageData[tag]
-      acc[tag] = {
-        tag: usage.trackable?.tag,
-        label: usage.trackable?.label,
-        values: usage.values,
-        dates: usage.dates.map((d: any) => d.format('YYYY-MM-DD')),
-        average: usage.values.filter((v: number) => !isNaN(v)).length > 0
-          ? usage.values.filter((v: number) => !isNaN(v)).reduce((a: number, b: number) => a + b, 0) /
-            usage.values.filter((v: number) => !isNaN(v)).length
-          : 0,
-        count: usage.values.filter((v: number) => !isNaN(v)).length,
-      }
-      return acc
-    }, {} as any),
+    usageData: enhancedUsageData,
     dateRange: {
       start: start.format('YYYY-MM-DD'),
       end: end.format('YYYY-MM-DD'),
@@ -121,16 +200,33 @@ async function getRelevantData(question: string): Promise<{
  */
 function parseQuestion(question: string): {
   trackers?: string[]
+  contexts?: string[]
   conditions?: Array<{ tracker: string; operator: string; value: number }>
   timeRange?: { start?: string; end?: string }
 } {
   const lowerQuestion = question.toLowerCase()
   const result: any = {}
 
-  // Try to extract tracker names (common patterns)
+  // Try to extract tracker names (common patterns with #)
   const trackerMatches = lowerQuestion.match(/#(\w+)/g)
   if (trackerMatches) {
     result.trackers = trackerMatches.map((m) => m.replace('#', ''))
+  }
+
+  // Try to extract context names (common patterns with +)
+  const contextMatches = lowerQuestion.match(/\+(\w+)/g)
+  if (contextMatches) {
+    result.contexts = contextMatches.map((m) => m.replace('+', ''))
+  }
+
+  // Also try to extract context names from natural language (e.g., "bulk period", "bulk")
+  // This helps when users ask "when was my last bulk" without the + prefix
+  const contextKeywords = ['bulk', 'cut', 'maintenance', 'deload'] // Add more as needed
+  const foundContexts = contextKeywords.filter(keyword => 
+    lowerQuestion.includes(keyword) && !result.contexts?.includes(keyword)
+  )
+  if (foundContexts.length > 0) {
+    result.contexts = [...(result.contexts || []), ...foundContexts]
   }
 
   // Try to extract time conditions (e.g., "6 hours", "last week")
@@ -178,19 +274,37 @@ export async function answerQuestion(question: string, model: string = DEFAULT_M
 
     // Build context for AI - limit size to avoid timeout
     const trackerList = data.trackers.slice(0, 30).map((t) => `- ${t.tag} (${t.label}) - Type: ${t.type}`).join('\n')
+    const contextList = data.contexts.slice(0, 20).map((c) => `- ${c.tag} (${c.label})`).join('\n')
+    
+    // Build usage summary with period information
     const usageSummary = Object.keys(data.usageData)
-      .slice(0, 15)
+      .slice(0, 20)
       .map((tag) => {
         const usage = data.usageData[tag]
-        return `${usage.tag} (${usage.label}): ${usage.count} entries, avg: ${usage.average.toFixed(2)}`
+        let summary = `${usage.tag} (${usage.label}): ${usage.count} entries`
+        
+        if (usage.periods && usage.periods.length > 0) {
+          summary += `, ${usage.periodCount} period(s)`
+          if (usage.lastPeriod) {
+            summary += `, last: ${formatDateForAI(usage.lastPeriod.start)} to ${formatDateForAI(usage.lastPeriod.end)} (${usage.lastPeriod.duration} days)`
+          }
+          if (usage.longestPeriod && usage.longestPeriod.duration > 0) {
+            summary += `, longest: ${usage.longestPeriod.duration} days`
+          }
+        } else if (usage.count > 0) {
+          summary += `, avg: ${usage.average.toFixed(2)}`
+        }
+        
+        return summary
       })
       .join('\n')
     
     const recentLogs = data.logs
       .slice(0, 5)
       .map((log) => {
-        const date = dayjs(log.end).format('YYYY-MM-DD HH:mm')
-        return `[${date}] ${log.note}`
+        const date = formatDateForAI(log.end)
+        const time = dayjs(log.end).format('HH:mm')
+        return `[${date} at ${time}] ${log.note}`
       })
       .join('\n')
 
@@ -199,9 +313,12 @@ export async function answerQuestion(question: string, model: string = DEFAULT_M
 Available Trackers (${data.trackers.length} total):
 ${trackerList}
 
-Date Range: ${data.dateRange.start} to ${data.dateRange.end}
+Available Contexts (${data.contexts.length} total):
+${contextList || 'None'}
 
-Usage Summary:
+Date Range: ${formatDateForAI(data.dateRange.start)} to ${formatDateForAI(data.dateRange.end)}
+
+Usage Summary (includes period detection for contexts and tick trackers):
 ${usageSummary}
 
 Recent Logs:
@@ -209,7 +326,11 @@ ${recentLogs}
 
 User Question: ${question}
 
-Provide a concise, helpful answer based on the data above. If asking about specific values, use the actual numbers from the usage summary.`
+Provide a concise, helpful answer based on the data above. 
+- If asking about periods (like "when was my last bulk"), use the period information from the usage summary.
+- If asking about specific values, use the actual numbers from the usage summary.
+- Contexts are marked with + prefix (e.g., +bulk) and are designed for tracking periods/situations.
+- Periods are detected by finding consecutive days where a context or tracker was used.`
 
     // Query AI
     const answer = await queryOllama(context, model)
