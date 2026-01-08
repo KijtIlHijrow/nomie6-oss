@@ -30,6 +30,8 @@
     if (src && src.length) {
       classList.push('src')
       styles.push(`background-image:url(${src})`)
+      // Set background color based on parent context - will be overridden by CSS if needed
+      // Default to transparent, CSS will set it to match button background
 
       /// If it's an emoji
     } else if (emoji && emoji.length) {
@@ -67,15 +69,26 @@
   }
 </script>
 
-<div
-  class="n-avatar {emoji ? `emolen-${emojiCount(emoji)}` : 'no-emoji'}
-  {size}
-  {classList.join(' ')}"
-  style={`${styles.join('; ')}; ${style}`}
-  on:click|preventDefault={click}
->
-  {#if emoji}{emoji}{:else if label && !src}{initials(label)}{/if}
-</div>
+{#if src && src.length}
+  <img
+    src={src}
+    alt={label || ''}
+    class="n-avatar-img"
+    style={`--avatar-size:${size}px; width: calc(var(--avatar-size) * 1.3); height: calc(var(--avatar-size) * 1.3); max-width: calc(var(--avatar-size) * 1.3); max-height: calc(var(--avatar-size) * 1.3); object-fit: contain; object-position: center; background: transparent !important; background-color: transparent !important; border-radius: 0 !important; display: block; ${style}`}
+    on:click|preventDefault={click}
+    loading="lazy"
+  />
+{:else}
+  <div
+    class="n-avatar {emoji ? `emolen-${emojiCount(emoji)}` : 'no-emoji'}
+    {size}
+    {classList.join(' ')}"
+    style={`${styles.join('; ')}; ${style}`}
+    on:click|preventDefault={click}
+  >
+    {#if emoji}{emoji}{:else if label && !src}{initials(label)}{/if}
+  </div>
+{/if}
 
 <style lang="postcss" global>
   .n-avatar {
@@ -87,16 +100,35 @@
     justify-content: center;
     background-size: cover;
     background-position: center;
+    background-color: transparent;
     overflow: hidden;
     letter-spacing: normal;
-    @apply rounded-xl;
+    border-radius: 0.75rem;
     @apply text-gray-900 dark:text-gray-100;
+  }
+  
+  /* Remove default border-radius for images */
+  .n-avatar-img {
+    border-radius: 0 !important;
   }
 
   .n-avatar.rounded {
     width: var(--avatar-size);
     height: var(--avatar-size);
     border-radius: calc(var(--avatar-size) * 0.33 + 1px);
+  }
+  
+  /* Remove rounded corners and any background for images */
+  .n-avatar.rounded.src,
+  .n-avatar-img.rounded,
+  .n-avatar-img {
+    border-radius: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+  
+  .n-avatar.rounded.src {
+    border-radius: 0 !important;
   }
 
   .n-avatar.circle {
@@ -117,7 +149,59 @@
     overflow: visible;
   }
   .n-avatar.src {
-    color: transparent;
+    color: transparent !important;
+    background-size: 130% !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    border: none !important;
+    outline: none !important;
+  }
+  
+  .n-avatar-img {
+    display: block;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    mix-blend-mode: normal;
+    padding: 0 !important;
+    margin: 0 !important;
+    /* Force browser to respect transparency */
+    image-rendering: auto;
+    -webkit-background-clip: padding-box;
+    background-clip: padding-box;
+  }
+  
+  /* Ensure no white background shows through on any browser */
+  .n-avatar-img::before,
+  .n-avatar-img::after {
+    display: none !important;
+    background: transparent !important;
+  }
+  
+  /* For shortcut buttons, ensure no background and proper blending */
+  .shortcut-button .n-avatar-img,
+  .shortcut-button .emoji-holder .n-avatar-img,
+  .shortcut-button .emoji-holder img {
+    background: transparent !important;
+    background-color: transparent !important;
+    mix-blend-mode: normal;
+  }
+  
+  /* Remove any potential white from rounded container */
+  .shortcut-button .emoji-holder {
+    background: transparent !important;
+    background-color: transparent !important;
+    padding: 0 !important;
+  }
+  
+  /* Ensure no white background on any wrapper */
+  .shortcut-button .emoji-holder * {
+    background-color: transparent !important;
   }
   .n-avatar.emolen-0 {
     letter-spacing: -0.05em;

@@ -61,7 +61,7 @@
       ? 'has-value'
       : 'no-value bg-white dark:bg-black'}
   {compact ? 'compact' : ''}"
-    style={[style, `--tracker-color:${color};`, value ? `background-color:${color};` : ``].join('')}
+    style={[style, `--tracker-color:${color};`, value ? `background-color:${color};` : `--button-bg:inherit;`].join('')}
     on:longpress={() => {
       dispatch('longpress')
       clickSkip = true
@@ -152,10 +152,45 @@
   .shortcut-button.normal .emoji-holder {
     @apply absolute top-2 left-2;
     @apply text-black dark:text-white;
+    background-color: transparent !important;
   }
   .shortcut-button.compact .emoji-holder {
     @apply absolute top-0 bottom-0 left-2;
     @apply flex items-center;
+    background-color: transparent !important;
+  }
+  
+  /* Force transparent background for images - let button show through */
+  .shortcut-button .emoji-holder .n-avatar.src,
+  .shortcut-button .n-avatar.src,
+  .shortcut-button .emoji-holder .n-avatar-img,
+  .shortcut-button .n-avatar-img,
+  .shortcut-button .emoji-holder img,
+  .shortcut-button img {
+    background: transparent !important;
+    background-color: transparent !important;
+    /* Remove any default browser styling that might add white */
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  
+  /* Remove any background from emoji-holder and ensure it's transparent */
+  .shortcut-button .emoji-holder {
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+  
+  /* Target the img element directly - be very aggressive */
+  .shortcut-button .emoji-holder img.n-avatar-img,
+  .shortcut-button img.n-avatar-img,
+  .shortcut-button .emoji-holder img,
+  .shortcut-button img {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    /* Ensure no white shows through */
+    filter: none !important;
+    -webkit-filter: none !important;
   }
   .button-wrapper .more {
     @apply absolute top-0 right-0 flex items-center justify-center z-40 w-10 h-10 rounded-full;

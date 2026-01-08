@@ -55,7 +55,9 @@
               )
             } else {
               await wait(200)
-              button.click()
+              if (button.click) {
+                button.click()
+              }
               dispatch('clicked', evt)
               if (!button.skipClosing) {
                 dispatch('close')
