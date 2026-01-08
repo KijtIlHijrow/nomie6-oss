@@ -12,4 +12,26 @@ services:
       - NODE_ENV=development
     stdin_open: true
     tty: true
+    depends_on:
+      - ollama
+    networks:
+      - nomie-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: nomie-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - nomie-network
+    restart: unless-stopped
+
+networks:
+  nomie-network:
+    driver: bridge
+
+volumes:
+  ollama_data:
 

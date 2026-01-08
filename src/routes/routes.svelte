@@ -24,6 +24,7 @@
   import Settings from './settings.svelte'
   import Export from './export.svelte'
   import Setup from './setup.svelte'
+  import AIQuery from './ai-query.svelte'
 </script>
 
 <Router>
@@ -102,5 +103,8 @@
   </Route>
   <Route path="/setup">
     <Setup />
+  </Route>
+  <Route path="/ai-query">
+    <AIQuery />
   </Route>
 </Router>

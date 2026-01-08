@@ -38,6 +38,8 @@
   import Badge from '../../components/badge/badge.svelte'
   import CalendarNumberSolid from '../../n-icons/CalendarNumberSolid.svelte'
   import CalendarNumberOutline from './../../n-icons/CalendarNumberOutline.svelte'
+  import SparklesOutline from '../../n-icons/SparklesOutline.svelte'
+  import SparklesSolid from '../../n-icons/SparklesSolid.svelte'
 
   export let loggedIn: boolean = false
 
@@ -104,6 +106,13 @@
       title: Lang.t('tabs.analytics', 'Analytics'),
       icon: CubeOutline,
       activeIcon: CubeSolid,
+    },
+    {
+      id: 'ai-query',
+      path: '/ai-query',
+      title: 'AI Query',
+      icon: SparklesOutline,
+      activeIcon: SparklesSolid,
     },
     {
       id: 'afternomie',
