@@ -266,14 +266,14 @@
             : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'}"
         >
           {#if message.role === 'assistant' && message.content === '...'}
-            <div class="flex items-center gap-1">
+            <div class="flex items-center gap-1 loading-indicator">
               <span class="animate-pulse">●</span>
               <span class="animate-pulse delay-75">●</span>
               <span class="animate-pulse delay-150">●</span>
             </div>
           {:else}
-            <div class="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</div>
-            <div class="text-xs mt-2 opacity-70">
+            <div class="whitespace-pre-wrap text-sm leading-relaxed selectable-text">{message.content}</div>
+            <div class="text-xs mt-2 opacity-70 selectable-text">
               {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
           {/if}
@@ -346,6 +346,14 @@
     overflow-wrap: break-word;
   }
 
+  .loading-indicator {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    cursor: default;
+  }
+
   .ai-chat-input {
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
     bottom: 0 !important;
@@ -378,6 +386,14 @@
 
   .delay-150 {
     animation-delay: 0.3s;
+  }
+
+  .selectable-text {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    cursor: text;
   }
 </style>
 
