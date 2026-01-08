@@ -1,15 +1,14 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
-import sveltePreprocess from 'svelte-preprocess'
 import { VitePWA } from 'vite-plugin-pwa'
 // import loadVersion from 'vite-plugin-package-version'
 import manifest from './manifest'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import svelteSVG from 'vite-plugin-svelte-svg'
-import { visualizer } from 'rollup-plugin-visualizer'
 import rollupPluginsSvelte from 'rollup-plugin-svelte-svg'
 
-import { string } from 'rollup-plugin-string'
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   optimizeDeps: {
@@ -26,14 +25,13 @@ export default defineConfig({
         // },
       },
       plugins: [
-        // visualizer({ filename: 'stats.html' }),
         rollupPluginsSvelte,
       ],
     },
   },
   resolve: {
     alias: {
-      '@': path.resolve('/src'),
+      '@': path.resolve(__dirname, 'src'),
     },
   },
   plugins: [
