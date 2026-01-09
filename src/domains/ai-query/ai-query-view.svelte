@@ -5,6 +5,7 @@
   import { Interact } from '../../store/interact'
   import ListItemLog from '../../components/list-item-log/list-item-log.svelte'
   import NLog from '../../domains/nomie-log/nomie-log'
+  import { getTrackablesFromStorage, saveTrackersToStorage } from '../../domains/trackable/TrackableStore'
 
   let question = ''
   let loading = false
@@ -17,13 +18,13 @@
     role: 'user' | 'assistant' | 'error'; 
     content: string; 
     timestamp: Date;
-    action?: 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'create_tracker_with_config' | 'add_entry' | 'question';
+    action?: 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_default_value' | 'create_tracker_with_config' | 'add_entry' | 'question';
     trackerTag?: string;
     trackerName?: string;
     trackerType?: string;
     originalMessage?: string;
     value?: number;
-    config?: { type?: string; uom?: string; math?: string };
+    config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; default?: number };
     options?: Array<{ label: string; value: string }>;
     log?: NLog | undefined;
   }> = []
@@ -124,7 +125,7 @@
     }, 100)
   }
 
-  async function handleButtonClick(action: 'create_tracker' | 'cancel_tracker' | 'submit_value' | 'select_config', messageId: string, trackerTag?: string, originalMessage?: string, value?: number, configKey?: 'type' | 'uom' | 'math' | 'uom_category', selectedValue?: string) {
+  async function handleButtonClick(action: 'create_tracker' | 'cancel_tracker' | 'submit_value' | 'select_config' | 'save_default', messageId: string, trackerTag?: string, originalMessage?: string, value?: number, configKey?: 'type' | 'uom' | 'math' | 'uom_category' | 'positivity' | 'focus', selectedValue?: string) {
     const message = messages.find(m => m.id === messageId)
     if (!message) return
 
@@ -248,6 +249,54 @@
         }
         
         pendingValueRequest = null
+      } else if (action === 'save_default' && message && value !== undefined) {
+        try {
+          // Save the value as default for the tracker
+          const trackerTag = message.trackerTag || ''
+          const trackables = await getTrackablesFromStorage()
+          const tracker = trackables[trackerTag] || trackables[trackerTag.replace('#', '')] || trackables[`#${trackerTag.replace('#', '')}`]
+          
+          if (tracker && tracker.type === 'tracker' && tracker.tracker) {
+            tracker.tracker.default = value
+            await saveTrackersToStorage([tracker])
+            
+            messages = [
+              ...messages,
+              {
+                id: generateMessageId('assistant'),
+                role: 'assistant',
+                content: `✓ Saved ${value} as the default value for ${message.trackerTag}`,
+                timestamp: new Date(),
+              }
+            ]
+          }
+        } catch (e: any) {
+          console.error('Error saving default value:', e)
+        }
+      } else if (action === 'save_default' && message && value !== undefined) {
+        try {
+          // Save the value as default for the tracker
+          const trackerTag = message.trackerTag || ''
+          const trackables = await getTrackablesFromStorage()
+          const tracker = trackables[trackerTag] || trackables[trackerTag.replace('#', '')] || trackables[`#${trackerTag.replace('#', '')}`]
+          
+          if (tracker && tracker.type === 'tracker' && tracker.tracker) {
+            tracker.tracker.default = value
+            await saveTrackersToStorage([tracker])
+            
+            messages = [
+              ...messages,
+              {
+                id: generateMessageId('assistant'),
+                role: 'assistant',
+                content: `✓ Saved ${value} as the default value for ${message.trackerTag}`,
+                timestamp: new Date(),
+              }
+            ]
+          }
+        } catch (e: any) {
+          console.error('Error saving default value:', e)
+        }
       } else if (action === 'select_config' && message && configKey && selectedValue) {
         // Handle configuration selection
         const response = handleTrackerConfigSelection(
@@ -678,8 +727,37 @@
               </div>
             {/if}
             
+            {#if message.action === 'needs_positivity' && message.options}
+              <div class="mt-3 flex flex-col gap-2">
+                {#each message.options as option}
+                  <button
+                    on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'positivity', option.value)}
+                    class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium text-left"
+                    disabled={loading}
+                  >
+                    {option.label}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+            
+            {#if message.action === 'needs_focus' && message.options}
+              <div class="mt-3 flex flex-col gap-2">
+                {#each message.options as option}
+                  <button
+                    on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'focus', option.value)}
+                    class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium text-left"
+                    disabled={loading}
+                  >
+                    {option.label}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+            
             {#if message.action === 'needs_value' && message.trackerTag}
               {@const valueInputId = `value-input-${message.id}`}
+              {@const saveDefaultId = `save-default-${message.id}`}
               {@const uomKey = message.config?.uom}
               {@const uomLabel = uomKey ? UOM.plural(uomKey) : ''}
               <div class="mt-3">
@@ -693,11 +771,22 @@
                     on:keypress={(e) => {
                       if (e.key === 'Enter') {
                         const inputEl = document.getElementById(valueInputId)
+                        const checkboxEl = document.getElementById(saveDefaultId)
                         if (inputEl && 'value' in inputEl) {
                           const value = parseFloat(String(inputEl.value))
                           if (!isNaN(value)) {
+                            const saveDefault = checkboxEl && checkboxEl instanceof HTMLInputElement ? checkboxEl.checked : false
                             handleButtonClick('submit_value', message.id, undefined, undefined, value)
+                            if (saveDefault) {
+                              // Save as default after a short delay to ensure entry is created first
+                              setTimeout(() => {
+                                handleButtonClick('save_default', message.id, message.trackerTag, undefined, value)
+                              }, 500)
+                            }
                             inputEl.value = ''
+                            if (checkboxEl && checkboxEl instanceof HTMLInputElement) {
+                              checkboxEl.checked = false
+                            }
                           }
                         }
                       }
@@ -712,11 +801,22 @@
                   <button
                     on:click={() => {
                       const inputEl = document.getElementById(valueInputId)
+                      const checkboxEl = document.getElementById(saveDefaultId)
                       if (inputEl && 'value' in inputEl) {
                         const value = parseFloat(String(inputEl.value))
                         if (!isNaN(value)) {
+                          const saveDefault = checkboxEl && checkboxEl instanceof HTMLInputElement ? checkboxEl.checked : false
                           handleButtonClick('submit_value', message.id, undefined, undefined, value)
+                          if (saveDefault) {
+                            // Save as default after a short delay to ensure entry is created first
+                            setTimeout(() => {
+                              handleButtonClick('save_default', message.id, message.trackerTag, undefined, value)
+                            }, 500)
+                          }
                           inputEl.value = ''
+                          if (checkboxEl && checkboxEl instanceof HTMLInputElement) {
+                            checkboxEl.checked = false
+                          }
                         }
                       }
                     }}
@@ -725,6 +825,16 @@
                   >
                     Submit
                   </button>
+                </div>
+                <div class="mt-2 flex items-center">
+                  <input
+                    id={saveDefaultId}
+                    type="checkbox"
+                    class="mr-2 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  <label for={saveDefaultId} class="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    Save as default value
+                  </label>
                 </div>
               </div>
             {/if}

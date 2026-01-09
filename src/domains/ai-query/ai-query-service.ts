@@ -14,6 +14,8 @@ import UOMS from '../uom/uom.config'
 import { getGroupedUoms } from '../uom/uom-utils'
 import type { PopMenuButton } from '../../components/pop-menu/usePopmenu'
 import type { UOMElement } from '../uom/uom-types'
+import appConfig from '../../config/appConfig'
+import { focusTypes } from '../focus/focus-utils'
 
 /**
  * Format date for AI display in a human-readable format
@@ -30,13 +32,13 @@ export interface AIQueryResponse {
   answer: string
   data?: any
   error?: string
-  action?: 'add_entry' | 'question' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'create_tracker_with_config'
+  action?: 'add_entry' | 'question' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_default_value' | 'create_tracker_with_config'
   trackerTag?: string
   trackerName?: string // Original tracker name with capitalization preserved
   trackerType?: string
   value?: number
   originalMessage?: string
-  config?: { type?: string; uom?: string; math?: string } // Partial config being built
+  config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; default?: number } // Partial config being built
   options?: Array<{ label: string; value: string }> // Options for multiple choice
 }
 
@@ -706,7 +708,7 @@ async function promptForMath(): Promise<'sum' | 'mean'> {
 async function createBasicTracker(
   trackerName: string,
   userMessage?: string,
-  config?: { type?: string; uom?: string; math?: string }
+  config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; default?: number }
 ): Promise<Trackable | null> {
   try {
     const tag = toTag(trackerName)
@@ -738,12 +740,29 @@ async function createBasicTracker(
       finalMath = await promptForMath()
     }
     
+    // Parse score (positivity) - can be string or number
+    let finalScore: string | number | undefined = undefined
+    if (config?.score !== undefined && config?.score !== null) {
+      finalScore = typeof config.score === 'string' ? config.score : String(config.score)
+    }
+    
+    // Parse focus - ensure it's an array of valid focus types
+    let finalFocus: Array<'mind' | 'body' | 'spirit'> = []
+    if (config?.focus && Array.isArray(config.focus)) {
+      finalFocus = config.focus.filter((f): f is 'mind' | 'body' | 'spirit' => 
+        f === 'mind' || f === 'body' || f === 'spirit'
+      )
+    }
+    
     const tracker = new TrackerClass({
       tag: tag,
       label: trackerName,
       type: finalType,
       uom: finalUOM,
       math: finalMath,
+      score: finalScore,
+      focus: finalFocus.length > 0 ? finalFocus : undefined,
+      default: config?.default,
       emoji: '📝',
     })
     
@@ -1099,6 +1118,47 @@ export function startTrackerConfiguration(trackerName: string, userMessage?: str
     }
   }
   
+  // All basic config collected, now ask about positivity
+  if (!config.score && config.score !== 0) {
+    const positivityOptions = appConfig.positivity.map((pos) => ({
+      label: `${pos.emoji} ${pos.label}`,
+      value: `${pos.score}`,
+    }))
+    positivityOptions.push({ label: 'Skip (Neutral)', value: '0' })
+    
+    return {
+      answer: `What's the positivity of "${trackerName}"?`,
+      action: 'needs_positivity',
+      trackerName: trackerName,
+      trackerTag: toTag(trackerName),
+      originalMessage: userMessage,
+      value: value,
+      config: config,
+      options: positivityOptions,
+    }
+  }
+  
+  // Positivity set, now ask about focus (mind/body/spirit)
+  if (config.focus === undefined) {
+    const focusOptions = focusTypes.map((focus) => ({
+      label: `${focus.emoji} ${focus.label}`,
+      value: focus.id,
+    }))
+    focusOptions.push({ label: 'Skip (None)', value: '__skip__' })
+    focusOptions.push({ label: 'Done (Continue)', value: '__done__' })
+    
+    return {
+      answer: `Does "${trackerName}" affect your mind, body, or spirit? (You can select multiple, then click "Done")`,
+      action: 'needs_focus',
+      trackerName: trackerName,
+      trackerTag: toTag(trackerName),
+      originalMessage: userMessage,
+      value: value,
+      config: config,
+      options: focusOptions,
+    }
+  }
+  
   // All config collected, return response indicating ready to create
   // The view will handle the async creation
   return {
@@ -1115,7 +1175,7 @@ export function startTrackerConfiguration(trackerName: string, userMessage?: str
 /**
  * Create tracker with full configuration (called by view when all config is collected)
  */
-export async function createTrackerWithConfig(trackerName: string, userMessage?: string, value?: number, config?: { type?: string; uom?: string; math?: string }): Promise<AIQueryResponse> {
+export async function createTrackerWithConfig(trackerName: string, userMessage?: string, value?: number, config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; default?: number }): Promise<AIQueryResponse> {
   try {
     const tracker = await createBasicTracker(trackerName, userMessage, config)
     if (tracker) {
@@ -1150,11 +1210,11 @@ export async function createTrackerWithConfig(trackerName: string, userMessage?:
  */
 export function handleTrackerConfigSelection(
   trackerName: string,
-  configKey: 'type' | 'uom' | 'math' | 'uom_category',
+  configKey: 'type' | 'uom' | 'math' | 'uom_category' | 'positivity' | 'focus',
   selectedValue: string,
   userMessage?: string,
   value?: number,
-  existingConfig?: { type?: string; uom?: string; math?: string; selectedCategory?: string }
+  existingConfig?: { type?: string; uom?: string; math?: string; selectedCategory?: string; score?: string; focus?: string[] }
 ): AIQueryResponse {
   // Handle UOM category selection - show UOMs in that category
   if (configKey === 'uom_category') {
@@ -1229,6 +1289,62 @@ export function handleTrackerConfigSelection(
       value: value,
       config: { ...existingConfig, selectedCategory: selectedValue },
       options: uomOptions,
+    }
+  }
+  
+  // Handle positivity selection
+  if (configKey === 'positivity') {
+    const config = { ...existingConfig, score: selectedValue }
+    return startTrackerConfiguration(trackerName, userMessage, value, config)
+  }
+  
+  // Handle focus selection - this is multi-select, so we need to toggle
+  if (configKey === 'focus') {
+    const config = { ...existingConfig }
+    if (!config.focus) {
+      config.focus = []
+    }
+    
+    if (selectedValue === '__skip__') {
+      // Skip focus selection
+      config.focus = []
+      return startTrackerConfiguration(trackerName, userMessage, value, config)
+    }
+    
+    if (selectedValue === '__done__') {
+      // Done selecting, continue with flow
+      return startTrackerConfiguration(trackerName, userMessage, value, config)
+    }
+    
+    // Toggle the focus value
+    const currentFocus = config.focus || []
+    const focusIndex = currentFocus.indexOf(selectedValue as 'mind' | 'body' | 'spirit')
+    if (focusIndex > -1) {
+      // Remove if already selected
+      config.focus = currentFocus.filter(f => f !== selectedValue)
+    } else {
+      // Add if not selected
+      config.focus = [...currentFocus, selectedValue as 'mind' | 'body' | 'spirit']
+    }
+    
+    // Continue with the same question to allow multiple selections
+    // But provide a "Done" option
+    const focusOptions = focusTypes.map((focus) => ({
+      label: `${focus.emoji} ${focus.label}${config.focus?.includes(focus.id) ? ' ✓' : ''}`,
+      value: focus.id,
+    }))
+    focusOptions.push({ label: 'Skip (None)', value: '__skip__' })
+    focusOptions.push({ label: 'Done (Continue)', value: '__done__' })
+    
+    return {
+      answer: `Does "${trackerName}" affect your mind, body, or spirit? (You can select multiple, then click "Done")`,
+      action: 'needs_focus',
+      trackerName: trackerName,
+      trackerTag: toTag(trackerName),
+      originalMessage: userMessage,
+      value: value,
+      config: config,
+      options: focusOptions,
     }
   }
   
