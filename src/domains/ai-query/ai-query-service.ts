@@ -591,6 +591,58 @@ function parseUOMHint(message: string): string | null {
 }
 
 /**
+ * Infer UOM hint from tracker name based on common patterns
+ * e.g., "Apple Juice" → "liter" (for liquids)
+ */
+function inferUOMFromTrackerName(trackerName: string): string | null {
+  const lowerName = trackerName.toLowerCase()
+  
+  // Liquid-related keywords → suggest liter
+  const liquidKeywords = ['juice', 'water', 'drink', 'beverage', 'soda', 'coffee', 'tea', 'milk', 'smoothie', 'liquid']
+  for (const keyword of liquidKeywords) {
+    if (lowerName.includes(keyword)) {
+      return 'liter'
+    }
+  }
+  
+  // Food-related keywords → could be weight or volume, but default to weight
+  const foodKeywords = ['food', 'meal', 'snack', 'breakfast', 'lunch', 'dinner']
+  for (const keyword of foodKeywords) {
+    if (lowerName.includes(keyword)) {
+      return 'gram' // Default to grams for food
+    }
+  }
+  
+  // Exercise-related → could be time or distance
+  const exerciseKeywords = ['run', 'walk', 'exercise', 'workout', 'jog']
+  for (const keyword of exerciseKeywords) {
+    if (lowerName.includes(keyword)) {
+      return 'minute' // Default to minutes for exercise
+    }
+  }
+  
+  return null
+}
+
+/**
+ * Get default UOM for a category (most common unit in that category)
+ */
+function getDefaultUOMForCategory(category: string): string | null {
+  const categoryDefaults: { [key: string]: string } = {
+    'volume': 'liter',
+    'weight': 'gram',
+    'distance': 'meter',
+    'time': 'minute',
+    'temperature': 'celsius',
+    'currency': 'usd',
+    'health': 'num',
+    'general': 'num',
+  }
+  
+  return categoryDefaults[category.toLowerCase()] || null
+}
+
+/**
  * Prompt user to select UOM (Unit of Measure)
  */
 async function promptForUOM(hint: string | null = null): Promise<string> {
@@ -972,24 +1024,76 @@ export function startTrackerConfiguration(trackerName: string, userMessage?: str
   
   // If we have type but need UOM (for value/range types)
   if ((config.type === 'value' || config.type === 'range') && !config.uom) {
+    // Try to get UOM hint from message first, then infer from tracker name
     const uomHint = userMessage ? parseUOMHint(userMessage) : null
+    const inferredUOM = !uomHint ? inferUOMFromTrackerName(trackerName) : null
+    const finalUOMHint = uomHint || inferredUOM
     
-    // If we have a hint and it's a valid UOM, show it as a quick option, then categories
-    if (uomHint && UOMS[uomHint]) {
+    // If we have a hint and it's a valid UOM, show it as a quick option, then all UOMs from that category
+    if (finalUOMHint && UOMS[finalUOMHint]) {
       const groupedUOM = UOM.toGroupedArray()
-      const categoryOptions: Array<{ label: string; value: string }> = []
+      const uomOptions: Array<{ label: string; value: string }> = []
+      const hintedUOMObj = UOMS[finalUOMHint]
+      const hintedCategory = hintedUOMObj.type
       
       // Add the hinted UOM as a quick option first
-      categoryOptions.push({
-        label: `${UOM.plural(uomHint)}${UOMS[uomHint].symbol ? ` (${UOMS[uomHint].symbol})` : ''} - Quick Select`,
-        value: `__quick__${uomHint}`,
+      uomOptions.push({
+        label: `${UOM.plural(finalUOMHint)}${hintedUOMObj.symbol ? ` (${hintedUOMObj.symbol})` : ''} - Quick Select`,
+        value: `__quick__${finalUOMHint}`,
       })
-      categoryOptions.push({
+      uomOptions.push({
         label: '---',
         value: '__divider__',
       })
       
-      // Add category options with user-friendly names
+      // Add all UOMs from the same category as the hinted UOM
+      if (hintedCategory && groupedUOM[hintedCategory]) {
+        const categoryUOMs = groupedUOM[hintedCategory]
+        if (Array.isArray(categoryUOMs)) {
+          categoryUOMs.forEach((uom: any) => {
+            const uomKey = uom.key || Object.keys(UOMS).find(k => {
+              const uomObj = UOMS[k]
+              return uomObj && uomObj.type === hintedCategory && uomObj.plural === uom.plural
+            })
+            
+            // Skip the hinted UOM since we already added it as quick-select
+            if (uomKey && uomKey !== finalUOMHint && UOMS[uomKey]) {
+              const uomObj = UOMS[uomKey]
+              const symbol = uomObj.symbol || ''
+              const displayName = `${UOM.plural(uomKey)}${symbol ? ` (${symbol})` : ''}`
+              uomOptions.push({
+                label: displayName,
+                value: uomKey,
+              })
+            }
+          })
+        }
+      }
+      
+      // If no UOMs found in grouped array, iterate through all UOMS and filter by type
+      if (uomOptions.length === 2) { // Only quick-select and divider
+        Object.keys(UOMS).forEach((uomKey) => {
+          const uomObj = UOMS[uomKey]
+          if (uomObj && uomObj.type === hintedCategory && uomKey !== finalUOMHint) {
+            const symbol = uomObj.symbol || ''
+            const displayName = `${UOM.plural(uomKey)}${symbol ? ` (${symbol})` : ''}`
+            uomOptions.push({
+              label: displayName,
+              value: uomKey,
+            })
+          }
+        })
+      }
+      
+      // Add divider before other categories if we have UOMs from the hinted category
+      if (uomOptions.length > 2) {
+        uomOptions.push({
+          label: '---',
+          value: '__divider__',
+        })
+      }
+      
+      // Add category options for other categories
       const categoryLabels: { [key: string]: string } = {
         'general': 'General',
         'currency': 'Currency',
@@ -1002,11 +1106,12 @@ export function startTrackerConfiguration(trackerName: string, userMessage?: str
       }
       
       Object.keys(groupedUOM).forEach((groupKey) => {
-        if (groupKey !== 'Timer' && groupKey !== 'timer') {
+        // Skip the hinted category since we already showed its UOMs
+        if (groupKey !== 'Timer' && groupKey !== 'timer' && groupKey !== hintedCategory) {
           const groupItems = groupedUOM[groupKey]
           if (Array.isArray(groupItems) && groupItems.length > 0) {
             const categoryLabel = categoryLabels[groupKey] || groupKey.charAt(0).toUpperCase() + groupKey.slice(1)
-            categoryOptions.push({
+            uomOptions.push({
               label: categoryLabel,
               value: groupKey,
             })
@@ -1014,31 +1119,15 @@ export function startTrackerConfiguration(trackerName: string, userMessage?: str
         }
       })
       
-      // Fallback if no categories found
-      if (categoryOptions.length === 0) {
-        const seenTypes = new Set<string>()
-        Object.keys(UOMS).forEach((uomKey) => {
-          const uomObj = UOMS[uomKey]
-          if (uomObj && uomObj.type && uomObj.type !== 'Timer' && uomObj.type !== 'timer' && !seenTypes.has(uomObj.type)) {
-            seenTypes.add(uomObj.type)
-            const categoryLabel = categoryLabels[uomObj.type] || uomObj.type.charAt(0).toUpperCase() + uomObj.type.slice(1)
-            categoryOptions.push({
-              label: categoryLabel,
-              value: uomObj.type,
-            })
-          }
-        })
-      }
-      
       return {
         answer: `How should "${trackerName}" be measured?`,
-        action: 'needs_uom_category',
+        action: 'needs_uom',
         trackerName: trackerName,
         trackerTag: toTag(trackerName),
         originalMessage: userMessage,
         value: value,
         config: config,
-        options: categoryOptions,
+        options: uomOptions,
       }
     }
     
@@ -1274,6 +1363,10 @@ export function handleTrackerConfigSelection(
     const categoryUOMs = groupedUOM[selectedValue]
     const uomOptions: Array<{ label: string; value: string }> = []
     
+    // Get default UOM for this category to show as quick-select
+    const defaultUOM = getDefaultUOMForCategory(selectedValue)
+    let hasDefaultUOM = false
+    
     if (Array.isArray(categoryUOMs)) {
       categoryUOMs.forEach((uom: any) => {
         const uomKey = uom.key || Object.keys(UOMS).find(k => {
@@ -1285,26 +1378,52 @@ export function handleTrackerConfigSelection(
           const uomObj = UOMS[uomKey]
           const symbol = uomObj.symbol || ''
           const displayName = `${UOM.plural(uomKey)}${symbol ? ` (${symbol})` : ''}`
-          uomOptions.push({
-            label: displayName,
-            value: uomKey,
-          })
+          
+          // If this is the default UOM for the category, mark it and we'll add it as quick-select first
+          if (defaultUOM && uomKey === defaultUOM) {
+            hasDefaultUOM = true
+          } else {
+            uomOptions.push({
+              label: displayName,
+              value: uomKey,
+            })
+          }
         }
       })
     }
     
     // If no UOMs found, iterate through all UOMS and filter by type
-    if (uomOptions.length === 0) {
+    if (uomOptions.length === 0 && !hasDefaultUOM) {
       Object.keys(UOMS).forEach((uomKey) => {
         const uomObj = UOMS[uomKey]
         if (uomObj && uomObj.type === selectedValue) {
           const symbol = uomObj.symbol || ''
           const displayName = `${UOM.plural(uomKey)}${symbol ? ` (${symbol})` : ''}`
-          uomOptions.push({
-            label: displayName,
-            value: uomKey,
-          })
+          
+          // If this is the default UOM for the category, mark it and we'll add it as quick-select first
+          if (defaultUOM && uomKey === defaultUOM) {
+            hasDefaultUOM = true
+          } else {
+            uomOptions.push({
+              label: displayName,
+              value: uomKey,
+            })
+          }
         }
+      })
+    }
+    
+    // Add default UOM as quick-select option at the beginning if it exists
+    if (hasDefaultUOM && defaultUOM && UOMS[defaultUOM]) {
+      const defaultUOMObj = UOMS[defaultUOM]
+      const symbol = defaultUOMObj.symbol || ''
+      uomOptions.unshift({
+        label: `${UOM.plural(defaultUOM)}${symbol ? ` (${symbol})` : ''} - Quick Select`,
+        value: `__quick__${defaultUOM}`,
+      })
+      uomOptions.unshift({
+        label: '---',
+        value: '__divider__',
       })
     }
     
@@ -1406,6 +1525,122 @@ export function handleTrackerConfigSelection(
       delete config.__waiting_for_include
       return startTrackerConfiguration(trackerName, userMessage, value, config)
     }
+  }
+  
+  // Handle UOM selection (when selecting from needs_uom action)
+  if (configKey === 'uom') {
+    // Check if it's a quick select (from category view)
+    if (selectedValue.startsWith('__quick__')) {
+      const uomKey = selectedValue.replace('__quick__', '')
+      const config = { ...existingConfig, uom: uomKey }
+      return startTrackerConfiguration(trackerName, userMessage, value, config)
+    }
+    
+    // Check if it's a divider (shouldn't happen, but handle it)
+    if (selectedValue === '__divider__') {
+      return startTrackerConfiguration(trackerName, userMessage, value, existingConfig)
+    }
+    
+    // Check if it's a category name (not a valid UOM key) - treat it as category selection
+    if (!UOMS[selectedValue]) {
+      // Check if it's a known category
+      const groupedUOM = UOM.toGroupedArray()
+      if (groupedUOM[selectedValue]) {
+        // It's a category, show UOMs from that category (same logic as uom_category handler)
+        const categoryUOMs = groupedUOM[selectedValue]
+        const uomOptions: Array<{ label: string; value: string }> = []
+        
+        // Get default UOM for this category to show as quick-select
+        const defaultUOM = getDefaultUOMForCategory(selectedValue)
+        let hasDefaultUOM = false
+        
+        if (Array.isArray(categoryUOMs)) {
+          categoryUOMs.forEach((uom: any) => {
+            const uomKey = uom.key || Object.keys(UOMS).find(k => {
+              const uomObj = UOMS[k]
+              return uomObj && uomObj.type === selectedValue && uomObj.plural === uom.plural
+            })
+            
+            if (uomKey && UOMS[uomKey]) {
+              const uomObj = UOMS[uomKey]
+              const symbol = uomObj.symbol || ''
+              const displayName = `${UOM.plural(uomKey)}${symbol ? ` (${symbol})` : ''}`
+              
+              // If this is the default UOM for the category, mark it and we'll add it as quick-select first
+              if (defaultUOM && uomKey === defaultUOM) {
+                hasDefaultUOM = true
+              } else {
+                uomOptions.push({
+                  label: displayName,
+                  value: uomKey,
+                })
+              }
+            }
+          })
+        }
+        
+        // If no UOMs found, iterate through all UOMS and filter by type
+        if (uomOptions.length === 0 && !hasDefaultUOM) {
+          Object.keys(UOMS).forEach((uomKey) => {
+            const uomObj = UOMS[uomKey]
+            if (uomObj && uomObj.type === selectedValue) {
+              const symbol = uomObj.symbol || ''
+              const displayName = `${UOM.plural(uomKey)}${symbol ? ` (${symbol})` : ''}`
+              
+              // If this is the default UOM for the category, mark it and we'll add it as quick-select first
+              if (defaultUOM && uomKey === defaultUOM) {
+                hasDefaultUOM = true
+              } else {
+                uomOptions.push({
+                  label: displayName,
+                  value: uomKey,
+                })
+              }
+            }
+          })
+        }
+        
+        // Add default UOM as quick-select option at the beginning if it exists
+        if (hasDefaultUOM && defaultUOM && UOMS[defaultUOM]) {
+          const defaultUOMObj = UOMS[defaultUOM]
+          const symbol = defaultUOMObj.symbol || ''
+          uomOptions.unshift({
+            label: `${UOM.plural(defaultUOM)}${symbol ? ` (${symbol})` : ''} - Quick Select`,
+            value: `__quick__${defaultUOM}`,
+          })
+          uomOptions.unshift({
+            label: '---',
+            value: '__divider__',
+          })
+        }
+        
+        const categoryLabels: { [key: string]: string } = {
+          'general': 'General',
+          'currency': 'Currency',
+          'time': 'Time',
+          'distance': 'Distance',
+          'temperature': 'Temperature',
+          'weight': 'Weight',
+          'volume': 'Volume',
+          'health': 'Health',
+        }
+        const categoryLabel = categoryLabels[selectedValue] || selectedValue.charAt(0).toUpperCase() + selectedValue.slice(1)
+        return {
+          answer: `Select a ${categoryLabel.toLowerCase()} unit:`,
+          action: 'needs_uom',
+          trackerName: trackerName,
+          trackerTag: toTag(trackerName),
+          originalMessage: userMessage,
+          value: value,
+          config: { ...existingConfig, selectedCategory: selectedValue },
+          options: uomOptions,
+        }
+      }
+    }
+    
+    // Regular UOM selection
+    const config = { ...existingConfig, uom: selectedValue }
+    return startTrackerConfiguration(trackerName, userMessage, value, config)
   }
   
   // Handle other config selections

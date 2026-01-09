@@ -721,13 +721,17 @@
             {#if message.action === 'needs_uom' && message.options}
               <div class="mt-3 flex flex-col gap-2 max-h-64 overflow-y-auto">
                 {#each message.options as option}
-                  <button
-                    on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'uom', option.value)}
-                    class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium text-left"
-                    disabled={loading}
-                  >
-                    {option.label}
-                  </button>
+                  {#if option.value === '__divider__'}
+                    <div class="border-t border-gray-300 dark:border-gray-700 my-1"></div>
+                  {:else}
+                    <button
+                      on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'uom', option.value)}
+                      class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium text-left"
+                      disabled={loading}
+                    >
+                      {option.label}
+                    </button>
+                  {/if}
                 {/each}
               </div>
             {/if}
