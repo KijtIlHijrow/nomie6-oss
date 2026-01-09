@@ -388,8 +388,15 @@ const ledgerInit = () => {
           /** Fire off Notifications and hooks Save */
           const undoLastUsedItems = updateLastUsed(log)
 
+          // Get trackable labels for display
+          const trackables = log.getTrackables(MasterTrackables)
+          const labels = trackables
+            .map((t) => t.label)
+            .filter((label) => label && label.trim())
+          const displayName = labels.length > 0 ? labels.join(', ') : textUtils.truncate(log.note, 100)
+
           showToast({
-            message: `${Lang.t('general.saved', 'Saved')}: ${textUtils.truncate(log.note, 100)}`,
+            message: `${Lang.t('general.saved', 'Saved')}: ${displayName}`,
             timeout: 6000,
             type: 'success',
             buttonLabel: 'Undo',
