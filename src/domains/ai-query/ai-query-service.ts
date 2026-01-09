@@ -813,18 +813,31 @@ async function createBasicTracker(
     let finalUOM = config?.uom || 'num'
     let finalMath = (config?.math || 'sum') as 'sum' | 'mean'
     
-    // If we have a UOM hint, ask to confirm or select
-    if (uomHint && !config?.uom) {
-      finalUOM = await promptForUOM(uomHint)
-    } else if (!config?.uom && trackerType === 'value') {
-      // If it's a value tracker and no UOM specified, ask
-      finalUOM = await promptForUOM()
+    // Only prompt for UOM if we're NOT coming from the configuration flow
+    // If we're coming from the configuration flow (config.type is set), it should have collected UOM already
+    // If UOM is missing in that case, use a default instead of interrupting with a modal
+    if (!config?.type) {
+      // Legacy path: no config.type set, so we might need to prompt
+      if (uomHint && !config?.uom) {
+        finalUOM = await promptForUOM(uomHint)
+      } else if (!config?.uom && trackerType === 'value') {
+        // If it's a value tracker and no UOM specified, ask
+        finalUOM = await promptForUOM()
+      }
     }
+    // If config.type is set but UOM is missing, we're coming from the configuration flow
+    // The configuration flow should have collected UOM, but if it didn't, use a default
+    // Don't interrupt the user with a modal at this point
     
-    // If type is value/range and no config provided, ask about math
-    if ((finalType === 'value' || finalType === 'range') && !config?.math) {
+    // Only prompt for math if we're NOT coming from the configuration flow
+    // If we're coming from the configuration flow (config.type is set), it should have collected math already
+    if ((finalType === 'value' || finalType === 'range') && !config?.math && !config?.type) {
+      // Legacy path: no config.type set, so we might need to prompt
       finalMath = await promptForMath()
     }
+    // If config.type is set but math is missing, we're coming from the configuration flow
+    // The configuration flow should have collected math, but if it didn't, use the default 'sum'
+    // Don't interrupt the user with a modal at this point
     
     // Parse score (positivity) - can be string or number
     let finalScore: string | number | undefined = undefined
