@@ -17,8 +17,16 @@ export async function logAppendLocationIfNeeded(log: NLog): Promise<NLog> {
   let shouldLocate = prefs.alwaysLocate;
   if (shouldLocate) {
     try {
-      // Get the Location
-      let theLoc: any = await locate()
+      // Add a timeout wrapper to prevent blocking for too long (4 seconds max)
+      // This gives the geolocation API (which has a 3-second timeout) time to complete
+      const locationPromise = locate()
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Location timeout')), 4000)
+      )
+      
+      // Race between location and timeout (2 seconds max)
+      let theLoc: any = await Promise.race([locationPromise, timeoutPromise])
+      
       // make it a location
       let location = new Location({ lat: theLoc.latitude, lng: theLoc.longitude })
       // Find any favorited that are super close
@@ -35,7 +43,7 @@ export async function logAppendLocationIfNeeded(log: NLog): Promise<NLog> {
       // Return the match - or the location if we didnt any favorites
       return log
     } catch (e) {
-      // Any location errors
+      // Any location errors (including timeout) - non-fatal, just continue without location
       console.error(`Non-fatal location error`, e.message)
       return log
     }

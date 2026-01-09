@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
-  import { answerQuestion, checkOllamaAvailable, getAvailableModels, handleEntryCreation, createTrackerAndEntry, parseValueFromMessage, type AIQueryResponse } from './ai-query-service'
+  import { answerQuestion, checkOllamaAvailable, getAvailableModels, handleEntryCreation, createTrackerAndEntry, parseValueFromMessage, handleTrackerConfigSelection, createTrackerWithConfig, startTrackerConfiguration, type AIQueryResponse } from './ai-query-service'
+  import UOM from '../../domains/uom/uom'
   import { Interact } from '../../store/interact'
   import ListItemLog from '../../components/list-item-log/list-item-log.svelte'
   import NLog from '../../domains/nomie-log/nomie-log'
@@ -16,11 +17,14 @@
     role: 'user' | 'assistant' | 'error'; 
     content: string; 
     timestamp: Date;
-    action?: 'needs_value' | 'needs_tracker_creation' | 'add_entry' | 'question';
+    action?: 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'create_tracker_with_config' | 'add_entry' | 'question';
     trackerTag?: string;
     trackerName?: string;
     trackerType?: string;
     originalMessage?: string;
+    value?: number;
+    config?: { type?: string; uom?: string; math?: string };
+    options?: Array<{ label: string; value: string }>;
     log?: NLog | undefined;
   }> = []
   let chatContainer: HTMLDivElement
@@ -120,7 +124,7 @@
     }, 100)
   }
 
-  async function handleButtonClick(action: 'create_tracker' | 'cancel_tracker' | 'submit_value', messageId: string, trackerTag?: string, originalMessage?: string, value?: number) {
+  async function handleButtonClick(action: 'create_tracker' | 'cancel_tracker' | 'submit_value' | 'select_config', messageId: string, trackerTag?: string, originalMessage?: string, value?: number, configKey?: 'type' | 'uom' | 'math' | 'uom_category', selectedValue?: string) {
     const message = messages.find(m => m.id === messageId)
     if (!message) return
 
@@ -144,7 +148,7 @@
         // Use trackerName if available (preserves capitalization), otherwise fall back to trackerTag
         const nameToUse = message?.trackerName || trackerTag?.replace('#', '') || ''
         if (!nameToUse) return
-        const response = await createTrackerAndEntry(nameToUse, originalMessage, value)
+        const response = startTrackerConfiguration(nameToUse, originalMessage || message?.originalMessage, value || message?.value)
         
         // Remove loading message
         messages = messages.filter(m => m.id !== loadingMessageId)
@@ -175,7 +179,13 @@
               role: 'assistant',
               content: response.answer,
               timestamp: new Date(),
-              log: response.data?.log ? new NLog(response.data.log) : undefined,
+              action: response.action,
+              trackerTag: response.trackerTag,
+              trackerName: response.trackerName,
+              originalMessage: response.originalMessage,
+              value: response.value,
+              config: response.config,
+              options: response.options,
             }
           ]
         }
@@ -238,6 +248,92 @@
         }
         
         pendingValueRequest = null
+      } else if (action === 'select_config' && message && configKey && selectedValue) {
+        // Handle configuration selection
+        const response = handleTrackerConfigSelection(
+          message.trackerName || message.trackerTag?.replace('#', '') || '',
+          configKey,
+          selectedValue,
+          message.originalMessage,
+          message.value,
+          message.config
+        )
+        
+        // Remove loading message
+        messages = messages.filter(m => m.id !== loadingMessageId)
+        
+        // Remove the action buttons from the original message
+        messages = messages.map(m => {
+          if (m.id === messageId) {
+            return { ...m, action: undefined }
+          }
+          return m
+        })
+        
+        // If response has an action, check if it's ready to create or needs more config
+        if (response.action === 'create_tracker_with_config') {
+          // All config collected, create tracker (async)
+          const createResponse = await createTrackerWithConfig(
+            response.trackerName || response.trackerTag?.replace('#', '') || '',
+            response.originalMessage,
+            response.value,
+            response.config
+          )
+          
+          if (createResponse.error) {
+            messages = [
+              ...messages,
+              {
+                id: generateMessageId('error'),
+                role: 'error',
+                content: `Error: ${createResponse.error}`,
+                timestamp: new Date(),
+              }
+            ]
+          } else if (createResponse.answer) {
+            const assistantMessage = {
+              id: generateMessageId('assistant'),
+              role: 'assistant' as const,
+              content: createResponse.answer,
+              timestamp: new Date(),
+              action: createResponse.action,
+              trackerTag: createResponse.trackerTag,
+              trackerName: createResponse.trackerName,
+              trackerType: createResponse.trackerType,
+              config: createResponse.config,
+              log: createResponse.data?.log ? new NLog(createResponse.data.log) : undefined,
+            }
+            messages = [...messages, assistantMessage]
+            
+            // Handle special actions
+            if (createResponse.action === 'needs_value') {
+              pendingValueRequest = {
+                trackerTag: createResponse.trackerTag || '',
+                trackerType: createResponse.trackerType || '',
+                messageId: assistantMessage.id,
+              }
+            } else if (createResponse.action === 'add_entry') {
+              // Entry created successfully, clear any pending requests
+              pendingValueRequest = null
+            }
+          }
+        } else if (response.action) {
+          // More configuration needed
+          const newMessage = {
+            id: generateMessageId('assistant'),
+            role: 'assistant' as const,
+            content: response.answer,
+            timestamp: new Date(),
+            action: response.action,
+            trackerTag: response.trackerTag,
+            trackerName: response.trackerName,
+            originalMessage: response.originalMessage,
+            value: response.value,
+            config: response.config,
+            options: response.options,
+          }
+          messages = [...messages, newMessage]
+        }
       }
       
       scrollToBottom()
@@ -266,14 +362,30 @@
     question = '' // Clear input immediately
 
     // Check for pending value request first
+    // Also check if the last message has needs_value action (fallback)
+    let valueRequestMessage = null
     if (pendingValueRequest) {
-      const pendingRequest = pendingValueRequest // Capture for type narrowing
+      valueRequestMessage = messages.find(m => m.id === pendingValueRequest.messageId)
+    } else {
+      // Fallback: check the most recent message with needs_value action
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].action === 'needs_value') {
+          valueRequestMessage = messages[i]
+          // Set pendingValueRequest for consistency
+          pendingValueRequest = {
+            trackerTag: messages[i].trackerTag || '',
+            trackerType: messages[i].trackerType || '',
+            messageId: messages[i].id,
+          }
+          break
+        }
+      }
+    }
+    
+    if (valueRequestMessage) {
       const value = parseValueFromMessage(questionToAsk)
       if (value !== null) {
-        const message = messages.find(m => m.id === pendingRequest.messageId)
-        if (message) {
-          await handleButtonClick('submit_value', pendingRequest.messageId, undefined, undefined, value)
-        }
+        await handleButtonClick('submit_value', valueRequestMessage.id, undefined, undefined, value)
         return
       } else {
         // Invalid value, ask again
@@ -506,8 +618,70 @@
               </div>
             {/if}
             
+            {#if message.action === 'needs_tracker_type' && message.options}
+              <div class="mt-3 flex flex-col gap-2">
+                {#each message.options as option}
+                  <button
+                    on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'type', option.value)}
+                    class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium text-left"
+                    disabled={loading}
+                  >
+                    {option.label}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+            
+            {#if message.action === 'needs_uom_category' && message.options}
+              <div class="mt-3 flex flex-col gap-2">
+                {#each message.options as option}
+                  {#if option.value === '__divider__'}
+                    <div class="border-t border-gray-300 dark:border-gray-700 my-1"></div>
+                  {:else}
+                    <button
+                      on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'uom_category', option.value)}
+                      class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium text-left"
+                      disabled={loading}
+                    >
+                      {option.label}
+                    </button>
+                  {/if}
+                {/each}
+              </div>
+            {/if}
+            
+            {#if message.action === 'needs_uom' && message.options}
+              <div class="mt-3 flex flex-col gap-2 max-h-64 overflow-y-auto">
+                {#each message.options as option}
+                  <button
+                    on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'uom', option.value)}
+                    class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium text-left"
+                    disabled={loading}
+                  >
+                    {option.label}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+            
+            {#if message.action === 'needs_math' && message.options}
+              <div class="mt-3 flex flex-col gap-2">
+                {#each message.options as option}
+                  <button
+                    on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'math', option.value)}
+                    class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium text-left"
+                    disabled={loading}
+                  >
+                    {option.label}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+            
             {#if message.action === 'needs_value' && message.trackerTag}
               {@const valueInputId = `value-input-${message.id}`}
+              {@const uomKey = message.config?.uom}
+              {@const uomLabel = uomKey ? UOM.plural(uomKey) : ''}
               <div class="mt-3">
                 <div class="flex gap-2 items-center">
                   <input
@@ -530,6 +704,11 @@
                     }}
                     disabled={loading}
                   />
+                  {#if uomLabel}
+                    <span class="text-sm text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">
+                      {uomLabel}
+                    </span>
+                  {/if}
                   <button
                     on:click={() => {
                       const inputEl = document.getElementById(valueInputId)

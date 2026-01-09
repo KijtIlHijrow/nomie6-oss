@@ -11,6 +11,7 @@ import type { ITrackers } from '../../modules/import/import'
 import { Interact } from '../../store/interact'
 import UOM from '../uom/uom'
 import UOMS from '../uom/uom.config'
+import { getGroupedUoms } from '../uom/uom-utils'
 import type { PopMenuButton } from '../../components/pop-menu/usePopmenu'
 import type { UOMElement } from '../uom/uom-types'
 
@@ -29,12 +30,14 @@ export interface AIQueryResponse {
   answer: string
   data?: any
   error?: string
-  action?: 'add_entry' | 'question' | 'needs_value' | 'needs_tracker_creation'
+  action?: 'add_entry' | 'question' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'create_tracker_with_config'
   trackerTag?: string
   trackerName?: string // Original tracker name with capitalization preserved
   trackerType?: string
   value?: number
   originalMessage?: string
+  config?: { type?: string; uom?: string; math?: string } // Partial config being built
+  options?: Array<{ label: string; value: string }> // Options for multiple choice
 }
 
 export interface IntentDetectionResult {
@@ -880,11 +883,14 @@ export async function handleEntryCreation(
     const needsValue = ['value', 'range', 'picker'].includes(trackerType)
     
     if (needsValue && (value === undefined || value === null)) {
+      // Get UOM from tracker if available
+      const trackerUOM = tracker.tracker?.uom || 'num'
       return {
         answer: `How much ${tracker.label || tracker.tag}? (e.g., enter a number)`,
         action: 'needs_value',
         trackerTag: tracker.tag,
         trackerType: trackerType,
+        config: { uom: trackerUOM },
       }
     }
     
@@ -917,14 +923,214 @@ export async function handleEntryCreation(
 }
 
 /**
- * Create tracker if user confirms
+ * Start tracker configuration flow - ask for tracker type first
  */
-export async function createTrackerAndEntry(trackerName: string, userMessage?: string, value?: number): Promise<AIQueryResponse> {
+export function startTrackerConfiguration(trackerName: string, userMessage?: string, value?: number, existingConfig?: { type?: string; uom?: string; math?: string }): AIQueryResponse {
+  const config = existingConfig || {}
+  
+  // If we don't have a type yet, ask for it
+  if (!config.type) {
+    const typeOptions = [
+      { label: 'Tally (Yes/No)', value: 'tick' },
+      { label: 'Value (Number)', value: 'value' },
+      { label: 'Range (Slider)', value: 'range' },
+      { label: 'Picker (Choices)', value: 'picker' },
+      { label: 'Note (Text)', value: 'note' },
+    ]
+    
+    return {
+      answer: `What type of tracker should "${trackerName}" be?`,
+      action: 'needs_tracker_type',
+      trackerName: trackerName,
+      trackerTag: toTag(trackerName),
+      originalMessage: userMessage,
+      value: value,
+      config: config,
+      options: typeOptions,
+    }
+  }
+  
+  // If we have type but need UOM (for value/range types)
+  if ((config.type === 'value' || config.type === 'range') && !config.uom) {
+    const uomHint = userMessage ? parseUOMHint(userMessage) : null
+    
+    // If we have a hint and it's a valid UOM, show it as a quick option, then categories
+    if (uomHint && UOMS[uomHint]) {
+      const groupedUOM = UOM.toGroupedArray()
+      const categoryOptions: Array<{ label: string; value: string }> = []
+      
+      // Add the hinted UOM as a quick option first
+      categoryOptions.push({
+        label: `${UOM.plural(uomHint)}${UOMS[uomHint].symbol ? ` (${UOMS[uomHint].symbol})` : ''} - Quick Select`,
+        value: `__quick__${uomHint}`,
+      })
+      categoryOptions.push({
+        label: '---',
+        value: '__divider__',
+      })
+      
+      // Add category options with user-friendly names
+      const categoryLabels: { [key: string]: string } = {
+        'general': 'General',
+        'currency': 'Currency',
+        'time': 'Time',
+        'distance': 'Distance',
+        'temperature': 'Temperature',
+        'weight': 'Weight',
+        'volume': 'Volume',
+        'health': 'Health',
+      }
+      
+      Object.keys(groupedUOM).forEach((groupKey) => {
+        if (groupKey !== 'Timer' && groupKey !== 'timer') {
+          const groupItems = groupedUOM[groupKey]
+          if (Array.isArray(groupItems) && groupItems.length > 0) {
+            const categoryLabel = categoryLabels[groupKey] || groupKey.charAt(0).toUpperCase() + groupKey.slice(1)
+            categoryOptions.push({
+              label: categoryLabel,
+              value: groupKey,
+            })
+          }
+        }
+      })
+      
+      // Fallback if no categories found
+      if (categoryOptions.length === 0) {
+        const seenTypes = new Set<string>()
+        Object.keys(UOMS).forEach((uomKey) => {
+          const uomObj = UOMS[uomKey]
+          if (uomObj && uomObj.type && uomObj.type !== 'Timer' && uomObj.type !== 'timer' && !seenTypes.has(uomObj.type)) {
+            seenTypes.add(uomObj.type)
+            const categoryLabel = categoryLabels[uomObj.type] || uomObj.type.charAt(0).toUpperCase() + uomObj.type.slice(1)
+            categoryOptions.push({
+              label: categoryLabel,
+              value: uomObj.type,
+            })
+          }
+        })
+      }
+      
+      return {
+        answer: `How should "${trackerName}" be measured?`,
+        action: 'needs_uom_category',
+        trackerName: trackerName,
+        trackerTag: toTag(trackerName),
+        originalMessage: userMessage,
+        value: value,
+        config: config,
+        options: categoryOptions,
+      }
+    }
+    
+    // No hint, show categories first
+    const groupedUOM = UOM.toGroupedArray()
+    const categoryOptions: Array<{ label: string; value: string }> = []
+    
+    // Category labels mapping
+    const categoryLabels: { [key: string]: string } = {
+      'general': 'General',
+      'currency': 'Currency',
+      'time': 'Time',
+      'distance': 'Distance',
+      'temperature': 'Temperature',
+      'weight': 'Weight',
+      'volume': 'Volume',
+      'health': 'Health',
+    }
+    
+    Object.keys(groupedUOM).forEach((groupKey) => {
+      if (groupKey !== 'Timer' && groupKey !== 'timer') {
+        const groupItems = groupedUOM[groupKey]
+        if (Array.isArray(groupItems) && groupItems.length > 0) {
+          const categoryLabel = categoryLabels[groupKey] || groupKey.charAt(0).toUpperCase() + groupKey.slice(1)
+          categoryOptions.push({
+            label: categoryLabel,
+            value: groupKey,
+          })
+        }
+      }
+    })
+    
+    // Ensure we have at least some categories
+    if (categoryOptions.length === 0) {
+      // Fallback: add common categories directly from UOMS
+      const seenTypes = new Set<string>()
+      Object.keys(UOMS).forEach((uomKey) => {
+        const uomObj = UOMS[uomKey]
+        if (uomObj && uomObj.type && uomObj.type !== 'Timer' && uomObj.type !== 'timer' && !seenTypes.has(uomObj.type)) {
+          seenTypes.add(uomObj.type)
+          const categoryLabel = categoryLabels[uomObj.type] || uomObj.type.charAt(0).toUpperCase() + uomObj.type.slice(1)
+          categoryOptions.push({
+            label: categoryLabel,
+            value: uomObj.type,
+          })
+        }
+      })
+    }
+    
+    return {
+      answer: `How should "${trackerName}" be measured?`,
+      action: 'needs_uom_category',
+      trackerName: trackerName,
+      trackerTag: toTag(trackerName),
+      originalMessage: userMessage,
+      value: value,
+      config: config,
+      options: categoryOptions,
+    }
+  }
+  
+  // If we have type and UOM but need math (for value/range types)
+  if ((config.type === 'value' || config.type === 'range') && config.uom && !config.math) {
+    const mathOptions = [
+      { label: 'Sum (Total)', value: 'sum' },
+      { label: 'Average (Mean)', value: 'mean' },
+    ]
+    
+    return {
+      answer: `How should totals be calculated for "${trackerName}"?`,
+      action: 'needs_math',
+      trackerName: trackerName,
+      trackerTag: toTag(trackerName),
+      originalMessage: userMessage,
+      value: value,
+      config: config,
+      options: mathOptions,
+    }
+  }
+  
+  // All config collected, return response indicating ready to create
+  // The view will handle the async creation
+  return {
+    answer: `Creating tracker "${trackerName}"...`,
+    action: 'create_tracker_with_config',
+    trackerName: trackerName,
+    trackerTag: toTag(trackerName),
+    originalMessage: userMessage,
+    value: value,
+    config: config,
+  }
+}
+
+/**
+ * Create tracker with full configuration (called by view when all config is collected)
+ */
+export async function createTrackerWithConfig(trackerName: string, userMessage?: string, value?: number, config?: { type?: string; uom?: string; math?: string }): Promise<AIQueryResponse> {
   try {
-    const tracker = await createBasicTracker(trackerName, userMessage)
+    const tracker = await createBasicTracker(trackerName, userMessage, config)
     if (tracker) {
       // Now create the entry
-      return await handleEntryCreation(`add ${trackerName}`, trackerName, value)
+      const response = await handleEntryCreation(`add ${trackerName}`, trackerName, value)
+      // Ensure config is passed through if response needs value
+      if (response.action === 'needs_value') {
+        // Merge config from parameter with config from response (response takes precedence)
+        response.config = { ...config, ...(response.config || {}) }
+        // If UOM is in the config, use it; otherwise get it from the tracker
+        if (!response.config.uom && tracker.tracker?.uom) {
+          response.config.uom = tracker.tracker.uom
+        }
+      }
+      return response
     } else {
       return {
         answer: `Sorry, I couldn't create the tracker "${trackerName}".`,
@@ -937,6 +1143,108 @@ export async function createTrackerAndEntry(trackerName: string, userMessage?: s
       error: error.message || 'Failed to create tracker',
     }
   }
+}
+
+/**
+ * Handle configuration selection and continue the flow
+ */
+export function handleTrackerConfigSelection(
+  trackerName: string,
+  configKey: 'type' | 'uom' | 'math' | 'uom_category',
+  selectedValue: string,
+  userMessage?: string,
+  value?: number,
+  existingConfig?: { type?: string; uom?: string; math?: string; selectedCategory?: string }
+): AIQueryResponse {
+  // Handle UOM category selection - show UOMs in that category
+  if (configKey === 'uom_category') {
+    // Check if it's a quick select (hinted UOM)
+    if (selectedValue.startsWith('__quick__')) {
+      const uomKey = selectedValue.replace('__quick__', '')
+      const config = { ...existingConfig, uom: uomKey }
+      return startTrackerConfiguration(trackerName, userMessage, value, config)
+    }
+    
+    // Check if it's a divider (shouldn't happen, but handle it)
+    if (selectedValue === '__divider__') {
+      return startTrackerConfiguration(trackerName, userMessage, value, existingConfig)
+    }
+    
+    // It's a category - show UOMs in that category
+    const groupedUOM = UOM.toGroupedArray()
+    const categoryUOMs = groupedUOM[selectedValue]
+    const uomOptions: Array<{ label: string; value: string }> = []
+    
+    if (Array.isArray(categoryUOMs)) {
+      categoryUOMs.forEach((uom: any) => {
+        const uomKey = uom.key || Object.keys(UOMS).find(k => {
+          const uomObj = UOMS[k]
+          return uomObj && uomObj.type === selectedValue && uomObj.plural === uom.plural
+        })
+        
+        if (uomKey && UOMS[uomKey]) {
+          const uomObj = UOMS[uomKey]
+          const symbol = uomObj.symbol || ''
+          const displayName = `${UOM.plural(uomKey)}${symbol ? ` (${symbol})` : ''}`
+          uomOptions.push({
+            label: displayName,
+            value: uomKey,
+          })
+        }
+      })
+    }
+    
+    // If no UOMs found, iterate through all UOMS and filter by type
+    if (uomOptions.length === 0) {
+      Object.keys(UOMS).forEach((uomKey) => {
+        const uomObj = UOMS[uomKey]
+        if (uomObj && uomObj.type === selectedValue) {
+          const symbol = uomObj.symbol || ''
+          const displayName = `${UOM.plural(uomKey)}${symbol ? ` (${symbol})` : ''}`
+          uomOptions.push({
+            label: displayName,
+            value: uomKey,
+          })
+        }
+      })
+    }
+    
+    const categoryLabels: { [key: string]: string } = {
+      'general': 'General',
+      'currency': 'Currency',
+      'time': 'Time',
+      'distance': 'Distance',
+      'temperature': 'Temperature',
+      'weight': 'Weight',
+      'volume': 'Volume',
+      'health': 'Health',
+    }
+    const categoryLabel = categoryLabels[selectedValue] || selectedValue.charAt(0).toUpperCase() + selectedValue.slice(1)
+    return {
+      answer: `Select a ${categoryLabel.toLowerCase()} unit:`,
+      action: 'needs_uom',
+      trackerName: trackerName,
+      trackerTag: toTag(trackerName),
+      originalMessage: userMessage,
+      value: value,
+      config: { ...existingConfig, selectedCategory: selectedValue },
+      options: uomOptions,
+    }
+  }
+  
+  // Handle other config selections
+  const config = { ...existingConfig }
+  if (configKey !== 'uom_category') {
+    config[configKey] = selectedValue
+  }
+  return startTrackerConfiguration(trackerName, userMessage, value, config)
+}
+
+/**
+ * Create tracker if user confirms (legacy - now starts configuration flow)
+ */
+export async function createTrackerAndEntry(trackerName: string, userMessage?: string, value?: number): Promise<AIQueryResponse> {
+  return startTrackerConfiguration(trackerName, userMessage, value)
 }
 
 /**
