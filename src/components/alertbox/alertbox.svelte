@@ -130,7 +130,7 @@ import Markdown from '../markdown/markdown.svelte'
   
 
     transition: all 0.2s ease-in-out;
-    max-width: 400px;
+    max-width: 500px;
     max-height: 80vh;
     min-height: 100px;
     width: 200px;
@@ -153,6 +153,9 @@ import Markdown from '../markdown/markdown.svelte'
     @apply leading-tight;
     @apply pt-1;
     @apply pb-px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
   }
 
   .alert-dialog-window input,
@@ -181,6 +184,8 @@ import Markdown from '../markdown/markdown.svelte'
     flex-grow: 1;
     flex-shrink: 1;
     overflow-y: auto;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 
   .alert-dialog-window .footer {
