@@ -1,8 +1,11 @@
+name: journaleith
+
 services:
   dev:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    container_name: Journaleith
     ports:
       - "5001:5001"
     volumes:
@@ -15,21 +18,21 @@ services:
     depends_on:
       - ollama
     networks:
-      - nomie-network
+      - journaleith-network
 
   ollama:
     image: ollama/ollama:latest
-    container_name: nomie-ollama
+    container_name: journaleith-ollama
     ports:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     networks:
-      - nomie-network
+      - journaleith-network
     restart: unless-stopped
 
 networks:
-  nomie-network:
+  journaleith-network:
     driver: bridge
 
 volumes:

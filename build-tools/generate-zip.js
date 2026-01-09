@@ -9,7 +9,7 @@ let version = pkg.version;
 
 const SourceFolderName = "dist";
 const TargetFolderName = "bin";
-const zipName = "nomie6-oss."+ version + ".zip";
+const zipName = "Journaleith."+ version + ".zip";
 const source = path.join(ROOT, SourceFolderName);
 const target = path.join(ROOT, TargetFolderName);
 
@@ -54,9 +54,9 @@ const zipDirectory = (sourceDir, targetDir, zipFile) => {
 
 async function ZipDistribution(){
   await zipDirectory(source,target,zipName);
-  fs.copyFile(target+'/'+zipName, target+'/nomie6-oss.latest.zip', (err) => {
+  fs.copyFile(target+'/'+zipName, target+'/Journaleith.latest.zip', (err) => {
     if (err) throw err;
-    console.log('nomie-oss_latest created');
+    console.log('Journaleith_latest created');
   });
 }
 
