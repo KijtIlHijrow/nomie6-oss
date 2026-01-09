@@ -6,6 +6,7 @@
   import ListItemLog from '../../components/list-item-log/list-item-log.svelte'
   import NLog from '../../domains/nomie-log/nomie-log'
   import { getTrackablesFromStorage, saveTrackersToStorage } from '../../domains/trackable/TrackableStore'
+  import AutoComplete from '../../components/auto-complete/auto-complete.svelte'
 
   let question = ''
   let loading = false
@@ -13,18 +14,19 @@
   let ollamaAvailable = false
   let availableModels: string[] = []
   let selectedModel = 'llama3.2'
+  let includeInputValues: { [key: string]: string } = {}
   let messages: Array<{ 
     id: string; 
     role: 'user' | 'assistant' | 'error'; 
     content: string; 
     timestamp: Date;
-    action?: 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_default_value' | 'create_tracker_with_config' | 'add_entry' | 'question';
+    action?: 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'add_entry' | 'question';
     trackerTag?: string;
     trackerName?: string;
     trackerType?: string;
     originalMessage?: string;
     value?: number;
-    config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; default?: number };
+    config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; include?: string; default?: number };
     options?: Array<{ label: string; value: string }>;
     log?: NLog | undefined;
   }> = []
@@ -125,7 +127,7 @@
     }, 100)
   }
 
-  async function handleButtonClick(action: 'create_tracker' | 'cancel_tracker' | 'submit_value' | 'select_config' | 'save_default', messageId: string, trackerTag?: string, originalMessage?: string, value?: number, configKey?: 'type' | 'uom' | 'math' | 'uom_category' | 'positivity' | 'focus', selectedValue?: string) {
+  async function handleButtonClick(action: 'create_tracker' | 'cancel_tracker' | 'submit_value' | 'select_config' | 'save_default', messageId: string, trackerTag?: string, originalMessage?: string, value?: number, configKey?: 'type' | 'uom' | 'math' | 'uom_category' | 'positivity' | 'focus' | 'also_include', selectedValue?: string) {
     const message = messages.find(m => m.id === messageId)
     if (!message) return
 
@@ -299,28 +301,29 @@
         }
       } else if (action === 'select_config' && message && configKey && selectedValue) {
         // Handle configuration selection
-        const response = handleTrackerConfigSelection(
-          message.trackerName || message.trackerTag?.replace('#', '') || '',
-          configKey,
-          selectedValue,
-          message.originalMessage,
-          message.value,
-          message.config
-        )
-        
-        // Remove loading message
-        messages = messages.filter(m => m.id !== loadingMessageId)
-        
-        // Remove the action buttons from the original message
-        messages = messages.map(m => {
-          if (m.id === messageId) {
-            return { ...m, action: undefined }
-          }
-          return m
-        })
-        
-        // If response has an action, check if it's ready to create or needs more config
-        if (response.action === 'create_tracker_with_config') {
+        try {
+          const response = handleTrackerConfigSelection(
+            message.trackerName || message.trackerTag?.replace('#', '') || '',
+            configKey,
+            selectedValue,
+            message.originalMessage,
+            message.value,
+            message.config
+          )
+          
+          // Remove loading message
+          messages = messages.filter(m => m.id !== loadingMessageId)
+          
+          // Remove the action buttons from the original message
+          messages = messages.map(m => {
+            if (m.id === messageId) {
+              return { ...m, action: undefined }
+            }
+            return m
+          })
+          
+          // If response has an action, check if it's ready to create or needs more config
+          if (response.action === 'create_tracker_with_config') {
           // All config collected, create tracker (async)
           const createResponse = await createTrackerWithConfig(
             response.trackerName || response.trackerTag?.replace('#', '') || '',
@@ -382,6 +385,22 @@
             options: response.options,
           }
           messages = [...messages, newMessage]
+        } else {
+          // No action in response - this shouldn't happen, but handle gracefully
+          console.warn('No action in response from handleTrackerConfigSelection:', response)
+        }
+        } catch (err) {
+          console.error('Error in handleTrackerConfigSelection:', err)
+          messages = messages.filter(m => m.id !== loadingMessageId)
+          messages = [
+            ...messages,
+            {
+              id: generateMessageId('error'),
+              role: 'error',
+              content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+              timestamp: new Date(),
+            }
+          ]
         }
       }
       
@@ -752,6 +771,90 @@
                     {option.label}
                   </button>
                 {/each}
+              </div>
+            {/if}
+            
+            {#if message.action === 'needs_also_include' && message.options}
+              {@const alsoIncludeInputId = `also-include-input-${message.id}`}
+              {@const includeInputKey = `include-input-${message.id}`}
+              {#if !includeInputValues[includeInputKey]}
+                {@const _ = (includeInputValues[includeInputKey] = '')}
+              {/if}
+              <div class="mt-3">
+                {#if message.options.length === 1 && message.options[0].value === '__skip__'}
+                  <!-- User said yes, now asking for the content -->
+                  <div class="flex flex-col gap-2">
+                    <div class="relative">
+                      <input
+                        id={alsoIncludeInputId}
+                        type="text"
+                        placeholder="e.g., #alcohol or @person or +context"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                        bind:value={includeInputValues[includeInputKey]}
+                        on:keypress={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = includeInputValues[includeInputKey]?.trim() || ''
+                            if (val) {
+                              handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'also_include', val)
+                            } else {
+                              handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'also_include', '__skip__')
+                            }
+                            includeInputValues[includeInputKey] = ''
+                          }
+                        }}
+                        disabled={loading}
+                        autofocus
+                      />
+                      <AutoComplete
+                        input={includeInputValues[includeInputKey] || ''}
+                        scroller
+                        on:select={async (evt) => {
+                          includeInputValues[includeInputKey] = evt.detail.note + ''
+                        }}
+                      />
+                    </div>
+                    <div class="flex gap-2">
+                      <button
+                        on:click={() => {
+                          const val = includeInputValues[includeInputKey]?.trim() || ''
+                          if (val) {
+                            handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'also_include', val)
+                          } else {
+                            handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'also_include', '__skip__')
+                          }
+                          includeInputValues[includeInputKey] = ''
+                        }}
+                        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                        disabled={loading}
+                      >
+                        Submit
+                      </button>
+                      <button
+                        on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'also_include', '__skip__')}
+                        class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+                        disabled={loading}
+                      >
+                        Skip
+                      </button>
+                    </div>
+                  </div>
+                {:else}
+                  <!-- Initial question: Yes or Skip -->
+                  <div class="flex flex-col gap-2">
+                    {#each message.options as option}
+                      <button
+                        on:click|stopPropagation={() => {
+                          console.log('Also Include button clicked:', option.value)
+                          handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'also_include', option.value)
+                        }}
+                        class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium text-left"
+                        disabled={loading}
+                      >
+                        {option.label}
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
               </div>
             {/if}
             

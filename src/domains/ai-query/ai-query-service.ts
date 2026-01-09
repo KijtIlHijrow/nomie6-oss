@@ -32,13 +32,13 @@ export interface AIQueryResponse {
   answer: string
   data?: any
   error?: string
-  action?: 'add_entry' | 'question' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_default_value' | 'create_tracker_with_config'
+  action?: 'add_entry' | 'question' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config'
   trackerTag?: string
   trackerName?: string // Original tracker name with capitalization preserved
   trackerType?: string
   value?: number
   originalMessage?: string
-  config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; default?: number } // Partial config being built
+  config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; include?: string; default?: number } // Partial config being built
   options?: Array<{ label: string; value: string }> // Options for multiple choice
 }
 
@@ -708,7 +708,7 @@ async function promptForMath(): Promise<'sum' | 'mean'> {
 async function createBasicTracker(
   trackerName: string,
   userMessage?: string,
-  config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; default?: number }
+  config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; include?: string; default?: number }
 ): Promise<Trackable | null> {
   try {
     const tag = toTag(trackerName)
@@ -762,6 +762,7 @@ async function createBasicTracker(
       math: finalMath,
       score: finalScore,
       focus: finalFocus.length > 0 ? finalFocus : undefined,
+      include: config?.include && config.include.trim() !== '' ? config.include : undefined, // Only set if not empty
       default: config?.default,
       emoji: '📝',
     })
@@ -944,7 +945,7 @@ export async function handleEntryCreation(
 /**
  * Start tracker configuration flow - ask for tracker type first
  */
-export function startTrackerConfiguration(trackerName: string, userMessage?: string, value?: number, existingConfig?: { type?: string; uom?: string; math?: string }): AIQueryResponse {
+export function startTrackerConfiguration(trackerName: string, userMessage?: string, value?: number, existingConfig?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; include?: string }): AIQueryResponse {
   const config = existingConfig || {}
   
   // If we don't have a type yet, ask for it
@@ -1159,6 +1160,44 @@ export function startTrackerConfiguration(trackerName: string, userMessage?: str
     }
   }
   
+  // Focus set, now ask about "Also Include"
+  // Check if include is undefined (not set yet) or if we're waiting for content
+  if (config.include === undefined || config.include === null) {
+    // Check if we're waiting for the include content (user said yes but hasn't provided it yet)
+    const waitingForInclude = (config as any).__waiting_for_include === true
+    
+    if (waitingForInclude) {
+      // User said yes, now ask for the content
+      return {
+        answer: `What should be automatically included when tracking "${trackerName}"? (e.g., #alcohol({value}*0.5) or @person or +context)`,
+        action: 'needs_also_include',
+        trackerName: trackerName,
+        trackerTag: toTag(trackerName),
+        originalMessage: userMessage,
+        value: value,
+        config: config,
+        options: [{ label: 'Skip (No)', value: '__skip__' }],
+      }
+    } else {
+      // Initial question: Yes or Skip
+      const alsoIncludeOptions = [
+        { label: 'Yes, add "Also Include"', value: '__yes__' },
+        { label: 'Skip (No)', value: '__skip__' },
+      ]
+      
+      return {
+        answer: `Would you like to automatically include other trackers, people, or contexts when tracking "${trackerName}"? (e.g., include #alcohol({value}*0.5) in a beer tracker)`,
+        action: 'needs_also_include',
+        trackerName: trackerName,
+        trackerTag: toTag(trackerName),
+        originalMessage: userMessage,
+        value: value,
+        config: config,
+        options: alsoIncludeOptions,
+      }
+    }
+  }
+  
   // All config collected, return response indicating ready to create
   // The view will handle the async creation
   return {
@@ -1175,7 +1214,7 @@ export function startTrackerConfiguration(trackerName: string, userMessage?: str
 /**
  * Create tracker with full configuration (called by view when all config is collected)
  */
-export async function createTrackerWithConfig(trackerName: string, userMessage?: string, value?: number, config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; default?: number }): Promise<AIQueryResponse> {
+export async function createTrackerWithConfig(trackerName: string, userMessage?: string, value?: number, config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; include?: string; default?: number }): Promise<AIQueryResponse> {
   try {
     const tracker = await createBasicTracker(trackerName, userMessage, config)
     if (tracker) {
@@ -1210,11 +1249,11 @@ export async function createTrackerWithConfig(trackerName: string, userMessage?:
  */
 export function handleTrackerConfigSelection(
   trackerName: string,
-  configKey: 'type' | 'uom' | 'math' | 'uom_category' | 'positivity' | 'focus',
+  configKey: 'type' | 'uom' | 'math' | 'uom_category' | 'positivity' | 'focus' | 'also_include',
   selectedValue: string,
   userMessage?: string,
   value?: number,
-  existingConfig?: { type?: string; uom?: string; math?: string; selectedCategory?: string; score?: string; focus?: string[] }
+  existingConfig?: { type?: string; uom?: string; math?: string; selectedCategory?: string; score?: string; focus?: string[]; include?: string }
 ): AIQueryResponse {
   // Handle UOM category selection - show UOMs in that category
   if (configKey === 'uom_category') {
@@ -1345,6 +1384,27 @@ export function handleTrackerConfigSelection(
       value: value,
       config: config,
       options: focusOptions,
+    }
+  }
+  
+  // Handle "Also Include" selection
+  if (configKey === 'also_include') {
+    const config = { ...existingConfig } as any
+    
+    if (selectedValue === '__skip__') {
+      // Skip "Also Include" - set to empty string so we don't ask again
+      delete config.__waiting_for_include
+      config.include = '' // Use empty string instead of undefined to indicate "skipped"
+      return startTrackerConfiguration(trackerName, userMessage, value, config)
+    } else if (selectedValue === '__yes__') {
+      // User wants to add "Also Include" - mark that we're waiting for content
+      config.__waiting_for_include = true
+      return startTrackerConfiguration(trackerName, userMessage, value, config)
+    } else {
+      // User provided the include content
+      config.include = selectedValue
+      delete config.__waiting_for_include
+      return startTrackerConfiguration(trackerName, userMessage, value, config)
     }
   }
   
