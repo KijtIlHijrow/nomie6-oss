@@ -386,11 +386,9 @@ function detectIntent(message: string, availableTrackers: Array<{ tag: string; l
     const trackerNames: string[] = []
     let value: number | undefined
     
-    // Extract value from message (e.g., "add intraworkout 5")
-    const valueMatch = lowerMessage.match(/(?:add|track|log|record|enter)\s+\w+\s+(\d+(?:\.\d+)?)/i)
-    if (valueMatch) {
-      value = parseFloat(valueMatch[1])
-    }
+    // Extract value from message (e.g., "add intraworkout 5" or "add Vitamin C 100")
+    // Look for numbers at the end of the message - this will be handled in Pattern 5
+    // We'll extract value there to avoid interfering with multi-word tracker names
     
     // Try to find tracker names by matching against available trackers first
     for (const tracker of availableTrackers) {
@@ -428,11 +426,11 @@ function detectIntent(message: string, availableTrackers: Array<{ tag: string; l
         }
       }
       
-      // Pattern 3: "called X" or "named X"
+      // Pattern 3: "called X" or "named X" (supports multi-word names)
       if (!extractedName) {
-        const calledMatch = lowerMessage.match(/(?:called|named)\s+([a-z0-9_]+)/i)
+        const calledMatch = message.match(/(?:called|named)\s+([a-zA-Z0-9_\s]+?)(?:\s+\d+(?:\.\d+)?)?$/i)
         if (calledMatch) {
-          extractedName = calledMatch[1]
+          extractedName = calledMatch[1].trim()
         }
       }
       
@@ -444,23 +442,46 @@ function detectIntent(message: string, availableTrackers: Array<{ tag: string; l
         }
       }
       
-      // Pattern 5: Look for capitalized words (likely proper nouns/tracker names)
-      if (!extractedName) {
-        const capitalizedMatch = message.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/)
-        if (capitalizedMatch) {
-          extractedName = capitalizedMatch[1] // Preserve original capitalization
-        }
-      }
-      
-      // Pattern 6: Fallback - look for words after "add", "track", etc., but skip common words
+      // Pattern 5: Direct extraction after "add", "track", etc. - PRIMARY PATTERN for "add X" cases
+      // This pattern captures multi-word tracker names like "Vitamin C"
       if (!extractedName) {
         const skipWords = ['new', 'a', 'an', 'the', 'tracker', 'entry', 'log']
         // Match against original message to preserve capitalization
-        const addMatch = message.match(/(?:add|track|log|record|enter)\s+(?:new\s+)?(?:tracker\s+for\s+)?(?:a\s+)?(?:an\s+)?(?:the\s+)?([a-zA-Z0-9_]+)/i)
-        if (addMatch) {
-          const potentialTag = addMatch[1]
-          if (!skipWords.includes(potentialTag.toLowerCase())) {
+        // First, try to match with a value at the end: "add X 5"
+        let addMatch = message.match(/(?:add|track|log|record|enter)\s+(?:new\s+)?(?:tracker\s+for\s+)?(?:a\s+)?(?:an\s+)?(?:the\s+)?([a-zA-Z][a-zA-Z0-9_\s]*?)\s+(\d+(?:\.\d+)?)$/i)
+        if (addMatch && addMatch[1]) {
+          const potentialTag = addMatch[1].trim()
+          const firstWord = potentialTag.split(/\s+/)[0]?.toLowerCase()
+          if (firstWord && !skipWords.includes(firstWord) && potentialTag.length > 0) {
             extractedName = potentialTag
+            if (addMatch[2] && value === undefined) {
+              value = parseFloat(addMatch[2])
+            }
+          }
+        } else {
+          // No value, just capture everything after "add" until end of string
+          addMatch = message.match(/(?:add|track|log|record|enter)\s+(?:new\s+)?(?:tracker\s+for\s+)?(?:a\s+)?(?:an\s+)?(?:the\s+)?([a-zA-Z][a-zA-Z0-9_\s]*)$/i)
+          if (addMatch && addMatch[1]) {
+            const potentialTag = addMatch[1].trim()
+            const firstWord = potentialTag.split(/\s+/)[0]?.toLowerCase()
+            if (firstWord && !skipWords.includes(firstWord) && potentialTag.length > 0) {
+              extractedName = potentialTag
+            }
+          }
+        }
+      }
+      
+      // Pattern 6: Look for capitalized words after add/track keywords (fallback for capitalized names)
+      if (!extractedName) {
+        // First try to find capitalized words right after the add keyword
+        const capitalizedMatchAfterAdd = message.match(/(?:add|track|log|record|enter)\s+(?:new\s+)?(?:tracker\s+for\s+)?(?:a\s+)?(?:an\s+)?(?:the\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)(?:\s+\d+(?:\.\d+)?)?/i)
+        if (capitalizedMatchAfterAdd) {
+          extractedName = capitalizedMatchAfterAdd[1] // Preserve original capitalization
+        } else {
+          // Fallback: look for any capitalized words in the message
+          const capitalizedMatch = message.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/)
+          if (capitalizedMatch) {
+            extractedName = capitalizedMatch[1] // Preserve original capitalization
           }
         }
       }
