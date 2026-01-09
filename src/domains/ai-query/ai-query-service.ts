@@ -1368,6 +1368,72 @@ export async function createTrackerWithConfig(trackerName: string, userMessage?:
 }
 
 /**
+ * Go back one step in the tracker configuration flow
+ */
+export function goBackTrackerConfig(
+  trackerName: string,
+  currentAction: string,
+  userMessage?: string,
+  value?: number,
+  existingConfig?: { type?: string; uom?: string; math?: string; selectedCategory?: string; score?: string; focus?: string[]; include?: string }
+): AIQueryResponse {
+  const config = { ...existingConfig } as any
+  const trackerType = config.type
+  
+  // Determine which config key to remove based on current action and tracker type
+  if (currentAction === 'needs_also_include') {
+    // If waiting for include content, just remove the waiting flag
+    if (config.__waiting_for_include) {
+      delete config.__waiting_for_include
+      return startTrackerConfiguration(trackerName, userMessage, value, config)
+    }
+    // Otherwise, remove include and go back to focus
+    delete config.include
+    delete config.__waiting_for_include
+  } else if (currentAction === 'needs_focus') {
+    // Go back to positivity
+    delete config.focus
+  } else if (currentAction === 'needs_positivity') {
+    // Go back based on tracker type
+    // For value/range trackers, we need math after UOM, so go back to math
+    // For other types (tick, picker, note), go back to tracker type
+    delete config.score
+    if (trackerType === 'value' || trackerType === 'range') {
+      // Delete math to go back to math selection
+      delete config.math
+    } else {
+      // For tick, picker, note - these don't need math or UOM, so delete type to go back to type selection
+      delete config.type
+    }
+  } else if (currentAction === 'needs_math') {
+    // Go back to UOM - delete math and uom
+    delete config.math
+    delete config.uom
+    // Also delete selectedCategory to go back to category selection
+    delete config.selectedCategory
+  } else if (currentAction === 'needs_uom') {
+    // If we're at needs_uom, check if we came from a category selection
+    if (config.selectedCategory) {
+      // Go back to category selection by removing selectedCategory and uom
+      delete config.selectedCategory
+      delete config.uom
+    } else {
+      // No category, go back to tracker type
+      delete config.uom
+      delete config.type
+    }
+  } else if (currentAction === 'needs_uom_category') {
+    // Go back to tracker type
+    delete config.uom
+    delete config.selectedCategory
+    delete config.type
+  }
+  // If currentAction is 'needs_tracker_type', we can't go back further
+  
+  return startTrackerConfiguration(trackerName, userMessage, value, config)
+}
+
+/**
  * Handle configuration selection and continue the flow
  */
 export function handleTrackerConfigSelection(

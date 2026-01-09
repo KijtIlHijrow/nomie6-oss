@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
-  import { answerQuestion, checkOllamaAvailable, getAvailableModels, handleEntryCreation, createTrackerAndEntry, parseValueFromMessage, handleTrackerConfigSelection, createTrackerWithConfig, startTrackerConfiguration, type AIQueryResponse } from './ai-query-service'
+  import { answerQuestion, checkOllamaAvailable, getAvailableModels, handleEntryCreation, createTrackerAndEntry, parseValueFromMessage, handleTrackerConfigSelection, createTrackerWithConfig, startTrackerConfiguration, goBackTrackerConfig, type AIQueryResponse } from './ai-query-service'
   import UOM from '../../domains/uom/uom'
   import { Interact } from '../../store/interact'
   import ListItemLog from '../../components/list-item-log/list-item-log.svelte'
@@ -127,7 +127,7 @@
     }, 100)
   }
 
-  async function handleButtonClick(action: 'create_tracker' | 'cancel_tracker' | 'submit_value' | 'select_config' | 'save_default', messageId: string, trackerTag?: string, originalMessage?: string, value?: number, configKey?: 'type' | 'uom' | 'math' | 'uom_category' | 'positivity' | 'focus' | 'also_include', selectedValue?: string) {
+  async function handleButtonClick(action: 'create_tracker' | 'cancel_tracker' | 'submit_value' | 'select_config' | 'save_default' | 'go_back', messageId: string, trackerTag?: string, originalMessage?: string, value?: number, configKey?: 'type' | 'uom' | 'math' | 'uom_category' | 'positivity' | 'focus' | 'also_include', selectedValue?: string) {
     const message = messages.find(m => m.id === messageId)
     if (!message) return
 
@@ -403,6 +403,86 @@
         }
         } catch (err) {
           console.error('Error in handleTrackerConfigSelection:', err)
+          messages = messages.filter(m => m.id !== loadingMessageId)
+          messages = [
+            ...messages,
+            {
+              id: generateMessageId('error'),
+              role: 'error',
+              content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+              timestamp: new Date(),
+            }
+          ]
+        }
+      } else if (action === 'go_back' && message) {
+        // Handle going back one step
+        try {
+          const response = goBackTrackerConfig(
+            message.trackerName || message.trackerTag?.replace('#', '') || '',
+            message.action || '',
+            message.originalMessage,
+            message.value,
+            message.config
+          )
+          
+          // Remove loading message
+          messages = messages.filter(m => m.id !== loadingMessageId)
+          
+          // Remove the action buttons from the current message
+          messages = messages.map(m => {
+            if (m.id === messageId) {
+              return { ...m, action: undefined }
+            }
+            return m
+          })
+          
+          // Check if there's already a message with the same action that we're going back to
+          // If so, update that message instead of creating a duplicate
+          let foundExistingMessage = false
+          if (response.action) {
+            // Find the current message's index
+            const currentMessageIndex = messages.findIndex(m => m.id === messageId)
+            // Find the last message with the same action before the current message
+            for (let i = currentMessageIndex - 1; i >= 0; i--) {
+              if (messages[i].action === response.action) {
+                // Update the existing message
+                messages = messages.map(m => {
+                  if (m.id === messages[i].id) {
+                    return {
+                      ...m,
+                      content: response.answer,
+                      config: response.config,
+                      options: response.options,
+                      action: response.action,
+                    }
+                  }
+                  return m
+                })
+                foundExistingMessage = true
+                break
+              }
+            }
+          }
+          
+          // If no existing message found, create a new one
+          if (!foundExistingMessage && response.answer) {
+            const backMessage = {
+              id: generateMessageId('assistant'),
+              role: 'assistant' as const,
+              content: response.answer,
+              timestamp: new Date(),
+              action: response.action,
+              trackerTag: response.trackerTag,
+              trackerName: response.trackerName,
+              originalMessage: response.originalMessage,
+              value: response.value,
+              config: response.config,
+              options: response.options,
+            }
+            messages = [...messages, backMessage]
+          }
+        } catch (err) {
+          console.error('Error going back:', err)
           messages = messages.filter(m => m.id !== loadingMessageId)
           messages = [
             ...messages,
@@ -720,6 +800,13 @@
             
             {#if message.action === 'needs_uom_category' && message.options}
               <div class="mt-3 flex flex-col gap-2">
+                <button
+                  on:click={() => handleButtonClick('go_back', message.id)}
+                  class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium text-left border border-gray-300 dark:border-gray-600"
+                  disabled={loading}
+                >
+                  ← Back
+                </button>
                 {#each message.options as option}
                   {#if option.value === '__divider__'}
                     <div class="border-t border-gray-300 dark:border-gray-700 my-1"></div>
@@ -737,25 +824,41 @@
             {/if}
             
             {#if message.action === 'needs_uom' && message.options}
-              <div class="mt-3 flex flex-col gap-2 max-h-64 overflow-y-auto">
-                {#each message.options as option}
-                  {#if option.value === '__divider__'}
-                    <div class="border-t border-gray-300 dark:border-gray-700 my-1"></div>
-                  {:else}
-                    <button
-                      on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'uom', option.value)}
-                      class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium text-left"
-                      disabled={loading}
-                    >
-                      {option.label}
-                    </button>
-                  {/if}
-                {/each}
+              <div class="mt-3 flex flex-col gap-2">
+                <button
+                  on:click={() => handleButtonClick('go_back', message.id)}
+                  class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium text-left border border-gray-300 dark:border-gray-600"
+                  disabled={loading}
+                >
+                  ← Back
+                </button>
+                <div class="flex flex-col gap-2 max-h-64 overflow-y-auto">
+                  {#each message.options as option}
+                    {#if option.value === '__divider__'}
+                      <div class="border-t border-gray-300 dark:border-gray-700 my-1"></div>
+                    {:else}
+                      <button
+                        on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'uom', option.value)}
+                        class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium text-left"
+                        disabled={loading}
+                      >
+                        {option.label}
+                      </button>
+                    {/if}
+                  {/each}
+                </div>
               </div>
             {/if}
             
             {#if message.action === 'needs_math' && message.options}
               <div class="mt-3 flex flex-col gap-2">
+                <button
+                  on:click={() => handleButtonClick('go_back', message.id)}
+                  class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium text-left border border-gray-300 dark:border-gray-600"
+                  disabled={loading}
+                >
+                  ← Back
+                </button>
                 {#each message.options as option}
                   <button
                     on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'math', option.value)}
@@ -770,6 +873,13 @@
             
             {#if message.action === 'needs_positivity' && message.options}
               <div class="mt-3 flex flex-col gap-2">
+                <button
+                  on:click={() => handleButtonClick('go_back', message.id)}
+                  class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium text-left border border-gray-300 dark:border-gray-600"
+                  disabled={loading}
+                >
+                  ← Back
+                </button>
                 {#each message.options as option}
                   <button
                     on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'positivity', option.value)}
@@ -784,6 +894,13 @@
             
             {#if message.action === 'needs_focus' && message.options}
               <div class="mt-3 flex flex-col gap-2">
+                <button
+                  on:click={() => handleButtonClick('go_back', message.id)}
+                  class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium text-left border border-gray-300 dark:border-gray-600"
+                  disabled={loading}
+                >
+                  ← Back
+                </button>
                 {#each message.options as option}
                   <button
                     on:click={() => handleButtonClick('select_config', message.id, message.trackerTag, message.originalMessage, message.value, 'focus', option.value)}
@@ -806,6 +923,13 @@
                 {#if message.options.length === 1 && message.options[0].value === '__skip__'}
                   <!-- User said yes, now asking for the content -->
                   <div class="flex flex-col gap-2">
+                    <button
+                      on:click={() => handleButtonClick('go_back', message.id)}
+                      class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium text-left border border-gray-300 dark:border-gray-600"
+                      disabled={loading}
+                    >
+                      ← Back
+                    </button>
                     <div class="relative">
                       <input
                         id={alsoIncludeInputId}
@@ -863,6 +987,13 @@
                 {:else}
                   <!-- Initial question: Yes or Skip -->
                   <div class="flex flex-col gap-2">
+                    <button
+                      on:click={() => handleButtonClick('go_back', message.id)}
+                      class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium text-left border border-gray-300 dark:border-gray-600"
+                      disabled={loading}
+                    >
+                      ← Back
+                    </button>
                     {#each message.options as option}
                       <button
                         on:click|stopPropagation={() => {
