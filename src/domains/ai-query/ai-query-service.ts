@@ -455,10 +455,11 @@ function detectIntent(message: string, availableTrackers: Array<{ tag: string; l
       // Pattern 6: Fallback - look for words after "add", "track", etc., but skip common words
       if (!extractedName) {
         const skipWords = ['new', 'a', 'an', 'the', 'tracker', 'entry', 'log']
-        const addMatch = lowerMessage.match(/(?:add|track|log|record|enter)\s+(?:new\s+)?(?:tracker\s+for\s+)?(?:a\s+)?(?:an\s+)?(?:the\s+)?([a-z0-9_]+)/i)
+        // Match against original message to preserve capitalization
+        const addMatch = message.match(/(?:add|track|log|record|enter)\s+(?:new\s+)?(?:tracker\s+for\s+)?(?:a\s+)?(?:an\s+)?(?:the\s+)?([a-zA-Z0-9_]+)/i)
         if (addMatch) {
           const potentialTag = addMatch[1]
-          if (!skipWords.includes(potentialTag)) {
+          if (!skipWords.includes(potentialTag.toLowerCase())) {
             extractedName = potentialTag
           }
         }
