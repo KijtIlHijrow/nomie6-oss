@@ -314,14 +314,6 @@
           // Remove loading message
           messages = messages.filter(m => m.id !== loadingMessageId)
           
-          // Remove the action buttons from the original message
-          messages = messages.map(m => {
-            if (m.id === messageId) {
-              return { ...m, action: undefined }
-            }
-            return m
-          })
-          
           // If response has an action, check if it's ready to create or needs more config
           if (response.action === 'create_tracker_with_config') {
           // All config collected, create tracker (async)
@@ -331,6 +323,14 @@
             response.value,
             response.config
           )
+          
+          // Remove the action buttons from the original message
+          messages = messages.map(m => {
+            if (m.id === messageId) {
+              return { ...m, action: undefined }
+            }
+            return m
+          })
           
           if (createResponse.error) {
             messages = [
@@ -371,22 +371,52 @@
           }
         } else if (response.action) {
           // More configuration needed
-          const newMessage = {
-            id: generateMessageId('assistant'),
-            role: 'assistant' as const,
-            content: response.answer,
-            timestamp: new Date(),
-            action: response.action,
-            trackerTag: response.trackerTag,
-            trackerName: response.trackerName,
-            originalMessage: response.originalMessage,
-            value: response.value,
-            config: response.config,
-            options: response.options,
+          // For focus selection, update the existing message instead of creating a new one
+          if (response.action === 'needs_focus' && message.action === 'needs_focus') {
+            // Update the existing message with new options and config
+            messages = messages.map(m => {
+              if (m.id === messageId) {
+                return {
+                  ...m,
+                  content: response.answer,
+                  config: response.config,
+                  options: response.options,
+                }
+              }
+              return m
+            })
+          } else {
+            // For other actions, remove the action from the original message and create a new one
+            messages = messages.map(m => {
+              if (m.id === messageId) {
+                return { ...m, action: undefined }
+              }
+              return m
+            })
+            
+            const newMessage = {
+              id: generateMessageId('assistant'),
+              role: 'assistant' as const,
+              content: response.answer,
+              timestamp: new Date(),
+              action: response.action,
+              trackerTag: response.trackerTag,
+              trackerName: response.trackerName,
+              originalMessage: response.originalMessage,
+              value: response.value,
+              config: response.config,
+              options: response.options,
+            }
+            messages = [...messages, newMessage]
           }
-          messages = [...messages, newMessage]
         } else {
-          // No action in response - this shouldn't happen, but handle gracefully
+          // No action in response - remove action from original message
+          messages = messages.map(m => {
+            if (m.id === messageId) {
+              return { ...m, action: undefined }
+            }
+            return m
+          })
           console.warn('No action in response from handleTrackerConfigSelection:', response)
         }
         } catch (err) {
