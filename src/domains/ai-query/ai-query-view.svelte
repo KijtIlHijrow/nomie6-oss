@@ -16,11 +16,12 @@
     role: 'user' | 'assistant' | 'error'; 
     content: string; 
     timestamp: Date;
-    action?: 'needs_value' | 'needs_tracker_creation';
+    action?: 'needs_value' | 'needs_tracker_creation' | 'add_entry' | 'question';
     trackerTag?: string;
+    trackerName?: string;
     trackerType?: string;
     originalMessage?: string;
-    log?: NLog;
+    log?: NLog | undefined;
   }> = []
   let chatContainer: HTMLDivElement
   let showModelSelector = false
@@ -138,8 +139,12 @@
     scrollToBottom()
 
     try {
-      if (action === 'create_tracker' && trackerTag) {
-        const response = await createTrackerAndEntry(trackerTag.replace('#', ''), originalMessage, value)
+      if (action === 'create_tracker') {
+        const message = messages.find(m => m.id === messageId)
+        // Use trackerName if available (preserves capitalization), otherwise fall back to trackerTag
+        const nameToUse = message?.trackerName || trackerTag?.replace('#', '') || ''
+        if (!nameToUse) return
+        const response = await createTrackerAndEntry(nameToUse, originalMessage, value)
         
         // Remove loading message
         messages = messages.filter(m => m.id !== loadingMessageId)
@@ -262,11 +267,12 @@
 
     // Check for pending value request first
     if (pendingValueRequest) {
+      const pendingRequest = pendingValueRequest // Capture for type narrowing
       const value = parseValueFromMessage(questionToAsk)
       if (value !== null) {
-        const message = messages.find(m => m.id === pendingValueRequest.messageId)
+        const message = messages.find(m => m.id === pendingRequest.messageId)
         if (message) {
-          await handleButtonClick('submit_value', pendingValueRequest.messageId, undefined, undefined, value)
+          await handleButtonClick('submit_value', pendingRequest.messageId, undefined, undefined, value)
         }
         return
       } else {
@@ -345,6 +351,7 @@
           timestamp: new Date(),
           action: response.action,
           trackerTag: response.trackerTag,
+          trackerName: response.trackerName,
           trackerType: response.trackerType,
           originalMessage: response.originalMessage,
           log: response.data?.log ? new NLog(response.data.log) : undefined,

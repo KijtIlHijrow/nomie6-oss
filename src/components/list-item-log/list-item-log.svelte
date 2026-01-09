@@ -23,7 +23,7 @@
   import is from '../../utils/is/is'
 
   // props
-  export let log = undefined
+  export let log: NLog | undefined = undefined
   // export let trackers = {};
   export let fullDate: boolean = false
   export let hideTrackables = false

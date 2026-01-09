@@ -31,6 +31,7 @@ export interface AIQueryResponse {
   error?: string
   action?: 'add_entry' | 'question' | 'needs_value' | 'needs_tracker_creation'
   trackerTag?: string
+  trackerName?: string // Original tracker name with capitalization preserved
   trackerType?: string
   value?: number
   originalMessage?: string
@@ -863,6 +864,7 @@ export async function handleEntryCreation(
           answer: `I don't see a tracker called "${trackerName}". Would you like me to create a tracker called "${trackerName}"?`,
           action: 'needs_tracker_creation',
           trackerTag: suggestedTag,
+          trackerName: trackerName, // Preserve original capitalization
           originalMessage: message,
         }
       }
