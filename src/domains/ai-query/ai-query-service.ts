@@ -413,9 +413,9 @@ function detectIntent(message: string, availableTrackers: Array<{ tag: string; l
         const forMatch = lowerMessage.match(/for\s+([a-z0-9_]+)/i)
         if (forMatch) {
           // Check if the word after "for" is capitalized in original message (likely a name)
-          const originalMatch = message.match(/for\s+([A-Z][a-z]+)/)
+          const originalMatch = message.match(/for\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/)
           if (originalMatch) {
-            extractedName = originalMatch[1].toLowerCase()
+            extractedName = originalMatch[1] // Preserve original capitalization
           } else {
             extractedName = forMatch[1]
           }
@@ -434,15 +434,15 @@ function detectIntent(message: string, availableTrackers: Array<{ tag: string; l
       if (!extractedName) {
         const quotedMatch = message.match(/['"]([^'"]+)['"]/i)
         if (quotedMatch) {
-          extractedName = quotedMatch[1].trim().toLowerCase()
+          extractedName = quotedMatch[1].trim() // Preserve original capitalization from quotes
         }
       }
       
       // Pattern 5: Look for capitalized words (likely proper nouns/tracker names)
       if (!extractedName) {
-        const capitalizedMatch = message.match(/\b([A-Z][a-z]+)\b/)
+        const capitalizedMatch = message.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b/)
         if (capitalizedMatch) {
-          extractedName = capitalizedMatch[1].toLowerCase()
+          extractedName = capitalizedMatch[1] // Preserve original capitalization
         }
       }
       
@@ -459,15 +459,17 @@ function detectIntent(message: string, availableTrackers: Array<{ tag: string; l
       }
       
       if (extractedName) {
+        // Normalize for matching against existing trackers
+        const normalizedName = extractedName.toLowerCase()
         // Try fuzzy match against available trackers
         for (const tracker of availableTrackers) {
           const tagLower = tracker.tag.toLowerCase().replace('#', '')
-          if (tagLower.includes(extractedName) || extractedName.includes(tagLower)) {
+          if (tagLower.includes(normalizedName) || normalizedName.includes(tagLower)) {
             trackerNames.push(tracker.tag)
             break
           }
         }
-        // If still no match, use the extracted name as potential tracker name
+        // If still no match, use the extracted name as potential tracker name (preserve original capitalization)
         if (trackerNames.length === 0) {
           trackerNames.push(extractedName)
         }
@@ -858,7 +860,7 @@ export async function handleEntryCreation(
         // Suggest tag name
         suggestedTag = toTag(trackerName)
         return {
-          answer: `I don't see a tracker called "${trackerName}". Would you like me to create a tracker called #${suggestedTag}?`,
+          answer: `I don't see a tracker called "${trackerName}". Would you like me to create a tracker called "${trackerName}"?`,
           action: 'needs_tracker_creation',
           trackerTag: suggestedTag,
           originalMessage: message,
