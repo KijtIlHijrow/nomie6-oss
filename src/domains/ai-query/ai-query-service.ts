@@ -407,9 +407,15 @@ function detectIntent(message: string, availableTrackers: Array<{ tag: string; l
       let extractedName: string | null = null
       
       // Pattern 1: "for 'X'" or "for "X""
-      const forQuotedMatch = message.match(/for\s+['"]([^'"]+)['"]/i)
-      if (forQuotedMatch) {
-        extractedName = forQuotedMatch[1].trim()
+      // This regex properly handles quotes within quotes by matching the opening quote type
+      // and finding the matching closing quote (e.g., "for 'text with "quotes" inside'")
+      const forQuotedMatch = message.match(/for\s+(["'])((?:(?!\1).)*)\1(?:\s+(\d+(?:\.\d+)?))?/i)
+      if (forQuotedMatch && forQuotedMatch[2]) {
+        extractedName = forQuotedMatch[2].trim()
+        // Also extract value if present after the quoted string
+        if (forQuotedMatch[3] && value === undefined) {
+          value = parseFloat(forQuotedMatch[3])
+        }
       }
       
       // Pattern 2: "for X" (where X is capitalized or a single word)
@@ -435,10 +441,16 @@ function detectIntent(message: string, availableTrackers: Array<{ tag: string; l
       }
       
       // Pattern 4: Look for quoted strings anywhere in the message
+      // This regex properly handles quotes within quotes by matching the opening quote type
+      // and finding the matching closing quote (e.g., "text with 'quotes' inside")
       if (!extractedName) {
-        const quotedMatch = message.match(/['"]([^'"]+)['"]/i)
-        if (quotedMatch) {
-          extractedName = quotedMatch[1].trim() // Preserve original capitalization from quotes
+        const quotedMatch = message.match(/(["'])((?:(?!\1).)*)\1(?:\s+(\d+(?:\.\d+)?))?/)
+        if (quotedMatch && quotedMatch[2]) {
+          extractedName = quotedMatch[2].trim() // Preserve original capitalization from quotes
+          // Also extract value if present after the quoted string (e.g., 'add "Blast Shot" 5')
+          if (quotedMatch[3] && value === undefined) {
+            value = parseFloat(quotedMatch[3])
+          }
         }
       }
       
