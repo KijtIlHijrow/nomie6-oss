@@ -390,7 +390,7 @@ const ledgerInit = () => {
 
           showToast({
             message: `${Lang.t('general.saved', 'Saved')}: ${textUtils.truncate(log.note, 100)}`,
-            timeout: 2200,
+            timeout: 6000,
             type: 'success',
             buttonLabel: 'Undo',
             buttonClick: () => {
