@@ -573,10 +573,6 @@
           {/each}
         </div>
       </List>
-      <p class="list-note">
-        Does this tracker affect your mind, or body, or spirit, or a combination? Select which one, and Nomie will keep
-        track.
-      </p>
     </section>
   {/if}
 
