@@ -196,7 +196,7 @@
         on:click={() => {
           openUnisearch()
         }}
-        class="focus:outline-none focus:ring-2 ring-primary-500 py-2 rounded-md flex items-center space-x-2 text-sm leading-tight px-4 text-left text-gray-500 my-10"
+        class="focus:outline-none focus:ring-2 ring-primary-500 py-2 rounded-md flex items-center space-x-2 text-sm leading-tight px-4 text-left text-gray-500 mt-4 mb-4"
       >
         <IonIcon icon={SearchIcon} />
         <span>Super Search</span>

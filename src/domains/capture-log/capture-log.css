@@ -123,7 +123,7 @@
   position: relative;
   z-index: 1;
   @apply pb-1;
-  @apply xl:pb-6;
+  @apply xl:pb-2;
 }
 /* .capture-wrapper .advanced {
   position: relative;

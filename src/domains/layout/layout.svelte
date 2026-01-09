@@ -105,8 +105,6 @@ import appConfig from '../../config/appConfig';
       {/if}
       {#if $Device.width < 900}
         <AppTabs className="{$MenuBlockerStore ? 'pointer-events-none' : ''} " />
-      {:else}
-        <div class="p-4" />
       {/if}
     {/if}
   </footer>
