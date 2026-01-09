@@ -216,8 +216,10 @@
       } else if (action === 'submit_value' && message) {
         const response = await handleEntryCreation('', message.trackerTag?.replace('#', '') || '', value)
         
-        // Remove loading message
+        // Remove loading message - use the specific ID first
         messages = messages.filter(m => m.id !== loadingMessageId)
+        // Safety cleanup: remove any other lingering typing indicators that might have been created
+        messages = messages.filter(m => !(m.role === 'assistant' && m.content === '...'))
         
         // Remove the action buttons from the original message
         messages = messages.map(m => {
@@ -252,30 +254,10 @@
         
         pendingValueRequest = null
       } else if (action === 'save_default' && message && value !== undefined) {
-        try {
-          // Save the value as default for the tracker
-          const trackerTag = message.trackerTag || ''
-          const trackables = await getTrackablesFromStorage()
-          const tracker = trackables[trackerTag] || trackables[trackerTag.replace('#', '')] || trackables[`#${trackerTag.replace('#', '')}`]
-          
-          if (tracker && tracker.type === 'tracker' && tracker.tracker) {
-            tracker.tracker.default = value
-            await saveTrackersToStorage([tracker])
-            
-            messages = [
-              ...messages,
-              {
-                id: generateMessageId('assistant'),
-                role: 'assistant',
-                content: `✓ Saved ${value} as the default value for ${message.trackerTag}`,
-                timestamp: new Date(),
-              }
-            ]
-          }
-        } catch (e: any) {
-          console.error('Error saving default value:', e)
-        }
-      } else if (action === 'save_default' && message && value !== undefined) {
+        // Note: save_default doesn't create a loading message since it's called after entry creation
+        // But we should still clean up any existing loading messages as a safety measure
+        messages = messages.filter(m => !(m.role === 'assistant' && m.content === '...'))
+        
         try {
           // Save the value as default for the tracker
           const trackerTag = message.trackerTag || ''
@@ -449,6 +431,12 @@
       scrollToBottom()
     } finally {
       loading = false
+      // Safety cleanup: remove any lingering typing indicators that might have been missed
+      // This prevents typing indicators from persisting indefinitely if an error occurred
+      // or if the cleanup code didn't run properly. This is safe because this function
+      // should complete before another operation starts, so any typing indicators remaining
+      // are likely from this operation and should be cleaned up.
+      messages = messages.filter(m => !(m.role === 'assistant' && m.content === '...'))
     }
   }
 
