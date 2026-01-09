@@ -23,11 +23,16 @@ export const getContextOn = async (date: Date, knownTrackables: ITrackables,star
 
     if (tu.trackable.type === 'context') {
       let allowed: boolean = false
+      const duration = tu.trackable.ctx?.duration || 1
 
       tu.dates.forEach((loopDate: Dayjs) => {
-        // Add and subtract one to add a wider "view" buffer
-        let contextStart = dayjs(loopDate).subtract(2, 'day').toDate()
-        if (date >= contextStart) {
+        // Calculate the context window: from loopDate to loopDate + duration
+        const contextStart = dayjs(loopDate).startOf('day').toDate()
+        const contextEnd = dayjs(loopDate).add(duration - 1, 'day').endOf('day').toDate()
+        const checkDate = dayjs(date).startOf('day').toDate()
+        
+        // Check if the date falls within the context duration window
+        if (checkDate >= contextStart && checkDate <= contextEnd) {
           allowed = true
         }
       })
