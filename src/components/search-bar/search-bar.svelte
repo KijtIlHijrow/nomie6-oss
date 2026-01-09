@@ -70,6 +70,11 @@
       bind:value={searchTerm}
       on:input={fireChange}
       on:enter={fireSearch}
+      on:keyup={(evt) => {
+        if (evt.detail?.key === 'Escape' && searchTerm) {
+          fireClear()
+        }
+      }}
       on:focus={() => {
         dispatch('focus')
       }}
