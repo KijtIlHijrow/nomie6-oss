@@ -112,6 +112,9 @@
     "cypress": "^15.8.2"
   },
   "dependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
     "@composi/gestures": "^1.0.9",
     "@sveltejs/svelte-virtual-list": "^3.0.1",
     "@tailwindcss/line-clamp": "^0.2.2",
