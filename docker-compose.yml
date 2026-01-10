@@ -31,10 +31,25 @@ services:
       - journaleith-network
     restart: unless-stopped
 
+  couchdb:
+    image: couchdb:3.3
+    container_name: journaleith-couchdb
+    ports:
+      - "5984:5984"
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=nomie123
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+    networks:
+      - journaleith-network
+    restart: unless-stopped
+
 networks:
   journaleith-network:
     driver: bridge
 
 volumes:
   ollama_data:
+  couchdb_data:
 
