@@ -16,6 +16,8 @@
   export let id: string
 
   $: awardCount = $AwardStore.newAwards.length
+  $: currentAward = $AwardStore.newAwards[0]
+  $: awardImageSrc = currentAward ? `/images/awards/${currentAward.id}.svg` : ''
 
   const close = async () => {
     await wait(200)
@@ -24,6 +26,11 @@
       return s
     })
     closeModal(id)
+  }
+
+  const handleImageError = (event: Event) => {
+    const img = event.target as HTMLImageElement
+    console.error('Failed to load award image:', img.src)
   }
 </script>
 
@@ -37,22 +44,25 @@
     </h1>
   </ToolbarGrid>
 
-  {#if awardCount == 1}
+  {#if awardCount == 1 && currentAward}
     <main class="h-full flex items-center justify-center">
       <div class="award-badge text-center w-full">
-        <img
-          class="mx-auto w-52"
-          src="/images/awards/{$AwardStore.newAwards[0].id}.svg"
-          alt={$AwardStore.newAwards[0].name}
-        />
+        {#if awardImageSrc}
+          <img
+            class="mx-auto w-52"
+            src={awardImageSrc}
+            alt={currentAward.name}
+            on:error={handleImageError}
+          />
+        {/if}
         <div
           class="text-4xl my-4 font-bold  w-11/12 mx-auto relative text-gray-400 dark:text-gray-200  text-center leading-tight "
         >
-          {$AwardStore.newAwards[0].name}
-          {#if $AwardStore.newAwards[0].reason}
-            <p class="text-gray-500 font-medium text-sm mt-2">Reason: {$AwardStore.newAwards[0].reason}</p>
+          {currentAward.name}
+          {#if currentAward.reason}
+            <p class="text-gray-500 font-medium text-sm mt-2">Reason: {currentAward.reason}</p>
             <p class="text-gray-500 font-medium text-xs opacity-60 mt-2">
-              {$AwardStore.newAwards[0].getHash()}
+              {currentAward.getHash()}
             </p>
           {/if}
         </div>
@@ -63,7 +73,7 @@
       <div class="grid grid-cols-2 lg:grid-cols-3 gap-2 p-4">
         {#each $AwardStore.newAwards as award, index}
           <div class="award-badge">
-            <img src="/images/awards/{award.id}.svg" alt={award.name} />
+            <img src={`/images/awards/${award.id}.svg`} alt={award.name} />
             <div
               class="text-xs -top-2 w-11/12 mx-auto relative text-gray-400 dark:text-gray-200 rounded-full py-1 text-center line-clamp-1 leading-tight "
             >

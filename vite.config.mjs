@@ -50,4 +50,12 @@ export default defineConfig({
   define:  {
     'import.meta.env.PACKAGE_VERSION': JSON.stringify(process.env.npm_package_version)
   },
+  server: {
+    host: '0.0.0.0',
+    port: 5001,
+    strictPort: true,
+    watch: {
+      usePolling: true,
+    },
+  },
 })
