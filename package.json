@@ -33,7 +33,11 @@
     "release:pre": "release-it pre --no-npm.publish",
     "release:minor": "release-it minor --no-npm.publish",
     "vtest": "vitest",
-    "vtest:coverage": "vitest run --coverage"
+    "vtest:coverage": "vitest run --coverage",
+    "ios:dev": "npx cap run ios",
+    "ios:build": "npm run vbuild && npx cap sync",
+    "ios:open": "npx cap open ios",
+    "ios:sync": "npx cap sync"
   },
   "release-it": {
     "git": {
