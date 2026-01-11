@@ -4,6 +4,13 @@ export interface HealthKitPlugin {
   isAvailable(): Promise<{ available: boolean }>;
   requestPermissions(): Promise<{ granted: boolean }>;
   echo(options: { value: string }): Promise<{ value: string }>;
+  saveSample(options: {
+    type: string;
+    value: number;
+    startDate: string;
+    endDate: string;
+    metadata?: any;
+  }): Promise<{ success: boolean }>;
 }
 
 const HealthKit = registerPlugin<HealthKitPlugin>('HealthKit', {
@@ -26,6 +33,19 @@ export class HealthKitBridge {
       return { granted: false };
     }
     return await HealthKit.requestPermissions();
+  }
+
+  async saveSample(options: {
+    type: string;
+    value: number;
+    startDate: string;
+    endDate: string;
+    metadata?: any;
+  }): Promise<{ success: boolean }> {
+    if (!this.isPlatformSupported()) {
+      return { success: false };
+    }
+    return await HealthKit.saveSample(options);
   }
 
   isPlatformSupported(): boolean {

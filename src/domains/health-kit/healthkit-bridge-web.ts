@@ -15,4 +15,9 @@ export class HealthKitWeb extends WebPlugin implements HealthKitPlugin {
     console.warn('HealthKit not available on web platform');
     return { granted: false };
   }
+
+  async saveSample(options: any): Promise<{ success: boolean }> {
+    console.warn('HealthKit saveSample not available on web');
+    return { success: false };
+  }
 }
