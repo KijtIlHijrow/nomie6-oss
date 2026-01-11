@@ -22,23 +22,31 @@ public class HealthKitPlugin: CAPPlugin {
             return
         }
 
+        guard let stepCountType = HKObjectType.quantityType(forIdentifier: .stepCount),
+              let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate),
+              let bodyMassType = HKObjectType.quantityType(forIdentifier: .bodyMass) else {
+            call.reject("Failed to create HealthKit types")
+            return
+        }
+
         // Define types to read
         let typesToRead: Set<HKObjectType> = [
-            HKObjectType.quantityType(forIdentifier: .stepCount)!,
-            HKObjectType.quantityType(forIdentifier: .heartRate)!,
-            HKObjectType.quantityType(forIdentifier: .bodyMass)!,
+            stepCountType,
+            heartRateType,
+            bodyMassType,
             HKObjectType.workoutType()
         ]
 
         // Define types to write
         let typesToWrite: Set<HKSampleType> = [
-            HKObjectType.quantityType(forIdentifier: .stepCount)!,
-            HKObjectType.quantityType(forIdentifier: .heartRate)!,
-            HKObjectType.quantityType(forIdentifier: .bodyMass)!,
+            stepCountType,
+            heartRateType,
+            bodyMassType,
             HKObjectType.workoutType()
         ]
 
-        healthStore.requestAuthorization(toShare: typesToWrite, read: typesToRead) { success, error in
+        healthStore.requestAuthorization(toShare: typesToWrite, read: typesToRead) { [weak self] success, error in
+            guard let self = self else { return }
             if let error = error {
                 call.reject("Permission request failed", error.localizedDescription)
                 return
