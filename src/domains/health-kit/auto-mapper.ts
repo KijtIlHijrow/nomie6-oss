@@ -9,6 +9,10 @@ export class HealthKitAutoMapper {
   }
 
   suggestMapping(tracker: any): TrackerHealthKitMetadata | null {
+    if (!tracker || typeof tracker !== 'object') {
+      return null;
+    }
+
     // Try mapping by tracker label/tag
     let healthKitType = this.typeMapper.mapTrackerNameToHealthKitType(tracker.label || tracker.tag);
 
@@ -30,6 +34,10 @@ export class HealthKitAutoMapper {
   }
 
   autoMapTrackers(trackers: any[]): any[] {
+    if (!Array.isArray(trackers)) {
+      return [];
+    }
+
     return trackers.map(tracker => {
       const mapping = this.suggestMapping(tracker);
       if (mapping) {
@@ -43,6 +51,10 @@ export class HealthKitAutoMapper {
   }
 
   getUnmappedTrackers(trackers: any[]): any[] {
+    if (!Array.isArray(trackers)) {
+      return [];
+    }
+
     return trackers.filter(tracker => {
       const mapping = this.suggestMapping(tracker);
       return mapping === null;
