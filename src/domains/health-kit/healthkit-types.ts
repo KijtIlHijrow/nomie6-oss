@@ -1,9 +1,11 @@
+import type { ITrackerType } from '../../modules/tracker/TrackerClass';
+
 export type HealthKitTypeIdentifier = string;
 
 export interface HealthKitTypeMapping {
   keywords: string[];
   healthKitType: HealthKitTypeIdentifier;
-  nomieType: 'tick' | 'range' | 'timer';
+  nomieType: ITrackerType;
   defaultUnit?: string;
 }
 
@@ -56,12 +58,27 @@ export const HEALTHKIT_MAPPINGS: HealthKitTypeMapping[] = [
 ];
 
 export class HealthKitTypeMapper {
+  /**
+   * Maps a Nomie tracker name to a HealthKit type identifier.
+   * Uses case-insensitive word boundary matching on keywords.
+   * Returns the FIRST matching mapping found in HEALTHKIT_MAPPINGS array.
+   * Order of mappings matters - more specific mappings should come first.
+   */
   mapTrackerNameToHealthKitType(trackerName: string): HealthKitTypeIdentifier | null {
+    if (!trackerName || typeof trackerName !== 'string') {
+      return null;
+    }
+
     const normalizedName = trackerName.toLowerCase().trim();
+    if (!normalizedName) {
+      return null;
+    }
 
     for (const mapping of HEALTHKIT_MAPPINGS) {
       for (const keyword of mapping.keywords) {
-        if (normalizedName.includes(keyword)) {
+        // Use word boundary matching to avoid false positives
+        const regex = new RegExp(`\\b${keyword}\\b`);
+        if (regex.test(normalizedName)) {
           return mapping.healthKitType;
         }
       }
