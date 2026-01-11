@@ -79,17 +79,10 @@ public class HealthKitPlugin: CAPPlugin {
             return
         }
 
-        // Determine unit based on type
-        let unit: HKUnit
-        switch quantityTypeIdentifier {
-        case .stepCount:
-            unit = .count()
-        case .heartRate:
-            unit = HKUnit.count().unitDivided(by: .minute())
-        case .bodyMass:
-            unit = .pound()
-        default:
-            unit = .count()
+        // Determine unit based on type - reject if unsupported
+        guard let unit = getUnit(for: quantityTypeIdentifier) else {
+            call.reject("Unsupported health data type: \(typeString)")
+            return
         }
 
         let quantity = HKQuantity(unit: unit, doubleValue: value)
@@ -136,6 +129,12 @@ public class HealthKitPlugin: CAPPlugin {
             return
         }
 
+        // Validate that the type is supported
+        guard getUnit(for: quantityTypeIdentifier) != nil else {
+            call.reject("Unsupported health data type: \(typeString)")
+            return
+        }
+
         let predicate = HKQuery.predicateForSamples(
             withStart: startDate,
             end: endDate,
@@ -147,7 +146,7 @@ public class HealthKitPlugin: CAPPlugin {
             predicate: predicate,
             limit: HKObjectQueryNoLimit,
             sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
-        ) { [weak self] query, results, error in
+        ) { [weak self] _, results, error in
             guard let self = self else { return }
             if let error = error {
                 call.reject("Query failed", error.localizedDescription)
@@ -162,7 +161,7 @@ public class HealthKitPlugin: CAPPlugin {
             let samplesData = samples.map { sample -> [String: Any] in
                 return [
                     "uuid": sample.uuid.uuidString,
-                    "value": sample.quantity.doubleValue(for: self.getUnit(for: quantityTypeIdentifier)),
+                    "value": sample.quantity.doubleValue(for: self.getUnit(for: quantityTypeIdentifier)!),
                     "startDate": dateFormatter.string(from: sample.startDate),
                     "endDate": dateFormatter.string(from: sample.endDate),
                     "metadata": sample.metadata ?? [:]
@@ -175,7 +174,7 @@ public class HealthKitPlugin: CAPPlugin {
         healthStore.execute(query)
     }
 
-    private func getUnit(for identifier: HKQuantityTypeIdentifier) -> HKUnit {
+    private func getUnit(for identifier: HKQuantityTypeIdentifier) -> HKUnit? {
         switch identifier {
         case .stepCount:
             return .count()
@@ -183,8 +182,12 @@ public class HealthKitPlugin: CAPPlugin {
             return HKUnit.count().unitDivided(by: .minute())
         case .bodyMass:
             return .pound()
+        case .distanceWalkingRunning:
+            return .mile()
+        case .activeEnergyBurned:
+            return .kilocalorie()
         default:
-            return .count()
+            return nil  // Explicitly indicate unsupported type
         }
     }
 }
