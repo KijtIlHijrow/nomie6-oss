@@ -47,5 +47,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Nomie reads health data to display your tracking history</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Nomie writes tracking data to Apple Health</string>
 </dict>
 </plist>
