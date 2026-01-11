@@ -2,6 +2,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 
 export interface HealthKitPlugin {
   isAvailable(): Promise<{ available: boolean }>;
+  requestPermissions(): Promise<{ granted: boolean }>;
   echo(options: { value: string }): Promise<{ value: string }>;
 }
 
@@ -18,6 +19,13 @@ export class HealthKitBridge {
 
   async echo(value: string): Promise<{ value: string }> {
     return await HealthKit.echo({ value });
+  }
+
+  async requestPermissions(): Promise<{ granted: boolean }> {
+    if (!this.isPlatformSupported()) {
+      return { granted: false };
+    }
+    return await HealthKit.requestPermissions();
   }
 
   isPlatformSupported(): boolean {

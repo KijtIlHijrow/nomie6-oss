@@ -10,4 +10,9 @@ export class HealthKitWeb extends WebPlugin implements HealthKitPlugin {
   async echo(options: { value: string }): Promise<{ value: string }> {
     return { value: options.value };
   }
+
+  async requestPermissions(): Promise<{ granted: boolean }> {
+    console.warn('HealthKit not available on web platform');
+    return { granted: false };
+  }
 }
