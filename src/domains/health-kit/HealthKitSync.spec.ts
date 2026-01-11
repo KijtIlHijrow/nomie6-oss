@@ -27,8 +27,8 @@ describe('HealthKitSync - Write Path', () => {
     const log = {
       _id: 'log123',
       end: new Date('2026-01-10T12:00:00Z'),
-      value: 5000,
-      note: '#steps(5000)'
+      note: '#steps(5000)',
+      getTrackerValues: vi.fn().mockReturnValue([5000])
     } as any;
 
     await sync.syncLogToHealthKit(tracker, log);
@@ -54,7 +54,11 @@ describe('HealthKitSync - Write Path', () => {
       }
     };
 
-    const log = { value: 5000 } as any;
+    const log = {
+      end: new Date(),
+      note: '#steps(5000)',
+      getTrackerValues: vi.fn().mockReturnValue([5000])
+    } as any;
 
     await sync.syncLogToHealthKit(tracker, log);
 
@@ -71,7 +75,55 @@ describe('HealthKitSync - Write Path', () => {
       }
     };
 
-    const log = { value: 5000 } as any;
+    const log = {
+      end: new Date(),
+      note: '#steps(5000)',
+      getTrackerValues: vi.fn().mockReturnValue([5000])
+    } as any;
+
+    await sync.syncLogToHealthKit(tracker, log);
+
+    expect(mockBridge.saveSample).not.toHaveBeenCalled();
+  });
+
+  it('should not sync when log has no value for tracker', async () => {
+    const tracker = {
+      tag: 'steps',
+      healthKit: {
+        enabled: true,
+        type: 'HKQuantityTypeIdentifierStepCount',
+        direction: 'write'
+      }
+    };
+
+    const log = {
+      _id: 'log123',
+      end: new Date(),
+      note: '#steps', // No value
+      getTrackerValues: vi.fn().mockReturnValue([])
+    } as any;
+
+    await sync.syncLogToHealthKit(tracker, log);
+
+    expect(mockBridge.saveSample).not.toHaveBeenCalled();
+  });
+
+  it('should not sync when value is non-numeric', async () => {
+    const tracker = {
+      tag: 'mood',
+      healthKit: {
+        enabled: true,
+        type: 'HKQuantityTypeIdentifierStepCount',
+        direction: 'write'
+      }
+    };
+
+    const log = {
+      _id: 'log123',
+      end: new Date(),
+      note: '#mood(happy)',
+      getTrackerValues: vi.fn().mockReturnValue(['happy'])
+    } as any;
 
     await sync.syncLogToHealthKit(tracker, log);
 
