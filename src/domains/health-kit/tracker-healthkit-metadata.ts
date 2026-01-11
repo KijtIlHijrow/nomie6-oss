@@ -16,22 +16,27 @@ export interface NomieLogHealthKitMetadata {
   syncedAt?: string; // ISO 8601 date
 }
 
-export function isHealthKitEnabled(tracker: any): boolean {
+export interface TrackerWithHealthKit {
+  healthKit?: TrackerHealthKitMetadata;
+  [key: string]: any; // Allow other tracker properties
+}
+
+export function isHealthKitEnabled(tracker: TrackerWithHealthKit): boolean {
   return tracker?.healthKit?.enabled === true;
 }
 
-export function getHealthKitType(tracker: any): HealthKitTypeIdentifier | null {
+export function getHealthKitType(tracker: TrackerWithHealthKit): HealthKitTypeIdentifier | null {
   return tracker?.healthKit?.type || null;
 }
 
-export function shouldSyncToHealthKit(tracker: any): boolean {
+export function shouldSyncToHealthKit(tracker: TrackerWithHealthKit): boolean {
   if (!isHealthKitEnabled(tracker)) return false;
-  const direction = tracker.healthKit.direction;
+  const direction = tracker.healthKit?.direction;
   return direction === 'write' || direction === 'bidirectional';
 }
 
-export function shouldReadFromHealthKit(tracker: any): boolean {
+export function shouldReadFromHealthKit(tracker: TrackerWithHealthKit): boolean {
   if (!isHealthKitEnabled(tracker)) return false;
-  const direction = tracker.healthKit.direction;
+  const direction = tracker.healthKit?.direction;
   return direction === 'read' || direction === 'bidirectional';
 }
