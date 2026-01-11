@@ -1,16 +1,20 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, createEventDispatcher } from 'svelte';
   import { HealthKitBridge } from './healthkit-bridge';
   import { HealthKitAutoMapper } from './auto-mapper';
   import { Interact } from '../../store/interact';
+  import { showToast } from '../../components/toast/ToastStore';
 
   export let trackers: any[] = [];
+
+  const dispatch = createEventDispatcher();
 
   let bridge = new HealthKitBridge();
   let autoMapper = new HealthKitAutoMapper();
   let isAvailable = false;
   let permissionsGranted = false;
   let syncing = false;
+  let autoMapping = false;
 
   onMount(async () => {
     const result = await bridge.isAvailable();
@@ -24,29 +28,37 @@
       permissionsGranted = result.granted;
 
       if (result.granted) {
-        Interact.toast('HealthKit permissions granted');
+        showToast({ message: 'HealthKit permissions granted' });
       } else {
         Interact.alert('HealthKit Permissions', 'Please enable permissions in Settings → Privacy → Health');
       }
     } catch (error) {
-      Interact.alert('Error', `Failed to request permissions: ${error.message}`);
+      const errorMsg = error?.message || String(error) || 'Unknown error';
+      Interact.alert('Error', `Failed to request permissions: ${errorMsg}`);
     } finally {
       syncing = false;
     }
   }
 
   async function autoMapAllTrackers() {
-    const mapped = autoMapper.autoMapTrackers(trackers);
-    const mappedCount = mapped.filter(t => t.healthKit).length;
+    try {
+      autoMapping = true;
+      const mapped = autoMapper.autoMapTrackers(trackers);
+      const mappedCount = mapped.filter(t => t.healthKit).length;
 
-    Interact.confirm(
-      'Auto-Map Trackers',
-      `Found ${mappedCount} trackers that can sync with HealthKit. Apply mappings?`,
-      () => {
-        trackers = mapped;
-        Interact.toast(`Mapped ${mappedCount} trackers to HealthKit`);
+      const confirmed = await Interact.confirm(
+        'Auto-Map Trackers',
+        `Found ${mappedCount} trackers that can sync with HealthKit. Apply mappings?`
+      );
+
+      if (confirmed) {
+        trackers = mapped; // Local update for immediate UI
+        dispatch('trackersUpdated', mapped); // Notify parent
+        showToast({ message: `Mapped ${mappedCount} trackers to HealthKit` });
       }
-    );
+    } finally {
+      autoMapping = false;
+    }
   }
 
   $: syncedTrackers = trackers.filter(t => t.healthKit?.enabled);
@@ -85,8 +97,9 @@
       <button
         class="btn btn-secondary w-full"
         on:click={autoMapAllTrackers}
+        disabled={autoMapping}
       >
-        Auto-Map Trackers
+        {autoMapping ? 'Mapping...' : 'Auto-Map Trackers'}
       </button>
 
       <div>
