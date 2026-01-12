@@ -5,12 +5,17 @@
   import { Interact } from '../../store/interact'
   import ListItemLog from '../../components/list-item-log/list-item-log.svelte'
   import NLog from '../../domains/nomie-log/nomie-log'
-  import { getTrackablesFromStorage, saveTrackersToStorage } from '../../domains/trackable/TrackableStore'
+  import { getTrackablesFromStorage, saveTrackersToStorage, InitTrackableStore } from '../../domains/trackable/TrackableStore'
   import AutoComplete from '../../components/auto-complete/auto-complete.svelte'
   import { barcodeScanner } from '../nutrition/barcode-scanner'
   import { nutritionService } from '../nutrition/nutrition-service'
   import { BarcodeScannerModal, ManualBarcodeEntry, CameraPermissionPrompt } from '../nutrition/components'
   import { Capacitor } from '@capacitor/core'
+  import TrackerClass from '../../modules/tracker/TrackerClass'
+  import { TrackerStore } from '../tracker/TrackerStore'
+  import { Trackable } from '../trackable/Trackable.class'
+  import { saveLog } from '../ledger/LedgerStore'
+  import type { NutritionData } from '../nutrition/nutrition-types'
 
   let question = ''
   let loading = false
@@ -650,6 +655,58 @@
     showManualEntry = true
   }
 
+  /**
+   * Ensure nutrition trackers exist, create if missing
+   * Returns map of existing tracker tags
+   */
+  async function ensureNutritionTrackers(): Promise<Record<string, boolean>> {
+    const nutritionTrackers = [
+      { tag: 'calories', label: 'Calories', emoji: '🔥', uom: 'cal' },
+      { tag: 'protein', label: 'Protein', emoji: '💪', uom: 'g' },
+      { tag: 'carbs', label: 'Carbs', emoji: '🍞', uom: 'g' },
+      { tag: 'fat', label: 'Fat', emoji: '🥑', uom: 'g' },
+      { tag: 'sodium', label: 'Sodium', emoji: '🧂', uom: 'mg' },
+    ]
+
+    // Get current trackers
+    const currentTrackers = TrackerStore.state()
+    const existingTags: Record<string, boolean> = {}
+
+    // Track which trackers need to be created
+    const trackersToCreate: TrackerClass[] = []
+
+    for (const nutrient of nutritionTrackers) {
+      if (currentTrackers[nutrient.tag]) {
+        existingTags[nutrient.tag] = true
+      } else {
+        // Create new tracker
+        const tracker = new TrackerClass({
+          tag: nutrient.tag,
+          label: nutrient.label,
+          type: 'value',
+          emoji: nutrient.emoji,
+          uom: nutrient.uom,
+          math: 'sum',
+          color: '#4CAF50', // Green for nutrition
+          default: 0,
+        })
+        trackersToCreate.push(tracker)
+        existingTags[nutrient.tag] = false
+      }
+    }
+
+    // Create missing trackers
+    if (trackersToCreate.length > 0) {
+      const trackables = trackersToCreate.map(tracker =>
+        new Trackable({ type: 'tracker', tracker })
+      )
+      await saveTrackersToStorage(trackables)
+      await InitTrackableStore()
+    }
+
+    return existingTags
+  }
+
   async function processScannedBarcode(barcode: string, quantity: number, originalMessage: string) {
     loading = true
 
@@ -684,19 +741,55 @@
         return
       }
 
-      // TODO: Phase 4 - Create nutrition trackers and entries
-      // For now, just show the nutrition info
-      const macros = [
-        `${Math.round(nutritionData.nutrients.calories * quantity)} calories`,
-        `${Math.round(nutritionData.nutrients.protein_g * quantity)}g protein`,
-        `${Math.round(nutritionData.nutrients.carbs_g * quantity)}g carbs`,
-        `${Math.round(nutritionData.nutrients.fat_g * quantity)}g fat`,
+      // Ensure nutrition trackers exist
+      await ensureNutritionTrackers()
+
+      // Calculate scaled nutrient values
+      const nutrients = {
+        calories: Math.round(nutritionData.nutrients.calories * quantity),
+        protein: Math.round(nutritionData.nutrients.protein_g * quantity),
+        carbs: Math.round(nutritionData.nutrients.carbs_g * quantity),
+        fat: Math.round(nutritionData.nutrients.fat_g * quantity),
+        sodium: Math.round(nutritionData.nutrients.sodium_mg * quantity),
+      }
+
+      // Build note string with all nutrients
+      const noteValues = [
+        `#calories(${nutrients.calories})`,
+        `#protein(${nutrients.protein})`,
+        `#carbs(${nutrients.carbs})`,
+        `#fat(${nutrients.fat})`,
+        `#sodium(${nutrients.sodium})`,
+      ].join(' ')
+
+      // Add product information
+      const productInfo = `${nutritionData.productName}${nutritionData.brand ? ` (${nutritionData.brand})` : ''}`
+      const servingInfo = quantity > 1 ? ` - ${quantity}x ${nutritionData.servingSize}${nutritionData.servingUnit}` : ` - ${nutritionData.servingSize}${nutritionData.servingUnit}`
+
+      const fullNote = `${noteValues}\n\n${productInfo}${servingInfo}`
+
+      // Create and save log entry
+      const log = new NLog({
+        note: fullNote,
+        end: new Date(),
+        source: 'barcode-scanner',
+      })
+
+      const saved = await saveLog(log)
+
+      // Display success message
+      const macrosSummary = [
+        `${nutrients.calories} cal`,
+        `${nutrients.protein}g protein`,
+        `${nutrients.carbs}g carbs`,
+        `${nutrients.fat}g fat`,
+        `${nutrients.sodium}mg sodium`,
       ].join(', ')
 
       messages = [...messages, {
         id: generateMessageId('assistant'),
         role: 'assistant',
-        content: `Found: ${nutritionData.productName}${nutritionData.brand ? ` (${nutritionData.brand})` : ''}\n\nNutrition (${quantity}x serving):\n${macros}\n\n(Phase 4: Auto-create nutrition trackers and entries - coming soon!)`,
+        content: `✅ Logged: ${productInfo}\n\nNutrition: ${macrosSummary}\n\nCreated entry with all macro trackers.`,
         timestamp: new Date(),
       }]
 
