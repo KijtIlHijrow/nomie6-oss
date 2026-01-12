@@ -55,6 +55,10 @@ const appConfig = {
     nutritionixApiKey: '',
     // Get free API key (500 requests/day): https://www.nutritionix.com/business/api
 
+    // USDA FoodData Central API key (optional but recommended)
+    usdaApiKey: 'DEMO_KEY',
+    // Get free API key (1000 requests/hour): https://fdc.nal.usda.gov/api-key-signup.html
+
     // Behaviour settings
     autoCreateTrackers: true,      // Auto-create #calories, #protein, etc. on first scan
     trackMicronutrients: true,     // Track vitamins, minerals, etc. (not just macros)

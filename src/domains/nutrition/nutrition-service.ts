@@ -7,6 +7,8 @@
 
 import type { NutritionProvider, NutritionData, BarcodeValidation } from './nutrition-types'
 import { OpenFoodFactsProvider } from './providers/openfoodfacts-provider'
+import { NutritionixProvider } from './providers/nutritionix-provider'
+import { USDAProvider } from './providers/usda-provider'
 import { barcodeCache } from './barcode-cache'
 import { appConfig } from '../../config/appConfig'
 
@@ -25,11 +27,18 @@ export class NutritionService {
     // Initialize providers
     this.registerProvider(new OpenFoodFactsProvider())
 
-    // TODO Phase 6: Add Nutritionix and USDA providers
-    // if (appConfig.nutritionApis.nutritionixApiKey) {
-    //   this.registerProvider(new NutritionixProvider(...))
-    // }
-    // this.registerProvider(new USDAProvider())
+    // Register Nutritionix if credentials available
+    if (appConfig.nutritionApis?.nutritionixAppId && appConfig.nutritionApis?.nutritionixApiKey) {
+      this.registerProvider(
+        new NutritionixProvider(
+          appConfig.nutritionApis.nutritionixAppId,
+          appConfig.nutritionApis.nutritionixApiKey
+        )
+      )
+    }
+
+    // Register USDA (free, always available)
+    this.registerProvider(new USDAProvider(appConfig.nutritionApis?.usdaApiKey || 'DEMO_KEY'))
   }
 
   /**

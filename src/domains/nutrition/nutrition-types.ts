@@ -250,10 +250,15 @@ export interface USDAResponse {
   foods?: Array<{
     description?: string
     brandOwner?: string
+    brandName?: string
+    gtinUpc?: string
     servingSize?: number
     servingSizeUnit?: string
+    householdServingFullText?: string
+    ingredients?: string
     foodNutrients?: Array<{
       nutrientId?: number
+      nutrientNumber?: string
       nutrientName?: string
       value?: number
       unitName?: string
