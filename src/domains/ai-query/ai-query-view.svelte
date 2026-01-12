@@ -657,9 +657,9 @@
 
   /**
    * Ensure nutrition trackers exist, create if missing
-   * Returns map of existing tracker tags
+   * Returns count of newly created trackers
    */
-  async function ensureNutritionTrackers(): Promise<Record<string, boolean>> {
+  async function ensureNutritionTrackers(): Promise<number> {
     const nutritionTrackers = [
       { tag: 'calories', label: 'Calories', emoji: '🔥', uom: 'cal' },
       { tag: 'protein', label: 'Protein', emoji: '💪', uom: 'g' },
@@ -704,18 +704,18 @@
       await InitTrackableStore()
     }
 
-    return existingTags
+    return trackersToCreate.length
   }
 
   async function processScannedBarcode(barcode: string, quantity: number, originalMessage: string) {
     loading = true
 
-    // Add loading message
+    // Step 1: Looking up nutrition data
     const loadingMessageId = generateMessageId('loading')
     messages = [...messages, {
       id: loadingMessageId,
       role: 'assistant',
-      content: 'Looking up nutrition info...',
+      content: '🔍 Looking up nutrition info for barcode ' + barcode + '...',
       timestamp: new Date(),
     }]
     scrollToBottom()
@@ -724,15 +724,13 @@
       // Lookup nutrition data
       const nutritionData = await nutritionService.lookup(barcode)
 
-      // Remove loading message
-      messages = messages.filter(m => m.id !== loadingMessageId)
-
       if (!nutritionData) {
-        // Barcode not found
+        // Barcode not found - enhanced error message
+        messages = messages.filter(m => m.id !== loadingMessageId)
         messages = [...messages, {
           id: generateMessageId('error'),
           role: 'error',
-          content: `Barcode ${barcode} not found in nutrition database. You can enter the nutrition information manually if you'd like.`,
+          content: `❌ Barcode ${barcode} not found in OpenFoodFacts database.\n\nTips:\n• Double-check the barcode number\n• Try scanning again with better lighting\n• Some products may not be in the database yet\n• You can contribute this product to OpenFoodFacts.org`,
           timestamp: new Date(),
         }]
         scrollToBottom()
@@ -741,8 +739,26 @@
         return
       }
 
-      // Ensure nutrition trackers exist
-      await ensureNutritionTrackers()
+      // Step 2: Creating nutrition trackers
+      messages = messages.map(m =>
+        m.id === loadingMessageId
+          ? { ...m, content: `✓ Found: ${nutritionData.productName}\n\n⚙️ Setting up nutrition trackers...` }
+          : m
+      )
+      scrollToBottom()
+
+      const newTrackersCount = await ensureNutritionTrackers()
+      const trackerStatus = newTrackersCount > 0
+        ? `✓ Created ${newTrackersCount} new nutrition trackers`
+        : `✓ Trackers ready`
+
+      // Step 3: Preparing entry
+      messages = messages.map(m =>
+        m.id === loadingMessageId
+          ? { ...m, content: `✓ Found: ${nutritionData.productName}\n${trackerStatus}\n\n💾 Creating entry...` }
+          : m
+      )
+      scrollToBottom()
 
       // Calculate scaled nutrient values
       const nutrients = {
@@ -777,19 +793,28 @@
 
       const saved = await saveLog(log)
 
-      // Display success message
-      const macrosSummary = [
-        `${nutrients.calories} cal`,
-        `${nutrients.protein}g protein`,
-        `${nutrients.carbs}g carbs`,
-        `${nutrients.fat}g fat`,
-        `${nutrients.sodium}mg sodium`,
-      ].join(', ')
+      // Remove loading message
+      messages = messages.filter(m => m.id !== loadingMessageId)
+
+      // Display enhanced success message with nutrition breakdown
+      const nutritionDisplay = `✅ **Entry Logged Successfully!**
+
+📦 **Product:** ${productInfo}
+📏 **Serving:** ${quantity > 1 ? `${quantity}x ` : ''}${nutritionData.servingSize}${nutritionData.servingUnit}
+
+**Nutrition Logged:**
+🔥 Calories: ${nutrients.calories} cal
+💪 Protein: ${nutrients.protein}g
+🍞 Carbs: ${nutrients.carbs}g
+🥑 Fat: ${nutrients.fat}g
+🧂 Sodium: ${nutrients.sodium}mg
+
+View your entry in the timeline to see all tracked nutrients.`
 
       messages = [...messages, {
         id: generateMessageId('assistant'),
         role: 'assistant',
-        content: `✅ Logged: ${productInfo}\n\nNutrition: ${macrosSummary}\n\nCreated entry with all macro trackers.`,
+        content: nutritionDisplay,
         timestamp: new Date(),
       }]
 
@@ -798,10 +823,22 @@
       // Remove loading message
       messages = messages.filter(m => m.id !== loadingMessageId)
 
+      // Enhanced error handling with context
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      let helpfulMessage = `❌ **Error Processing Barcode**\n\n${errorMessage}\n\n**What you can try:**`
+
+      if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        helpfulMessage += '\n• Check your internet connection\n• Try again in a few moments\n• Some products may be cached for offline use'
+      } else if (errorMessage.includes('tracker') || errorMessage.includes('store')) {
+        helpfulMessage += '\n• Restart the app\n• Check that you have storage permissions\n• Contact support if the issue persists'
+      } else {
+        helpfulMessage += '\n• Try scanning the barcode again\n• Use manual barcode entry\n• Report this issue if it continues'
+      }
+
       messages = [...messages, {
         id: generateMessageId('error'),
         role: 'error',
-        content: `Error looking up barcode: ${error instanceof Error ? error.message : String(error)}`,
+        content: helpfulMessage,
         timestamp: new Date(),
       }]
       scrollToBottom()
@@ -1392,14 +1429,17 @@
 
             <!-- Barcode Scan Action -->
             {#if message.action === 'scan_barcode'}
-              <div class="mt-3 flex gap-2">
+              <div class="mt-3 flex flex-col sm:flex-row gap-2">
                 <button
                   on:click={() => handleBarcodeScanClick(message.id, message.quantity || 1, message.originalMessage || '')}
-                  class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium flex items-center gap-2"
+                  class="flex-1 px-5 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 text-sm font-semibold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-[1.02]"
                   disabled={loading}
                 >
-                  <span>📷</span>
+                  <span class="text-lg">📷</span>
                   <span>Scan Barcode</span>
+                  {#if message.quantity && message.quantity > 1}
+                    <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full">{message.quantity}x</span>
+                  {/if}
                 </button>
                 {#if message.suggestBarcodeScan}
                   <button
