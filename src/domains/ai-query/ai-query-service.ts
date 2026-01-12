@@ -33,7 +33,7 @@ export interface AIQueryResponse {
   answer: string
   data?: any
   error?: string
-  action?: 'add_entry' | 'question' | 'delete_entry' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config'
+  action?: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config'
   trackerTag?: string
   trackerName?: string // Original tracker name with capitalization preserved
   trackerType?: string
@@ -42,14 +42,18 @@ export interface AIQueryResponse {
   originalMessage?: string
   config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; include?: string; default?: number } // Partial config being built
   options?: Array<{ label: string; value: string }> // Options for multiple choice
+  quantity?: number // For barcode scan: quantity from message
+  suggestBarcodeScan?: boolean // For food-related messages: suggest scanning
 }
 
 export interface IntentDetectionResult {
-  type: 'add_entry' | 'question' | 'delete_entry'
+  type: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode'
   trackerName?: string
   value?: number
   trackerNames?: string[] // For multiple trackers
   count?: number // For delete: how many entries to delete
+  quantity?: number // For barcode scan: quantity from message
+  suggestScan?: boolean // For food-related: suggest scan instead of forcing it
 }
 
 /**
@@ -610,7 +614,63 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
       value,
     }
   }
-  
+
+  // Check for barcode scanning intent
+  const scanKeywords = ['scan', 'barcode']
+  const hasScanKeyword = scanKeywords.some(keyword => {
+    const regex = new RegExp(`\\b${keyword}\\b`, 'i')
+    return regex.test(lowerMessage)
+  })
+
+  if (hasScanKeyword) {
+    // Explicit barcode scan request
+    // Try to extract quantity from message
+    let quantity = 1
+    const quantityMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)?/)
+    if (quantityMatch) {
+      quantity = parseFloat(quantityMatch[1])
+    }
+
+    return {
+      type: 'scan_barcode',
+      quantity,
+    }
+  }
+
+  // Check for food-related keywords (suggest barcode scan)
+  const foodKeywords = [
+    'ate', 'eaten', 'eating', 'eat',
+    'drank', 'drinking', 'drink',
+    'consumed', 'consuming',
+    'had', 'have',
+    'breakfast', 'lunch', 'dinner', 'snack', 'meal',
+    'food', 'protein bar', 'energy drink', 'yogurt', 'cereal'
+  ]
+
+  const hasFoodKeyword = foodKeywords.some(keyword => {
+    if (keyword.includes(' ')) {
+      return lowerMessage.includes(keyword)
+    }
+    const regex = new RegExp(`\\b${keyword}\\b`, 'i')
+    return regex.test(lowerMessage)
+  })
+
+  if (hasFoodKeyword) {
+    // Food-related message - suggest barcode scan
+    // Try to extract quantity
+    let quantity = 1
+    const quantityMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)?/)
+    if (quantityMatch) {
+      quantity = parseFloat(quantityMatch[1])
+    }
+
+    return {
+      type: 'scan_barcode',
+      quantity,
+      suggestScan: true, // This is a suggestion, not a forced action
+    }
+  }
+
   // Default: treat as question if no clear intent
   return { type: 'question' }
 }
@@ -2222,7 +2282,29 @@ export async function answerQuestion(question: string, model: string = DEFAULT_M
     if (intent.type === 'add_entry') {
       return await handleEntryCreation(question, intent.trackerName, intent.value)
     }
-    
+
+    // If it's a barcode scanning intent, return action for UI to handle
+    if (intent.type === 'scan_barcode') {
+      if (intent.suggestScan) {
+        // Suggest barcode scan for food-related queries
+        return {
+          answer: 'Would you like to scan the barcode for precise nutrition info?',
+          action: 'scan_barcode',
+          suggestBarcodeScan: true,
+          quantity: intent.quantity,
+          originalMessage: question,
+        }
+      } else {
+        // Explicit scan request
+        return {
+          answer: 'Opening barcode scanner...',
+          action: 'scan_barcode',
+          quantity: intent.quantity,
+          originalMessage: question,
+        }
+      }
+    }
+
     // Otherwise, proceed with question answering
     const parsed = parseQuestion(question)
     
