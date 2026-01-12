@@ -25,28 +25,30 @@ function formatDateForAI(date: string | dayjs.Dayjs): string {
   return dayjs(date).format('dddd, Do MMMM YYYY')
 }
 
-const OLLAMA_ENDPOINT = 'http://localhost:11434/api/generate'
-const DEFAULT_MODEL = 'llama3.2' // You can change this to any model you have installed
+const OLLAMA_ENDPOINT = 'http://127.0.0.1:11434/api/generate'
+const DEFAULT_MODEL = 'mistral' // You can change this to any model you have installed
 
 export interface AIQueryResponse {
   answer: string
   data?: any
   error?: string
-  action?: 'add_entry' | 'question' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config'
+  action?: 'add_entry' | 'question' | 'delete_entry' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config'
   trackerTag?: string
   trackerName?: string // Original tracker name with capitalization preserved
   trackerType?: string
   value?: number
+  count?: number // For delete: how many entries were deleted
   originalMessage?: string
   config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; include?: string; default?: number } // Partial config being built
   options?: Array<{ label: string; value: string }> // Options for multiple choice
 }
 
 export interface IntentDetectionResult {
-  type: 'add_entry' | 'question'
+  type: 'add_entry' | 'question' | 'delete_entry'
   trackerName?: string
   value?: number
   trackerNames?: string[] // For multiple trackers
+  count?: number // For delete: how many entries to delete
 }
 
 /**
@@ -366,20 +368,82 @@ async function getRelevantData(question: string): Promise<{
  */
 function detectIntent(message: string, availableTrackers: Array<{ tag: string; label: string }>): IntentDetectionResult {
   const lowerMessage = message.toLowerCase().trim()
-  
-  // Keywords that indicate entry creation intent
+
+  // Keywords that indicate entry creation intent - use word boundaries to avoid false matches
   const addKeywords = ['add', 'track', 'log', 'record', 'enter', 'create entry', 'new entry']
+  const deleteKeywords = ['remove', 'delete', 'undo', 'erase', 'clear']
   const questionKeywords = ['how', 'what', 'when', 'where', 'why', 'which', 'who', '?', 'show', 'tell', 'analyze', 'compare']
-  
-  // Check for explicit add keywords
-  const hasAddKeyword = addKeywords.some(keyword => lowerMessage.includes(keyword))
-  const hasQuestionKeyword = questionKeywords.some(keyword => lowerMessage.includes(keyword))
-  
+
+  // Use word boundary matching to avoid false matches like "tracked" matching "track"
+  const hasDeleteKeyword = deleteKeywords.some(keyword => {
+    const regex = new RegExp(`\\b${keyword}\\b`, 'i')
+    return regex.test(lowerMessage)
+  })
+
+  const hasAddKeyword = addKeywords.some(keyword => {
+    // For multi-word keywords like "create entry", use phrase matching
+    if (keyword.includes(' ')) {
+      return lowerMessage.includes(keyword)
+    }
+    // For single words, use word boundaries
+    const regex = new RegExp(`\\b${keyword}\\b`, 'i')
+    return regex.test(lowerMessage)
+  })
+
+  const hasQuestionKeyword = questionKeywords.some(keyword => {
+    if (keyword === '?') {
+      return lowerMessage.includes(keyword)
+    }
+    const regex = new RegExp(`\\b${keyword}\\b`, 'i')
+    return regex.test(lowerMessage)
+  })
+
+  // Check for delete intent first (higher priority)
+  if (hasDeleteKeyword) {
+    // Extract tracker name and count from delete message
+    // Patterns like: "remove 1 banana", "delete 2 water", "undo last coffee"
+    let trackerName: string | undefined
+    let count = 1 // Default to 1
+
+    // Extract count (number before tracker name)
+    const countMatch = lowerMessage.match(/(?:remove|delete|undo|erase|clear)\s+(?:the\s+)?(?:last\s+)?(\d+)/)
+    if (countMatch) {
+      count = parseInt(countMatch[1])
+    }
+
+    // Try to find tracker name by matching against available trackers
+    for (const tracker of availableTrackers) {
+      const tagLower = tracker.tag.toLowerCase().replace('#', '')
+      const labelLower = tracker.label.toLowerCase()
+
+      // Check if message contains tracker tag or label
+      if (lowerMessage.includes(tagLower) || lowerMessage.includes(labelLower)) {
+        trackerName = tracker.tag
+        break
+      }
+    }
+
+    // If no tracker found by name matching, try to extract from message patterns
+    if (!trackerName) {
+      // Pattern: "remove 1 banana" or "delete banana" - extract word after number or delete keyword
+      const extractMatch = message.match(/(?:remove|delete|undo|erase|clear)\s+(?:the\s+)?(?:last\s+)?(?:\d+\s+)?([a-zA-Z][a-zA-Z0-9_\s]*?)(?:\s+that|\s+i\s+just|\s+entry|$)/i)
+      if (extractMatch && extractMatch[1]) {
+        trackerName = extractMatch[1].trim()
+      }
+    }
+
+    return {
+      type: 'delete_entry',
+      trackerName,
+      count
+    }
+  }
+
   // If it has question keywords and no add keywords, it's a question
   if (hasQuestionKeyword && !hasAddKeyword) {
     return { type: 'question' }
   }
-  
+
   // If it has add keywords, it's likely an entry creation
   if (hasAddKeyword) {
     // Try to extract tracker name(s) and value
@@ -952,6 +1016,93 @@ async function createLogEntry(tracker: Trackable, value?: number): Promise<{ suc
   } catch (e: any) {
     console.error('Error creating log entry:', e)
     return { success: false, error: e.message || 'Failed to create log entry' }
+  }
+}
+
+/**
+ * Handle entry deletion request
+ */
+export async function handleEntryDeletion(
+  message: string,
+  trackerName?: string,
+  count?: number
+): Promise<AIQueryResponse> {
+  try {
+    // Default to 1 if no count specified
+    const deleteCount = count || 1
+
+    // Find tracker
+    let tracker: Trackable | null = null
+    if (trackerName) {
+      tracker = await findTrackerByName(trackerName)
+      if (!tracker) {
+        return {
+          answer: `I couldn't find a tracker called "${trackerName}". Please check the name and try again.`,
+          error: 'Tracker not found',
+        }
+      }
+    } else {
+      return {
+        answer: 'I need to know which tracker entries to delete. Please specify the tracker name.',
+        error: 'No tracker specified',
+      }
+    }
+
+    // Get recent logs for this tracker
+    const end = dayjs().endOf('day')
+    const start = end.subtract(90, 'days').startOf('day')
+    const allLogs = await LedgerStore.query({
+      start: start,
+      end: end,
+    })
+
+    // Normalize tag
+    const normalizedTag = tracker.tag.startsWith('#') ? tracker.tag.slice(1) : tracker.tag
+
+    // Filter to logs containing this tracker, sorted by most recent first
+    const trackerLogs = allLogs
+      .filter((log) => {
+        if (!log.trackers) {
+          log.getMeta()
+        }
+        return log.trackers?.some((t) => t.id === normalizedTag || t.id === tracker.tag)
+      })
+      .sort((a, b) => dayjs(b.end).valueOf() - dayjs(a.end).valueOf())
+
+    if (trackerLogs.length === 0) {
+      return {
+        answer: `No recent entries found for ${tracker.tag}. Nothing to delete.`,
+        action: 'delete_entry',
+        trackerTag: tracker.tag,
+        count: 0,
+      }
+    }
+
+    // Get the most recent N logs to delete
+    const logsToDelete = trackerLogs.slice(0, deleteCount)
+    const actualDeleteCount = logsToDelete.length
+
+    // Delete the logs
+    await LedgerStore.deleteLogs(logsToDelete)
+
+    // Format response
+    const countStr = actualDeleteCount === 1 ? '1 entry' : `${actualDeleteCount} entries`
+    const wasWere = actualDeleteCount === 1 ? 'was' : 'were'
+
+    return {
+      answer: `✓ Deleted ${countStr} for ${tracker.tag} (${wasWere} just removed)`,
+      action: 'delete_entry',
+      trackerTag: tracker.tag,
+      count: actualDeleteCount,
+      data: {
+        deletedLogs: logsToDelete,
+      },
+    }
+  } catch (error: any) {
+    return {
+      answer: '',
+      error: error.message || 'Failed to delete entries',
+    }
   }
 }
 
@@ -1846,10 +1997,15 @@ export async function answerQuestion(question: string, model: string = DEFAULT_M
   try {
     // Get relevant data
     const data = await getRelevantData(question)
-    
+
     // Check intent first
     const intent = detectIntent(question, data.trackers)
-    
+
+    // If it's an entry deletion intent, handle it
+    if (intent.type === 'delete_entry') {
+      return await handleEntryDeletion(question, intent.trackerName, intent.count)
+    }
+
     // If it's an entry creation intent, handle it
     if (intent.type === 'add_entry') {
       return await handleEntryCreation(question, intent.trackerName, intent.value)
@@ -2100,7 +2256,7 @@ ${isIntervalQuestion ? `
  */
 export async function checkOllamaAvailable(): Promise<boolean> {
   try {
-    const response = await fetch('http://localhost:11434/api/tags', {
+    const response = await fetch('http://127.0.0.1:11434/api/tags', {
       method: 'GET',
     })
     return response.ok
@@ -2114,7 +2270,7 @@ export async function checkOllamaAvailable(): Promise<boolean> {
  */
 export async function getAvailableModels(): Promise<string[]> {
   try {
-    const response = await fetch('http://localhost:11434/api/tags')
+    const response = await fetch('http://127.0.0.1:11434/api/tags')
     if (!response.ok) {
       console.error(`Ollama API error (${response.status}): ${response.statusText}`)
       return []

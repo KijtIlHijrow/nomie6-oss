@@ -13,19 +13,20 @@
   let error = ''
   let ollamaAvailable = false
   let availableModels: string[] = []
-  let selectedModel = 'llama3.2'
+  let selectedModel = 'mistral'
   let includeInputValues: { [key: string]: string } = {}
-  let messages: Array<{ 
-    id: string; 
-    role: 'user' | 'assistant' | 'error'; 
-    content: string; 
+  let messages: Array<{
+    id: string;
+    role: 'user' | 'assistant' | 'error';
+    content: string;
     timestamp: Date;
-    action?: 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'add_entry' | 'question';
+    action?: 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'add_entry' | 'delete_entry' | 'question';
     trackerTag?: string;
     trackerName?: string;
     trackerType?: string;
     originalMessage?: string;
     value?: number;
+    count?: number;
     config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; include?: string; default?: number };
     options?: Array<{ label: string; value: string }>;
     log?: NLog | undefined;
@@ -86,7 +87,7 @@
           {
             id: 'welcome',
             role: 'assistant',
-            content: 'Hello! I\'m Nomie AI. I can help you in two ways:\n\n1. Ask questions about your data: "How was my anxiety level when I slept for only 6 hours?"\n2. Add entries: "add intraworkout" or "track water 8"\n\nTry asking a question or adding an entry!',
+            content: 'Hello! I\'m Nomie AI. I can help you in three ways:\n\n1. Ask questions about your data: "How was my anxiety level when I slept for only 6 hours?"\n2. Add entries: "add intraworkout" or "track water 8"\n3. Delete entries: "remove 1 banana" or "delete last coffee"\n\nTry asking a question, adding an entry, or deleting one!',
             timestamp: new Date(),
           }
         ]
