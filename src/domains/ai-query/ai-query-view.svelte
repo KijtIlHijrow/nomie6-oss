@@ -153,14 +153,18 @@
         const nameToUse = message?.trackerName || trackerTag?.replace('#', '') || ''
         if (!nameToUse) return
         const response = startTrackerConfiguration(nameToUse, originalMessage || message?.originalMessage, value || message?.value)
-        
+
         // Remove loading message
         messages = messages.filter(m => m.id !== loadingMessageId)
-        
-        // Remove the action buttons from the original message
+
+        // Remove the action buttons from the original message and show selection
         messages = messages.map(m => {
           if (m.id === messageId) {
-            return { ...m, action: undefined }
+            return {
+              ...m,
+              action: undefined,
+              content: `${m.content} → Yes, create it`
+            }
           }
           return m
         })
@@ -196,11 +200,15 @@
       } else if (action === 'cancel_tracker') {
         // Remove loading message
         messages = messages.filter(m => m.id !== loadingMessageId)
-        
-        // Remove the action buttons from the original message
+
+        // Remove the action buttons from the original message and show selection
         messages = messages.map(m => {
           if (m.id === messageId) {
-            return { ...m, action: undefined }
+            return {
+              ...m,
+              action: undefined,
+              content: `${m.content} → No, cancel`
+            }
           }
           return m
         })
@@ -216,16 +224,23 @@
         ]
       } else if (action === 'submit_value' && message) {
         const response = await handleEntryCreation('', message.trackerTag?.replace('#', '') || '', value)
-        
+
         // Remove loading message - use the specific ID first
         messages = messages.filter(m => m.id !== loadingMessageId)
         // Safety cleanup: remove any other lingering typing indicators that might have been created
         messages = messages.filter(m => !(m.role === 'assistant' && m.content === '...'))
-        
-        // Remove the action buttons from the original message
+
+        // Remove the action buttons from the original message and show entered value
         messages = messages.map(m => {
           if (m.id === messageId) {
-            return { ...m, action: undefined }
+            const uomKey = m.config?.uom
+            const uomLabel = uomKey ? UOM.plural(uomKey) : ''
+            const valueDisplay = uomLabel ? `${value} ${uomLabel}` : value
+            return {
+              ...m,
+              action: undefined,
+              content: `${m.content} → ${valueDisplay}`
+            }
           }
           return m
         })
@@ -293,10 +308,10 @@
             message.value,
             message.config
           )
-          
+
           // Remove loading message
           messages = messages.filter(m => m.id !== loadingMessageId)
-          
+
           // If response has an action, check if it's ready to create or needs more config
           if (response.action === 'create_tracker_with_config') {
           // All config collected, create tracker (async)
@@ -306,11 +321,28 @@
             response.value,
             response.config
           )
-          
-          // Remove the action buttons from the original message
+
+          // Remove the action buttons from the original message and show selected answer
           messages = messages.map(m => {
             if (m.id === messageId) {
-              return { ...m, action: undefined }
+              // Find the selected option's label
+              let answerLabel = ''
+              if (configKey === 'focus' && selectedValue === '__done__') {
+                // For focus, show the actual selected items from config
+                const focusArray = response.config?.focus || []
+                answerLabel = focusArray.length > 0 ? focusArray.join(', ') : 'None'
+              } else if (configKey === 'also_include' && selectedValue !== '__skip__' && selectedValue !== 'yes' && selectedValue !== 'no') {
+                // For also_include, show the actual value they entered
+                answerLabel = selectedValue
+              } else {
+                const selectedOption = m.options?.find(opt => opt.value === selectedValue)
+                answerLabel = selectedValue === '__skip__' ? 'Skip' : (selectedOption?.label || selectedValue)
+              }
+              return {
+                ...m,
+                action: undefined,
+                content: `${m.content} → ${answerLabel}`
+              }
             }
             return m
           })
@@ -372,7 +404,21 @@
             // For other actions, remove the action from the original message and create a new one
             messages = messages.map(m => {
               if (m.id === messageId) {
-                return { ...m, action: undefined }
+                // Find the selected option's label
+                let answerLabel = ''
+                if (configKey === 'focus' && selectedValue === '__done__') {
+                  // For focus, show the actual selected items from config
+                  const focusArray = response.config?.focus || []
+                  answerLabel = focusArray.length > 0 ? focusArray.join(', ') : 'None'
+                } else {
+                  const selectedOption = m.options?.find(opt => opt.value === selectedValue)
+                  answerLabel = selectedValue === '__skip__' ? 'Skip' : (selectedOption?.label || selectedValue)
+                }
+                return {
+                  ...m,
+                  action: undefined,
+                  content: `${m.content} → ${answerLabel}`
+                }
               }
               return m
             })
@@ -393,10 +439,27 @@
             messages = [...messages, newMessage]
           }
         } else {
-          // No action in response - remove action from original message
+          // No action in response - remove action from original message and show selected answer
           messages = messages.map(m => {
             if (m.id === messageId) {
-              return { ...m, action: undefined }
+              // Find the selected option's label
+              let answerLabel = ''
+              if (configKey === 'focus' && selectedValue === '__done__') {
+                // For focus, show the actual selected items from config
+                const focusArray = response.config?.focus || []
+                answerLabel = focusArray.length > 0 ? focusArray.join(', ') : 'None'
+              } else if (configKey === 'also_include' && selectedValue !== '__skip__' && selectedValue !== 'yes' && selectedValue !== 'no') {
+                // For also_include, show the actual value they entered
+                answerLabel = selectedValue
+              } else {
+                const selectedOption = m.options?.find(opt => opt.value === selectedValue)
+                answerLabel = selectedValue === '__skip__' ? 'Skip' : (selectedOption?.label || selectedValue)
+              }
+              return {
+                ...m,
+                action: undefined,
+                content: `${m.content} → ${answerLabel}`
+              }
             }
             return m
           })
