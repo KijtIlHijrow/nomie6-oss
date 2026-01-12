@@ -7,6 +7,10 @@
   import NLog from '../../domains/nomie-log/nomie-log'
   import { getTrackablesFromStorage, saveTrackersToStorage } from '../../domains/trackable/TrackableStore'
   import AutoComplete from '../../components/auto-complete/auto-complete.svelte'
+  import { barcodeScanner } from '../nutrition/barcode-scanner'
+  import { nutritionService } from '../nutrition/nutrition-service'
+  import { BarcodeScannerModal, ManualBarcodeEntry, CameraPermissionPrompt } from '../nutrition/components'
+  import { Capacitor } from '@capacitor/core'
 
   let question = ''
   let loading = false
@@ -20,7 +24,7 @@
     role: 'user' | 'assistant' | 'error';
     content: string;
     timestamp: Date;
-    action?: 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'add_entry' | 'delete_entry' | 'question';
+    action?: 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'add_entry' | 'delete_entry' | 'question' | 'scan_barcode';
     trackerTag?: string;
     trackerName?: string;
     trackerType?: string;
@@ -30,12 +34,20 @@
     config?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; include?: string; default?: number };
     options?: Array<{ label: string; value: string }>;
     log?: NLog | undefined;
+    quantity?: number;
+    suggestBarcodeScan?: boolean;
   }> = []
   let chatContainer: HTMLDivElement
   let showModelSelector = false
   let modelSelectorContainer: HTMLDivElement
   let inputElement: HTMLDivElement
-  
+
+  // Barcode scanner state
+  let showBarcodeScanner = false
+  let showManualEntry = false
+  let showPermissionPrompt = false
+  let pendingScanContext: { quantity: number; messageId: string; originalMessage: string } | null = null
+
   // Conversation state for pending value requests
   let pendingValueRequest: { trackerTag: string; trackerType: string; messageId: string } | null = null
 
@@ -581,6 +593,128 @@
       // should complete before another operation starts, so any typing indicators remaining
       // are likely from this operation and should be cleaned up.
       messages = messages.filter(m => !(m.role === 'assistant' && m.content === '...'))
+    }
+  }
+
+  // Barcode scanning handlers
+  async function handleBarcodeScanClick(messageId: string, quantity: number = 1, originalMessage: string = '') {
+    const message = messages.find(m => m.id === messageId)
+    if (!message) return
+
+    // Store context for when scan completes
+    pendingScanContext = { quantity, messageId, originalMessage }
+
+    // Check if native platform
+    if (Capacitor.isNativePlatform()) {
+      // Use native scanner
+      const result = await barcodeScanner.scan()
+
+      if (result.success && result.barcode) {
+        await processScannedBarcode(result.barcode, quantity, originalMessage)
+      } else if (result.error && result.error.includes('permission')) {
+        // Show permission prompt
+        showPermissionPrompt = true
+      } else if (!result.cancelled) {
+        // Show manual entry option on error
+        showManualEntry = true
+      }
+    } else {
+      // Use web scanner modal
+      showBarcodeScanner = true
+    }
+  }
+
+  function handleBarcodeScanned(barcode: string) {
+    showBarcodeScanner = false
+    if (pendingScanContext) {
+      processScannedBarcode(barcode, pendingScanContext.quantity, pendingScanContext.originalMessage)
+    }
+  }
+
+  function handleManualBarcodeSubmit(barcode: string) {
+    showManualEntry = false
+    if (pendingScanContext) {
+      processScannedBarcode(barcode, pendingScanContext.quantity, pendingScanContext.originalMessage)
+    }
+  }
+
+  function handleScannerCancel() {
+    showBarcodeScanner = false
+    showManualEntry = false
+    showPermissionPrompt = false
+    pendingScanContext = null
+  }
+
+  function handlePermissionManualEntry() {
+    showPermissionPrompt = false
+    showManualEntry = true
+  }
+
+  async function processScannedBarcode(barcode: string, quantity: number, originalMessage: string) {
+    loading = true
+
+    // Add loading message
+    const loadingMessageId = generateMessageId('loading')
+    messages = [...messages, {
+      id: loadingMessageId,
+      role: 'assistant',
+      content: 'Looking up nutrition info...',
+      timestamp: new Date(),
+    }]
+    scrollToBottom()
+
+    try {
+      // Lookup nutrition data
+      const nutritionData = await nutritionService.lookup(barcode)
+
+      // Remove loading message
+      messages = messages.filter(m => m.id !== loadingMessageId)
+
+      if (!nutritionData) {
+        // Barcode not found
+        messages = [...messages, {
+          id: generateMessageId('error'),
+          role: 'error',
+          content: `Barcode ${barcode} not found in nutrition database. You can enter the nutrition information manually if you'd like.`,
+          timestamp: new Date(),
+        }]
+        scrollToBottom()
+        loading = false
+        pendingScanContext = null
+        return
+      }
+
+      // TODO: Phase 4 - Create nutrition trackers and entries
+      // For now, just show the nutrition info
+      const macros = [
+        `${Math.round(nutritionData.nutrients.calories * quantity)} calories`,
+        `${Math.round(nutritionData.nutrients.protein_g * quantity)}g protein`,
+        `${Math.round(nutritionData.nutrients.carbs_g * quantity)}g carbs`,
+        `${Math.round(nutritionData.nutrients.fat_g * quantity)}g fat`,
+      ].join(', ')
+
+      messages = [...messages, {
+        id: generateMessageId('assistant'),
+        role: 'assistant',
+        content: `Found: ${nutritionData.productName}${nutritionData.brand ? ` (${nutritionData.brand})` : ''}\n\nNutrition (${quantity}x serving):\n${macros}\n\n(Phase 4: Auto-create nutrition trackers and entries - coming soon!)`,
+        timestamp: new Date(),
+      }]
+
+      scrollToBottom()
+    } catch (error) {
+      // Remove loading message
+      messages = messages.filter(m => m.id !== loadingMessageId)
+
+      messages = [...messages, {
+        id: generateMessageId('error'),
+        role: 'error',
+        content: `Error looking up barcode: ${error instanceof Error ? error.message : String(error)}`,
+        timestamp: new Date(),
+      }]
+      scrollToBottom()
+    } finally {
+      loading = false
+      pendingScanContext = null
     }
   }
 
@@ -1162,7 +1296,35 @@
                 </div>
               </div>
             {/if}
-            
+
+            <!-- Barcode Scan Action -->
+            {#if message.action === 'scan_barcode'}
+              <div class="mt-3 flex gap-2">
+                <button
+                  on:click={() => handleBarcodeScanClick(message.id, message.quantity || 1, message.originalMessage || '')}
+                  class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium flex items-center gap-2"
+                  disabled={loading}
+                >
+                  <span>📷</span>
+                  <span>Scan Barcode</span>
+                </button>
+                {#if message.suggestBarcodeScan}
+                  <button
+                    on:click={() => {
+                      // Clear the suggestion and just continue with text entry
+                      messages = messages.map(m =>
+                        m.id === message.id ? { ...m, action: undefined, suggestBarcodeScan: false } : m
+                      )
+                    }}
+                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+                    disabled={loading}
+                  >
+                    Skip
+                  </button>
+                {/if}
+              </div>
+            {/if}
+
             <div class="text-xs mt-2 opacity-70 selectable-text">
               {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
             </div>
@@ -1210,6 +1372,33 @@
     </div>
   </div>
 </div>
+
+<!-- Barcode Scanner Modals -->
+{#if showBarcodeScanner}
+  <BarcodeScannerModal
+    onScan={handleBarcodeScanned}
+    onCancel={handleScannerCancel}
+    onError={(err) => {
+      console.error('Barcode scanner error:', err)
+      showBarcodeScanner = false
+      showManualEntry = true
+    }}
+  />
+{/if}
+
+{#if showManualEntry}
+  <ManualBarcodeEntry
+    onSubmit={handleManualBarcodeSubmit}
+    onCancel={handleScannerCancel}
+  />
+{/if}
+
+{#if showPermissionPrompt}
+  <CameraPermissionPrompt
+    onManualEntry={handlePermissionManualEntry}
+    onCancel={handleScannerCancel}
+  />
+{/if}
 
 <style>
   .ai-chat-wrapper {
