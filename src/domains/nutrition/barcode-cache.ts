@@ -195,8 +195,10 @@ export class BarcodeCache {
   async getPendingContributions(): Promise<NutritionContribution[]> {
     try {
       const db = await this.dbPromise
-      const index = db.transaction(STORE_CONTRIBUTIONS).store.index('synced')
-      return await index.getAll(false)
+      const tx = db.transaction(STORE_CONTRIBUTIONS, 'readonly')
+      const index = tx.store.index('synced')
+      const all = await tx.store.getAll()
+      return all.filter((c) => !c.synced)
     } catch (error) {
       console.error('Failed to get pending contributions:', error)
       return []
@@ -254,12 +256,13 @@ export class BarcodeCache {
   async clearSyncedContributions(): Promise<number> {
     try {
       const db = await this.dbPromise
-      const index = db.transaction(STORE_CONTRIBUTIONS, 'readwrite').store.index('synced')
-      const synced = await index.getAll(true)
+      const tx = db.transaction(STORE_CONTRIBUTIONS, 'readwrite')
+      const all = await tx.store.getAll()
+      const synced = all.filter((c) => c.synced)
 
       for (const contribution of synced) {
         if (contribution.id !== undefined) {
-          await db.delete(STORE_CONTRIBUTIONS, contribution.id)
+          await tx.store.delete(contribution.id)
         }
       }
 

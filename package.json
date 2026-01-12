@@ -116,6 +116,7 @@
     "cypress": "^15.8.2"
   },
   "dependencies": {
+    "@capacitor-community/barcode-scanner": "^4.0.1",
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
@@ -132,6 +133,7 @@
     "dayjs": "^1.11.9",
     "esri-leaflet": "^3.0.10",
     "expr-eval": "^2.0.2",
+    "html5-qrcode": "^2.3.8",
     "idb": "^8.0.3",
     "install": "^0.13.0",
     "ionicons": "^7.1.2",
