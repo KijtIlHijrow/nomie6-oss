@@ -678,9 +678,10 @@ function parseUOMHint(message: string): string | null {
     'l': 'liter',
   }
   
-  // Check for UOM mentions
+  // Check for UOM mentions using word boundaries to avoid false matches
   for (const [keyword, uomKey] of Object.entries(uomMap)) {
-    if (lowerMessage.includes(keyword)) {
+    const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+    if (regex.test(lowerMessage)) {
       return uomKey
     }
   }
