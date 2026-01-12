@@ -16,6 +16,7 @@ import type { PopMenuButton } from '../../components/pop-menu/usePopmenu'
 import type { UOMElement } from '../uom/uom-types'
 import appConfig from '../../config/appConfig'
 import { focusTypes } from '../focus/focus-utils'
+import { parseIntentWithAI, suggestTrackerConfigWithAI, parseTimeRangeWithAI, extractValueWithAI, CONFIDENCE_THRESHOLDS, invalidateAICache } from './ai-query-ai-helpers'
 
 /**
  * Format date for AI display in a human-readable format
@@ -220,7 +221,10 @@ function calculateIntervals(logs: Array<NLog>, trackerTag: string): {
 /**
  * Get relevant data from Nomie based on the question
  */
-async function getRelevantData(question: string): Promise<{
+async function getRelevantData(
+  question: string,
+  timeContext?: { start: dayjs.Dayjs; end: dayjs.Dayjs } | null
+): Promise<{
   trackers: Array<{ tag: string; label: string; type: string }>
   contexts: Array<{ tag: string; label: string }>
   logs: Array<NLog>
@@ -249,9 +253,9 @@ async function getRelevantData(question: string): Promise<{
       }
     })
 
-  // Get logs from last 90 days (adjust as needed)
-  const end = dayjs().endOf('day')
-  const start = end.subtract(90, 'days').startOf('day')
+  // Use time context if provided, otherwise default to last 90 days
+  const end = timeContext ? timeContext.end : dayjs().endOf('day')
+  const start = timeContext ? timeContext.start : end.subtract(90, 'days').startOf('day')
 
   const logs = await LedgerStore.query({
     start: start,
@@ -366,7 +370,7 @@ async function getRelevantData(question: string): Promise<{
 /**
  * Detect intent from user message - whether they want to add an entry or ask a question
  */
-function detectIntent(message: string, availableTrackers: Array<{ tag: string; label: string }>): IntentDetectionResult {
+async function detectIntent(message: string, availableTrackers: Array<{ tag: string; label: string }>): Promise<IntentDetectionResult> {
   const lowerMessage = message.toLowerCase().trim()
 
   // Keywords that indicate entry creation intent - use word boundaries to avoid false matches
@@ -579,7 +583,26 @@ function detectIntent(message: string, availableTrackers: Array<{ tag: string; l
         }
       }
     }
-    
+
+    // AI Fallback: If no tracker name found with regex, try AI
+    if (trackerNames.length === 0 && appConfig.ai?.enabled && appConfig.ai?.features?.intentFallback) {
+      try {
+        const aiResult = await parseIntentWithAI(message, availableTrackers)
+        if (aiResult && aiResult.confidence >= CONFIDENCE_THRESHOLDS.intentDetection) {
+          // Use AI result if confident
+          return {
+            type: aiResult.type,
+            trackerName: aiResult.trackerName,
+            trackerNames: aiResult.trackerName ? [aiResult.trackerName] : undefined,
+            value: aiResult.value || value,
+          }
+        }
+      } catch (error) {
+        // AI failed, fall through to regex result
+        console.warn('AI intent detection failed, using regex:', error)
+      }
+    }
+
     return {
       type: 'add_entry',
       trackerNames: trackerNames.length > 0 ? trackerNames : undefined,
@@ -593,14 +616,36 @@ function detectIntent(message: string, availableTrackers: Array<{ tag: string; l
 }
 
 /**
- * Parse numeric value from user message
+ * Parse numeric value from user message with AI fallback for fuzzy quantities
  */
-export function parseValueFromMessage(message: string): number | null {
-  // Try to extract numbers (integers and decimals)
+export async function parseValueFromMessage(
+  message: string,
+  trackerName?: string,
+  trackerUOM?: string
+): Promise<number | null> {
+  // Try regex first (deterministic)
   const numberMatch = message.match(/(\d+(?:\.\d+)?)/)
   if (numberMatch) {
     return parseFloat(numberMatch[1])
   }
+
+  // AI Fallback: Check for fuzzy quantities
+  const fuzzyQuantities = ['bunch', 'lot', 'some', 'little', 'several', 'few', 'couple']
+  const lowerMessage = message.toLowerCase()
+  const hasFuzzy = fuzzyQuantities.some(q => lowerMessage.includes(q))
+
+  if (hasFuzzy && trackerName && appConfig.ai?.enabled && appConfig.ai?.features?.valueExtraction) {
+    try {
+      const aiResult = await extractValueWithAI(message, trackerName, trackerUOM)
+      if (aiResult && aiResult.confidence >= CONFIDENCE_THRESHOLDS.valueExtraction) {
+        return aiResult.value
+      }
+    } catch (error) {
+      // AI failed, return null
+      console.warn('AI value extraction failed:', error)
+    }
+  }
+
   return null
 }
 
@@ -1195,10 +1240,51 @@ export async function handleEntryCreation(
 
 /**
  * Start tracker configuration flow - ask for tracker type first
+ * Enhanced with AI to suggest configuration if enabled
  */
-export function startTrackerConfiguration(trackerName: string, userMessage?: string, value?: number, existingConfig?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; include?: string }): AIQueryResponse {
+export async function startTrackerConfiguration(trackerName: string, userMessage?: string, value?: number, existingConfig?: { type?: string; uom?: string; math?: string; score?: string; focus?: string[]; include?: string }): Promise<AIQueryResponse> {
   const config = existingConfig || {}
-  
+
+  // AI Enhancement: Try to suggest configuration on initial call (when config is empty)
+  if (Object.keys(config).length === 0 && appConfig.ai?.enabled && appConfig.ai?.features?.trackerSuggestions) {
+    try {
+      const aiSuggestion = await suggestTrackerConfigWithAI(trackerName, userMessage)
+
+      // Auto-apply if confidence >= 0.8, otherwise use wizard
+      if (aiSuggestion && aiSuggestion.confidence >= CONFIDENCE_THRESHOLDS.trackerConfig) {
+        // Auto-populate config with AI suggestions
+        const suggestedConfig: any = {
+          type: aiSuggestion.type,
+          _aiApplied: true, // Flag to track AI was used
+        }
+
+        // Add UOM if suggested
+        if (aiSuggestion.uom) {
+          suggestedConfig.uom = aiSuggestion.uom
+        }
+
+        // Add math if suggested
+        if (aiSuggestion.math) {
+          suggestedConfig.math = aiSuggestion.math
+        }
+
+        // Skip directly to creating tracker with AI-suggested config
+        return {
+          answer: `Creating "${trackerName}" tracker (${aiSuggestion.type}${aiSuggestion.uom ? ', ' + aiSuggestion.uom : ''}). You can edit settings after creation.`,
+          action: 'create_tracker_with_config',
+          trackerName,
+          trackerTag: toTag(trackerName),
+          originalMessage: userMessage,
+          value,
+          config: suggestedConfig,
+        }
+      }
+    } catch (error) {
+      // AI failed, fall through to wizard
+      console.warn('AI tracker config suggestion failed, using wizard:', error)
+    }
+  }
+
   // If we don't have a type yet, ask for it
   if (!config.type) {
     const typeOptions = [
@@ -1535,13 +1621,13 @@ export async function createTrackerWithConfig(trackerName: string, userMessage?:
 /**
  * Go back one step in the tracker configuration flow
  */
-export function goBackTrackerConfig(
+export async function goBackTrackerConfig(
   trackerName: string,
   currentAction: string,
   userMessage?: string,
   value?: number,
   existingConfig?: { type?: string; uom?: string; math?: string; selectedCategory?: string; score?: string; focus?: string[]; include?: string }
-): AIQueryResponse {
+): Promise<AIQueryResponse> {
   const config = { ...existingConfig } as any
   const trackerType = config.type
   
@@ -1550,7 +1636,7 @@ export function goBackTrackerConfig(
     // If waiting for include content, just remove the waiting flag
     if (config.__waiting_for_include) {
       delete config.__waiting_for_include
-      return startTrackerConfiguration(trackerName, userMessage, value, config)
+      return await startTrackerConfiguration(trackerName, userMessage, value, config)
     }
     // Otherwise, remove include and go back to focus
     delete config.include
@@ -1594,33 +1680,33 @@ export function goBackTrackerConfig(
     delete config.type
   }
   // If currentAction is 'needs_tracker_type', we can't go back further
-  
-  return startTrackerConfiguration(trackerName, userMessage, value, config)
+
+  return await startTrackerConfiguration(trackerName, userMessage, value, config)
 }
 
 /**
  * Handle configuration selection and continue the flow
  */
-export function handleTrackerConfigSelection(
+export async function handleTrackerConfigSelection(
   trackerName: string,
   configKey: 'type' | 'uom' | 'math' | 'uom_category' | 'positivity' | 'focus' | 'also_include',
   selectedValue: string,
   userMessage?: string,
   value?: number,
   existingConfig?: { type?: string; uom?: string; math?: string; selectedCategory?: string; score?: string; focus?: string[]; include?: string }
-): AIQueryResponse {
+): Promise<AIQueryResponse> {
   // Handle UOM category selection - show UOMs in that category
   if (configKey === 'uom_category') {
     // Check if it's a quick select (hinted UOM)
     if (selectedValue.startsWith('__quick__')) {
       const uomKey = selectedValue.replace('__quick__', '')
       const config = { ...existingConfig, uom: uomKey }
-      return startTrackerConfiguration(trackerName, userMessage, value, config)
+      return await startTrackerConfiguration(trackerName, userMessage, value, config)
     }
     
     // Check if it's a divider (shouldn't happen, but handle it)
     if (selectedValue === '__divider__') {
-      return startTrackerConfiguration(trackerName, userMessage, value, existingConfig)
+      return await startTrackerConfiguration(trackerName, userMessage, value, existingConfig)
     }
     
     // It's a category - show UOMs in that category
@@ -1731,12 +1817,12 @@ export function handleTrackerConfigSelection(
     if (selectedValue === '__skip__') {
       // Skip focus selection
       config.focus = []
-      return startTrackerConfiguration(trackerName, userMessage, value, config)
+      return await startTrackerConfiguration(trackerName, userMessage, value, config)
     }
     
     if (selectedValue === '__done__') {
       // Done selecting, continue with flow
-      return startTrackerConfiguration(trackerName, userMessage, value, config)
+      return await startTrackerConfiguration(trackerName, userMessage, value, config)
     }
     
     // Toggle the focus value
@@ -1779,16 +1865,16 @@ export function handleTrackerConfigSelection(
       // Skip "Also Include" - set to empty string so we don't ask again
       delete config.__waiting_for_include
       config.include = '' // Use empty string instead of undefined to indicate "skipped"
-      return startTrackerConfiguration(trackerName, userMessage, value, config)
+      return await startTrackerConfiguration(trackerName, userMessage, value, config)
     } else if (selectedValue === '__yes__') {
       // User wants to add "Also Include" - mark that we're waiting for content
       config.__waiting_for_include = true
-      return startTrackerConfiguration(trackerName, userMessage, value, config)
+      return await startTrackerConfiguration(trackerName, userMessage, value, config)
     } else {
       // User provided the include content
       config.include = selectedValue
       delete config.__waiting_for_include
-      return startTrackerConfiguration(trackerName, userMessage, value, config)
+      return await startTrackerConfiguration(trackerName, userMessage, value, config)
     }
   }
   
@@ -1798,12 +1884,12 @@ export function handleTrackerConfigSelection(
     if (selectedValue.startsWith('__quick__')) {
       const uomKey = selectedValue.replace('__quick__', '')
       const config = { ...existingConfig, uom: uomKey }
-      return startTrackerConfiguration(trackerName, userMessage, value, config)
+      return await startTrackerConfiguration(trackerName, userMessage, value, config)
     }
     
     // Check if it's a divider (shouldn't happen, but handle it)
     if (selectedValue === '__divider__') {
-      return startTrackerConfiguration(trackerName, userMessage, value, existingConfig)
+      return await startTrackerConfiguration(trackerName, userMessage, value, existingConfig)
     }
     
     // Check if it's a category name (not a valid UOM key) - treat it as category selection
@@ -1913,14 +1999,136 @@ export function handleTrackerConfigSelection(
   if (configKey !== 'uom_category') {
     config[configKey] = selectedValue
   }
-  return startTrackerConfiguration(trackerName, userMessage, value, config)
+  return await startTrackerConfiguration(trackerName, userMessage, value, config)
 }
 
 /**
  * Create tracker if user confirms (legacy - now starts configuration flow)
  */
 export async function createTrackerAndEntry(trackerName: string, userMessage?: string, value?: number): Promise<AIQueryResponse> {
-  return startTrackerConfiguration(trackerName, userMessage, value)
+  return await startTrackerConfiguration(trackerName, userMessage, value)
+}
+
+/**
+ * Extract time expressions from question text
+ * Looks for common time-related phrases
+ */
+function extractTimeExpressions(question: string): string[] {
+  const lowerQuestion = question.toLowerCase()
+  const expressions: string[] = []
+
+  // Time period patterns
+  const patterns = [
+    /\b(last|past|previous)\s+(week|month|year|\d+\s+(?:day|week|month|year)s?)\b/g,
+    /\b(this|current)\s+(week|month|year|morning|afternoon|evening)\b/g,
+    /\b(today|yesterday|tomorrow)\s*(morning|afternoon|evening)?\b/g,
+    /\b(since|from)\s+(\w+)\b/g,
+  ]
+
+  for (const pattern of patterns) {
+    const matches = question.match(pattern)
+    if (matches) {
+      expressions.push(...matches)
+    }
+  }
+
+  return expressions
+}
+
+/**
+ * Parse time context from question using regex first, AI fallback
+ * Returns date range if time expression found
+ */
+async function parseTimeContext(question: string): Promise<{ start: dayjs.Dayjs; end: dayjs.Dayjs } | null> {
+  const lowerQuestion = question.toLowerCase()
+
+  // Try regex patterns first (fast, deterministic)
+  const patterns: Array<{ regex: RegExp; handler: (match: RegExpMatchArray) => { start: dayjs.Dayjs; end: dayjs.Dayjs } }> = [
+    {
+      regex: /\blast\s+(\d+)\s+days?\b/i,
+      handler: (m) => ({
+        start: dayjs().subtract(parseInt(m[1]), 'day').startOf('day'),
+        end: dayjs().endOf('day')
+      })
+    },
+    {
+      regex: /\bpast\s+(\d+)\s+days?\b/i,
+      handler: (m) => ({
+        start: dayjs().subtract(parseInt(m[1]), 'day').startOf('day'),
+        end: dayjs().endOf('day')
+      })
+    },
+    {
+      regex: /\blast\s+week\b/i,
+      handler: () => ({
+        start: dayjs().subtract(1, 'week').startOf('week'),
+        end: dayjs().subtract(1, 'week').endOf('week')
+      })
+    },
+    {
+      regex: /\bthis\s+week\b/i,
+      handler: () => ({
+        start: dayjs().startOf('week'),
+        end: dayjs().endOf('week')
+      })
+    },
+    {
+      regex: /\blast\s+month\b/i,
+      handler: () => ({
+        start: dayjs().subtract(1, 'month').startOf('month'),
+        end: dayjs().subtract(1, 'month').endOf('month')
+      })
+    },
+    {
+      regex: /\bthis\s+month\b/i,
+      handler: () => ({
+        start: dayjs().startOf('month'),
+        end: dayjs().endOf('month')
+      })
+    },
+    {
+      regex: /\btoday\b/i,
+      handler: () => ({
+        start: dayjs().startOf('day'),
+        end: dayjs().endOf('day')
+      })
+    },
+    {
+      regex: /\byesterday\b/i,
+      handler: () => ({
+        start: dayjs().subtract(1, 'day').startOf('day'),
+        end: dayjs().subtract(1, 'day').endOf('day')
+      })
+    },
+  ]
+
+  for (const { regex, handler } of patterns) {
+    const match = question.match(regex)
+    if (match) {
+      return handler(match)
+    }
+  }
+
+  // AI Fallback: Try AI for complex time expressions
+  if (appConfig.ai?.enabled && appConfig.ai?.features?.timeParsing) {
+    try {
+      const timeExpressions = extractTimeExpressions(question)
+      if (timeExpressions.length > 0) {
+        const aiResult = await parseTimeRangeWithAI(timeExpressions[0])
+        if (aiResult) {
+          return {
+            start: dayjs(aiResult.startDate + (aiResult.startTime ? ` ${aiResult.startTime}` : '')),
+            end: dayjs(aiResult.endDate + (aiResult.endTime ? ` ${aiResult.endTime}` : ''))
+          }
+        }
+      }
+    } catch (error) {
+      // AI failed, return null (no time filter)
+      console.warn('AI time parsing failed:', error)
+    }
+  }
+
+  return null
 }
 
 /**
@@ -1996,11 +2204,14 @@ function parseQuestion(question: string): {
  */
 export async function answerQuestion(question: string, model: string = DEFAULT_MODEL): Promise<AIQueryResponse> {
   try {
-    // Get relevant data
-    const data = await getRelevantData(question)
+    // Parse time context from question (AI enhancement)
+    const timeContext = await parseTimeContext(question)
+
+    // Get relevant data (with optional time filter)
+    const data = await getRelevantData(question, timeContext)
 
     // Check intent first
-    const intent = detectIntent(question, data.trackers)
+    const intent = await detectIntent(question, data.trackers)
 
     // If it's an entry deletion intent, handle it
     if (intent.type === 'delete_entry') {

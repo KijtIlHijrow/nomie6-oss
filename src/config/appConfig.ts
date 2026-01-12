@@ -23,6 +23,27 @@ export default {
     { emoji: '🟢', label: 'Good', score: 1 },
     { emoji: '💚', label: 'Great', score: 2 },
   ] as Array<PositivityType>,
+
+  // AI Query System Configuration
+  ai: {
+    enabled: true,
+    features: {
+      intentFallback: true,        // Use AI when regex patterns fail to classify intent
+      trackerSuggestions: true,    // AI suggests tracker config (type, UOM, math)
+      timeParsing: true,           // Parse "last week", "yesterday" into date ranges
+      valueExtraction: true,       // Interpret "a bunch", "a lot" as numbers
+    },
+    timeouts: {
+      intentDetection: 5000,       // 5s - quick decision needed
+      trackerConfig: 8000,         // 8s - user filling form, less urgent
+      timeRange: 5000,             // 5s - part of query processing
+      valueExtraction: 5000,       // 5s - user waiting for response
+    },
+    cache: {
+      enabled: true,
+      ttlMs: 300000,               // 5 minutes
+    },
+  },
 }
 
 export type PositivityType = {

@@ -152,7 +152,7 @@
         // Use trackerName if available (preserves capitalization), otherwise fall back to trackerTag
         const nameToUse = message?.trackerName || trackerTag?.replace('#', '') || ''
         if (!nameToUse) return
-        const response = startTrackerConfiguration(nameToUse, originalMessage || message?.originalMessage, value || message?.value)
+        const response = await startTrackerConfiguration(nameToUse, originalMessage || message?.originalMessage, value || message?.value)
 
         // Remove loading message
         messages = messages.filter(m => m.id !== loadingMessageId)
@@ -613,7 +613,11 @@
     }
     
     if (valueRequestMessage) {
-      const value = parseValueFromMessage(questionToAsk)
+      const value = await parseValueFromMessage(
+        questionToAsk,
+        pendingValueRequest?.trackerTag,
+        undefined // UOM not readily available here
+      )
       if (value !== null) {
         await handleButtonClick('submit_value', valueRequestMessage.id, undefined, undefined, value)
         return
