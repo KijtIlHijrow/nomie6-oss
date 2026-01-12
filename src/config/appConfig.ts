@@ -1,4 +1,4 @@
-export default {
+const appConfig = {
   primary_color: '#07B2F5',
   green_color: '#48bb78',
   red_color: '#f56565',
@@ -44,6 +44,28 @@ export default {
       ttlMs: 300000,               // 5 minutes
     },
   },
+
+  // Nutrition Tracking Configuration
+  nutritionApis: {
+    enabled: true,
+    primaryProvider: 'openfoodfacts' as 'openfoodfacts' | 'nutritionix' | 'usda',
+
+    // Nutritionix credentials (optional - required if primaryProvider is 'nutritionix')
+    nutritionixAppId: '',
+    nutritionixApiKey: '',
+    // Get free API key (500 requests/day): https://www.nutritionix.com/business/api
+
+    // Behaviour settings
+    autoCreateTrackers: true,      // Auto-create #calories, #protein, etc. on first scan
+    trackMicronutrients: true,     // Track vitamins, minerals, etc. (not just macros)
+    cacheExpiry: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
+
+    // Rate limiting
+    maxApiCallsPerMinute: 30,
+
+    // Contribution settings
+    contributeToOpenFoodFacts: true, // Default checkbox state for contributing missing products
+  },
 }
 
 export type PositivityType = {
@@ -51,3 +73,6 @@ export type PositivityType = {
   label: string
   score: number
 }
+
+export { appConfig }
+export default appConfig

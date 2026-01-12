@@ -132,6 +132,7 @@
     "dayjs": "^1.11.9",
     "esri-leaflet": "^3.0.10",
     "expr-eval": "^2.0.2",
+    "idb": "^8.0.3",
     "install": "^0.13.0",
     "ionicons": "^7.1.2",
     "js-file-download": "^0.4.12",
