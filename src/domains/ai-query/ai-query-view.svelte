@@ -29,7 +29,7 @@
     role: 'user' | 'assistant' | 'error';
     content: string;
     timestamp: Date;
-    action?: 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'add_entry' | 'delete_entry' | 'question' | 'scan_barcode';
+    action?: 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'add_entry' | 'delete_entry' | 'question' | 'scan_barcode' | 'needs_manual_contribution';
     trackerTag?: string;
     trackerName?: string;
     trackerType?: string;
@@ -41,6 +41,7 @@
     log?: NLog | undefined;
     quantity?: number;
     suggestBarcodeScan?: boolean;
+    barcode?: string;
   }> = []
   let chatContainer: HTMLDivElement
   let showModelSelector = false
@@ -725,13 +726,15 @@
       const nutritionData = await nutritionService.lookup(barcode)
 
       if (!nutritionData) {
-        // Barcode not found - enhanced error message
+        // Barcode not found - trigger manual contribution prompt
         messages = messages.filter(m => m.id !== loadingMessageId)
         messages = [...messages, {
-          id: generateMessageId('error'),
-          role: 'error',
-          content: `❌ Barcode ${barcode} not found in OpenFoodFacts database.\n\nTips:\n• Double-check the barcode number\n• Try scanning again with better lighting\n• Some products may not be in the database yet\n• You can contribute this product to OpenFoodFacts.org`,
+          id: generateMessageId('contribution'),
+          role: 'assistant',
+          content: 'Product not found in any nutrition database. Would you like to add it?',
           timestamp: new Date(),
+          action: 'needs_manual_contribution',
+          barcode: barcode,
         }]
         scrollToBottom()
         loading = false
