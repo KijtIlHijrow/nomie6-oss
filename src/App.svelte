@@ -215,7 +215,12 @@
     pluginsInitizlied = true
 
     // Start contribution sync service
-    contributionSyncService.start()
+    try {
+      contributionSyncService.start()
+    } catch (error) {
+      console.error('Failed to start contribution sync service:', error)
+      // Background service - no user notification needed
+    }
 
     LedgerStore.hook('onLogSaved', (res) => {
       setTimeout(() => {
@@ -233,7 +238,11 @@
   })
 
   onDestroy(() => {
-    contributionSyncService.stop()
+    try {
+      contributionSyncService.stop()
+    } catch (error) {
+      console.error('Error stopping contribution sync service:', error)
+    }
   })
 </script>
 
