@@ -2,11 +2,17 @@
  * Contribution Sync Service
  *
  * Handles background synchronization of queued nutrition contributions
+ *
+ * NOTE: nutrition-service.ts also has an online event listener for immediate sync.
+ * This service provides:
+ * - Periodic background sync (every 30 minutes)
+ * - Manual sync trigger from settings
+ * The online event in nutrition-service provides immediate sync when connectivity restored.
  */
 
 import { barcodeCache } from './barcode-cache'
 import { openfoodfactsContributor } from './openfoodfacts-contributor'
-import { showToast } from '../../components/toast/useToast'
+import { showToast } from '../../components/toast/ToastStore'
 
 export interface SyncResult {
   synced: number
@@ -81,11 +87,16 @@ export class ContributionSyncService {
       try {
         const result = await openfoodfactsContributor.submit(contribution.data)
 
+        if (!contribution.id) {
+          console.error('Contribution missing ID, skipping sync')
+          continue
+        }
+
         if (result.success) {
-          await barcodeCache.markContributionSynced(contribution.id!, true)
+          await barcodeCache.markContributionSynced(contribution.id, true)
           synced++
         } else {
-          await barcodeCache.markContributionSynced(contribution.id!, false, result.error)
+          await barcodeCache.markContributionSynced(contribution.id, false, result.error)
           failed++
         }
       } catch (error) {
@@ -97,9 +108,13 @@ export class ContributionSyncService {
 
     // Show toast notification if any synced
     if (synced > 0) {
-      showToast({
-        message: `✓ Synced ${synced} contribution${synced > 1 ? 's' : ''} to OpenFoodFacts`,
-      })
+      try {
+        showToast({
+          message: `✓ Synced ${synced} contribution${synced > 1 ? 's' : ''} to OpenFoodFacts`,
+        })
+      } catch (error) {
+        console.error('Failed to show toast notification:', error)
+      }
     }
 
     const stillPending = pending.length - synced - failed
