@@ -5,7 +5,7 @@
  * with caching and fallback logic
  */
 
-import type { NutritionProvider, NutritionData, BarcodeValidation } from './nutrition-types'
+import type { NutritionProvider, NutritionData, BarcodeValidation, ContributionResult, NutritionValidation } from './nutrition-types'
 import { OpenFoodFactsProvider } from './providers/openfoodfacts-provider'
 import { NutritionixProvider } from './providers/nutritionix-provider'
 import { USDAProvider } from './providers/usda-provider'
@@ -158,6 +158,93 @@ export class NutritionService {
     } catch (error) {
       console.error('Search failed:', error)
       return []
+    }
+  }
+
+  /**
+   * Contribute nutrition data to OpenFoodFacts
+   * Hybrid approach: Try immediate submission, queue on failure
+   */
+  async contributeProduct(data: NutritionData, userEmail?: string): Promise<ContributionResult> {
+    try {
+      // Validate required fields
+      const validation = this.validateNutritionData(data)
+      if (!validation.valid) {
+        return {
+          success: false,
+          queued: false,
+          error: `Invalid data: ${validation.missingRequired.join(', ')}`,
+        }
+      }
+
+      // Try immediate submission if online
+      if (navigator.onLine) {
+        const { openfoodfactsContributor } = await import('./openfoodfacts-contributor')
+        const result = await openfoodfactsContributor.submit(data, userEmail)
+
+        if (result.success) {
+          // Cache the contributed data locally
+          await barcodeCache.instance.set(data.barcode, data)
+          return {
+            success: true,
+            queued: false,
+          }
+        }
+
+        // If API validation error (not network error), don't queue
+        if (result.error && !result.error.includes('Network')) {
+          return {
+            success: false,
+            queued: false,
+            error: result.error,
+          }
+        }
+
+        // Network error - fall through to queue
+      }
+
+      // Queue for later sync (offline or network error)
+      await barcodeCache.instance.queueContribution(data)
+      return {
+        success: true,
+        queued: true,
+      }
+    } catch (error) {
+      console.error('Failed to contribute product:', error)
+      // Queue on any error
+      await barcodeCache.instance.queueContribution(data)
+      return {
+        success: true,
+        queued: true,
+      }
+    }
+  }
+
+  /**
+   * Validate nutrition data before submission
+   */
+  private validateNutritionData(data: NutritionData): NutritionValidation {
+    const missingRequired: string[] = []
+    const warnings: string[] = []
+
+    // Required fields
+    if (!data.barcode || data.barcode.length < 8) missingRequired.push('barcode')
+    if (!data.productName || data.productName.length < 2) missingRequired.push('productName')
+    if (!data.servingSize) missingRequired.push('servingSize')
+    if (!data.servingUnit) missingRequired.push('servingUnit')
+    if (data.nutrients.calories === undefined || data.nutrients.calories < 0) missingRequired.push('calories')
+    if (data.nutrients.protein_g === undefined || data.nutrients.protein_g < 0) missingRequired.push('protein')
+    if (data.nutrients.carbs_g === undefined || data.nutrients.carbs_g < 0) missingRequired.push('carbohydrates')
+    if (data.nutrients.fat_g === undefined || data.nutrients.fat_g < 0) missingRequired.push('fat')
+
+    // Warnings for suspicious values
+    if (data.nutrients.calories > 2000) warnings.push('Unusually high calories per serving')
+    if (data.nutrients.protein_g > 100) warnings.push('Unusually high protein')
+
+    return {
+      valid: missingRequired.length === 0,
+      warnings,
+      missingRequired,
     }
   }
 

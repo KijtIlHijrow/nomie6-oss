@@ -182,6 +182,15 @@ export interface NutritionApiConfig {
 }
 
 /**
+ * Result of nutrition data contribution
+ */
+export interface ContributionResult {
+  success: boolean
+  queued: boolean
+  error?: string
+}
+
+/**
  * OpenFoodFacts API response (raw)
  * This is what we receive from their API
  */
