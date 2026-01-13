@@ -7,3 +7,4 @@
 export { default as BarcodeScannerModal } from './BarcodeScannerModal.svelte'
 export { default as ManualBarcodeEntry } from './ManualBarcodeEntry.svelte'
 export { default as CameraPermissionPrompt } from './CameraPermissionPrompt.svelte'
+export { default as ManualNutritionForm } from './ManualNutritionForm.svelte'
