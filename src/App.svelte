@@ -6,7 +6,7 @@
   import Tailwindcss from './style/Tailwind.svelte'
   import './style/main.css'
 
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy } from 'svelte'
 
   // import DynamicPage from './DynamicPage.svelte'
 
@@ -51,6 +51,7 @@
   import { GoalStore, loadGoalsForToday } from './domains/goals/GoalStore'
   import { LedgerStore } from './domains/ledger/LedgerStore'
   import { loadToday } from './domains/usage/today/TodayStore'
+  import { contributionSyncService } from './domains/nutrition/contribution-sync-service'
 
   import { trackLaunch } from './domains/preferences/LaunchCount'
   import PluginLoader from './domains/plugins/plugin-loader.svelte'
@@ -213,6 +214,9 @@
     PluginStore.init({})
     pluginsInitizlied = true
 
+    // Start contribution sync service
+    contributionSyncService.start()
+
     LedgerStore.hook('onLogSaved', (res) => {
       setTimeout(() => {
         checkGoals('on-log-save')
@@ -226,6 +230,10 @@
     if (document.location.pathname.search('/modal') > -1) {
       document.location.href = '/'
     }
+  })
+
+  onDestroy(() => {
+    contributionSyncService.stop()
   })
 </script>
 
