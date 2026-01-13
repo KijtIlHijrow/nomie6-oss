@@ -1468,43 +1468,57 @@ View your entry in the timeline to see all tracked nutrients.`
                   barcode={message.barcode}
                   loading={loading}
                   on:submit={async (event) => {
-                    loading = true
-                    const result = await nutritionService.contributeProduct(event.detail)
-                    loading = false
+                    try {
+                      loading = true
+                      const result = await nutritionService.contributeProduct(event.detail)
+                      loading = false
 
-                    if (result.success && !result.queued) {
-                      // Immediate success
-                      messages = [
-                        ...messages,
-                        {
-                          id: generateMessageId('assistant'),
-                          role: 'assistant',
-                          content: `✓ Product added to OpenFoodFacts!\n\nCached locally for faster future lookups.`,
-                          timestamp: new Date(),
-                        },
-                      ]
-                    } else if (result.success && result.queued) {
-                      // Queued for later
-                      messages = [
-                        ...messages,
-                        {
-                          id: generateMessageId('assistant'),
-                          role: 'assistant',
-                          content: `⏳ Saved locally. Will sync to OpenFoodFacts when online.\n\nYou can use this product immediately.`,
-                          timestamp: new Date(),
-                        },
-                      ]
-                    } else {
-                      // Error
+                      if (result.success && !result.queued) {
+                        // Immediate success
+                        messages = [
+                          ...messages,
+                          {
+                            id: generateMessageId('assistant'),
+                            role: 'assistant',
+                            content: `✓ Product added to OpenFoodFacts!\n\nCached locally for faster future lookups.`,
+                            timestamp: new Date(),
+                          },
+                        ]
+                      } else if (result.success && result.queued) {
+                        // Queued for later
+                        messages = [
+                          ...messages,
+                          {
+                            id: generateMessageId('assistant'),
+                            role: 'assistant',
+                            content: `⏳ Saved locally. Will sync to OpenFoodFacts when online.\n\nYou can use this product immediately.`,
+                            timestamp: new Date(),
+                          },
+                        ]
+                      } else if (!result.success) {
+                        // Error
+                        messages = [
+                          ...messages,
+                          {
+                            id: generateMessageId('error'),
+                            role: 'error',
+                            content: `⚠ Failed to add product: ${result.error}\n\nPlease check the data and try again.`,
+                            timestamp: new Date(),
+                          },
+                        ]
+                      }
+                    } catch (error) {
+                      loading = false
                       messages = [
                         ...messages,
                         {
                           id: generateMessageId('error'),
                           role: 'error',
-                          content: `⚠ Failed to add product: ${result.error}\n\nPlease check the data and try again.`,
+                          content: `⚠ An unexpected error occurred while submitting the product.\n\nPlease try again.`,
                           timestamp: new Date(),
                         },
                       ]
+                      console.error('Failed to submit nutrition contribution:', error)
                     }
                   }}
                   on:cancel={() => {
