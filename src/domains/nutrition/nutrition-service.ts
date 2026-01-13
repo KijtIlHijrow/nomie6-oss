@@ -184,7 +184,7 @@ export class NutritionService {
 
         if (result.success) {
           // Cache the contributed data locally
-          await barcodeCache.instance.set(data.barcode, data)
+          await barcodeCache.set(data.barcode, data)
           return {
             success: true,
             queued: false,
