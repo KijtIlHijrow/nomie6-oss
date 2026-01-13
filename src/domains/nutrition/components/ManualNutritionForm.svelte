@@ -69,9 +69,27 @@
   ]
 
   const allergenOptions = [
-    'Milk', 'Eggs', 'Fish', 'Shellfish', 'Tree nuts',
-    'Peanuts', 'Wheat', 'Soy', 'Sesame'
+    { value: 'milk', label: 'Milk' },
+    { value: 'eggs', label: 'Eggs' },
+    { value: 'fish', label: 'Fish' },
+    { value: 'shellfish', label: 'Shellfish' },
+    { value: 'tree nuts', label: 'Tree nuts' },
+    { value: 'peanuts', label: 'Peanuts' },
+    { value: 'wheat', label: 'Wheat' },
+    { value: 'soy', label: 'Soy' },
+    { value: 'sesame', label: 'Sesame' },
   ]
+
+  function parseOptionalFloat(value: string): number | undefined {
+    if (!value) return undefined
+    const parsed = parseFloat(value)
+    return !isNaN(parsed) && parsed >= 0 ? parsed : undefined
+  }
+
+  function parseRequiredFloat(value: string): number {
+    const parsed = parseFloat(value)
+    return !isNaN(parsed) && parsed >= 0 ? parsed : 0
+  }
 
   function validateForm(): boolean {
     errors = {}
@@ -113,23 +131,23 @@
       servingSize,
       servingUnit,
       nutrients: {
-        calories: parseFloat(calories),
-        protein_g: parseFloat(protein),
-        carbs_g: parseFloat(carbs),
-        fat_g: parseFloat(fat),
-        fiber_g: fiber ? parseFloat(fiber) : undefined,
-        sugar_g: sugar ? parseFloat(sugar) : undefined,
-        saturated_fat_g: saturatedFat ? parseFloat(saturatedFat) : undefined,
-        trans_fat_g: transFat ? parseFloat(transFat) : undefined,
-        sodium_mg: sodium ? parseFloat(sodium) : undefined,
-        potassium_mg: potassium ? parseFloat(potassium) : undefined,
-        calcium_mg: calcium ? parseFloat(calcium) : undefined,
-        iron_mg: iron ? parseFloat(iron) : undefined,
-        vitamin_a_mcg: vitaminA ? parseFloat(vitaminA) : undefined,
-        vitamin_c_mg: vitaminC ? parseFloat(vitaminC) : undefined,
-        vitamin_d_mcg: vitaminD ? parseFloat(vitaminD) : undefined,
-        cholesterol_mg: cholesterol ? parseFloat(cholesterol) : undefined,
-        caffeine_mg: caffeine ? parseFloat(caffeine) : undefined,
+        calories: parseRequiredFloat(calories),
+        protein_g: parseRequiredFloat(protein),
+        carbs_g: parseRequiredFloat(carbs),
+        fat_g: parseRequiredFloat(fat),
+        fiber_g: parseOptionalFloat(fiber),
+        sugar_g: parseOptionalFloat(sugar),
+        saturated_fat_g: parseOptionalFloat(saturatedFat),
+        trans_fat_g: parseOptionalFloat(transFat),
+        sodium_mg: parseOptionalFloat(sodium),
+        potassium_mg: parseOptionalFloat(potassium),
+        calcium_mg: parseOptionalFloat(calcium),
+        iron_mg: parseOptionalFloat(iron),
+        vitamin_a_mcg: parseOptionalFloat(vitaminA),
+        vitamin_c_mg: parseOptionalFloat(vitaminC),
+        vitamin_d_mcg: parseOptionalFloat(vitaminD),
+        cholesterol_mg: parseOptionalFloat(cholesterol),
+        caffeine_mg: parseOptionalFloat(caffeine),
       },
       ingredients: ingredientsArray,
       allergens: allergens.length > 0 ? allergens : undefined,
@@ -197,6 +215,7 @@
         <input
           type="number"
           step="0.1"
+          min="0"
           bind:value={servingSize}
           placeholder="473"
           class="w-full px-3 py-2 border rounded {errors.servingSize ? 'border-red-500' : ''}"
@@ -227,6 +246,7 @@
         <input
           type="number"
           step="0.1"
+          min="0"
           bind:value={calories}
           placeholder="110"
           class="w-full px-3 py-2 border rounded {errors.calories ? 'border-red-500' : ''}"
@@ -241,6 +261,7 @@
         <input
           type="number"
           step="0.1"
+          min="0"
           bind:value={protein}
           placeholder="1.0"
           class="w-full px-3 py-2 border rounded {errors.protein ? 'border-red-500' : ''}"
@@ -255,6 +276,7 @@
         <input
           type="number"
           step="0.1"
+          min="0"
           bind:value={carbs}
           placeholder="28.0"
           class="w-full px-3 py-2 border rounded {errors.carbs ? 'border-red-500' : ''}"
@@ -269,6 +291,7 @@
         <input
           type="number"
           step="0.1"
+          min="0"
           bind:value={fat}
           placeholder="0.0"
           class="w-full px-3 py-2 border rounded {errors.fat ? 'border-red-500' : ''}"
@@ -295,19 +318,19 @@
       <div class="grid grid-cols-2 gap-2 ml-6">
         <div>
           <label class="block text-sm mb-1">Fiber (g)</label>
-          <input type="number" step="0.1" bind:value={fiber} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={fiber} class="w-full px-3 py-2 border rounded" />
         </div>
         <div>
           <label class="block text-sm mb-1">Sugar (g)</label>
-          <input type="number" step="0.1" bind:value={sugar} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={sugar} class="w-full px-3 py-2 border rounded" />
         </div>
         <div>
           <label class="block text-sm mb-1">Saturated Fat (g)</label>
-          <input type="number" step="0.1" bind:value={saturatedFat} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={saturatedFat} class="w-full px-3 py-2 border rounded" />
         </div>
         <div>
           <label class="block text-sm mb-1">Trans Fat (g)</label>
-          <input type="number" step="0.1" bind:value={transFat} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={transFat} class="w-full px-3 py-2 border rounded" />
         </div>
       </div>
     {/if}
@@ -328,19 +351,19 @@
       <div class="grid grid-cols-2 gap-2 ml-6">
         <div>
           <label class="block text-sm mb-1">Sodium (mg)</label>
-          <input type="number" step="0.1" bind:value={sodium} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={sodium} class="w-full px-3 py-2 border rounded" />
         </div>
         <div>
           <label class="block text-sm mb-1">Potassium (mg)</label>
-          <input type="number" step="0.1" bind:value={potassium} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={potassium} class="w-full px-3 py-2 border rounded" />
         </div>
         <div>
           <label class="block text-sm mb-1">Calcium (mg)</label>
-          <input type="number" step="0.1" bind:value={calcium} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={calcium} class="w-full px-3 py-2 border rounded" />
         </div>
         <div>
           <label class="block text-sm mb-1">Iron (mg)</label>
-          <input type="number" step="0.1" bind:value={iron} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={iron} class="w-full px-3 py-2 border rounded" />
         </div>
       </div>
     {/if}
@@ -361,15 +384,15 @@
       <div class="grid grid-cols-2 gap-2 ml-6">
         <div>
           <label class="block text-sm mb-1">Vitamin A (mcg)</label>
-          <input type="number" step="0.1" bind:value={vitaminA} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={vitaminA} class="w-full px-3 py-2 border rounded" />
         </div>
         <div>
           <label class="block text-sm mb-1">Vitamin C (mg)</label>
-          <input type="number" step="0.1" bind:value={vitaminC} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={vitaminC} class="w-full px-3 py-2 border rounded" />
         </div>
         <div>
           <label class="block text-sm mb-1">Vitamin D (mcg)</label>
-          <input type="number" step="0.1" bind:value={vitaminD} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={vitaminD} class="w-full px-3 py-2 border rounded" />
         </div>
       </div>
     {/if}
@@ -390,11 +413,11 @@
       <div class="ml-6 space-y-2">
         <div>
           <label class="block text-sm mb-1">Cholesterol (mg)</label>
-          <input type="number" step="0.1" bind:value={cholesterol} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={cholesterol} class="w-full px-3 py-2 border rounded" />
         </div>
         <div>
           <label class="block text-sm mb-1">Caffeine (mg)</label>
-          <input type="number" step="0.1" bind:value={caffeine} class="w-full px-3 py-2 border rounded" />
+          <input type="number" step="0.1" min="0" bind:value={caffeine} class="w-full px-3 py-2 border rounded" />
         </div>
         <div>
           <label class="block text-sm mb-1">Ingredients (comma-separated)</label>
@@ -412,11 +435,11 @@
               <label class="flex items-center gap-1">
                 <input
                   type="checkbox"
-                  value={allergen.toLowerCase()}
+                  value={allergen.value}
                   bind:group={allergens}
                   class="rounded"
                 />
-                <span class="text-sm">{allergen}</span>
+                <span class="text-sm">{allergen.label}</span>
               </label>
             {/each}
           </div>
