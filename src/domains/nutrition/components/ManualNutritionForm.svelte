@@ -100,16 +100,16 @@
     if (!servingSize || parseFloat(servingSize) <= 0) {
       errors.servingSize = 'Serving size must be greater than 0'
     }
-    if (!calories || parseFloat(calories) < 0) {
+    if (!calories || isNaN(parseFloat(calories)) || parseFloat(calories) < 0) {
       errors.calories = 'Calories required (0 or greater)'
     }
-    if (!protein || parseFloat(protein) < 0) {
+    if (!protein || isNaN(parseFloat(protein)) || parseFloat(protein) < 0) {
       errors.protein = 'Protein required (0 or greater)'
     }
-    if (!carbs || parseFloat(carbs) < 0) {
+    if (!carbs || isNaN(parseFloat(carbs)) || parseFloat(carbs) < 0) {
       errors.carbs = 'Carbohydrates required (0 or greater)'
     }
-    if (!fat || parseFloat(fat) < 0) {
+    if (!fat || isNaN(parseFloat(fat)) || parseFloat(fat) < 0) {
       errors.fat = 'Fat required (0 or greater)'
     }
 
