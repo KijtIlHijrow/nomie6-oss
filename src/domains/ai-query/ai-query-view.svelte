@@ -9,7 +9,7 @@
   import AutoComplete from '../../components/auto-complete/auto-complete.svelte'
   import { barcodeScanner } from '../nutrition/barcode-scanner'
   import { nutritionService } from '../nutrition/nutrition-service'
-  import { BarcodeScannerModal, ManualBarcodeEntry, CameraPermissionPrompt } from '../nutrition/components'
+  import { BarcodeScannerModal, ManualBarcodeEntry, CameraPermissionPrompt, ManualNutritionForm } from '../nutrition/components'
   import { Capacitor } from '@capacitor/core'
   import TrackerClass from '../../modules/tracker/TrackerClass'
   import { TrackerStore } from '../tracker/TrackerStore'
@@ -1458,6 +1458,67 @@ View your entry in the timeline to see all tracked nutrients.`
                     Skip
                   </button>
                 {/if}
+              </div>
+            {/if}
+
+            <!-- Manual Nutrition Contribution -->
+            {#if message.action === 'needs_manual_contribution' && message.barcode}
+              <div class="mt-3">
+                <ManualNutritionForm
+                  barcode={message.barcode}
+                  loading={loading}
+                  on:submit={async (event) => {
+                    loading = true
+                    const result = await nutritionService.contributeProduct(event.detail)
+                    loading = false
+
+                    if (result.success && !result.queued) {
+                      // Immediate success
+                      messages = [
+                        ...messages,
+                        {
+                          id: generateMessageId('assistant'),
+                          role: 'assistant',
+                          content: `✓ Product added to OpenFoodFacts!\n\nCached locally for faster future lookups.`,
+                          timestamp: new Date(),
+                        },
+                      ]
+                    } else if (result.success && result.queued) {
+                      // Queued for later
+                      messages = [
+                        ...messages,
+                        {
+                          id: generateMessageId('assistant'),
+                          role: 'assistant',
+                          content: `⏳ Saved locally. Will sync to OpenFoodFacts when online.\n\nYou can use this product immediately.`,
+                          timestamp: new Date(),
+                        },
+                      ]
+                    } else {
+                      // Error
+                      messages = [
+                        ...messages,
+                        {
+                          id: generateMessageId('error'),
+                          role: 'error',
+                          content: `⚠ Failed to add product: ${result.error}\n\nPlease check the data and try again.`,
+                          timestamp: new Date(),
+                        },
+                      ]
+                    }
+                  }}
+                  on:cancel={() => {
+                    messages = [
+                      ...messages,
+                      {
+                        id: generateMessageId('assistant'),
+                        role: 'assistant',
+                        content: 'Contribution cancelled.',
+                        timestamp: new Date(),
+                      },
+                    ]
+                  }}
+                />
               </div>
             {/if}
 
