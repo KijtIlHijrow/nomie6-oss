@@ -83,6 +83,7 @@
     "eslint-plugin-svelte3": "^4.0.0",
     "esri-leaflet-geocoder": "^3.1.4",
     "events": "^3.3.0",
+    "fake-indexeddb": "^6.2.5",
     "find-in-files": "^0.5.0",
     "git-cz": "^4.9.0",
     "gitlog": "^4.0.8",
