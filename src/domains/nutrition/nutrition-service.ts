@@ -227,15 +227,48 @@ export class NutritionService {
     const missingRequired: string[] = []
     const warnings: string[] = []
 
-    // Required fields
-    if (!data.barcode || data.barcode.length < 8) missingRequired.push('barcode')
+    // Validate barcode format using existing validateBarcode method
+    const barcodeValidation = this.validateBarcode(data.barcode)
+    if (!barcodeValidation.valid) {
+      missingRequired.push('barcode')
+    }
+
+    // Product name validation
     if (!data.productName || data.productName.length < 2) missingRequired.push('productName')
-    if (!data.servingSize) missingRequired.push('servingSize')
+
+    // Serving size validation - must be present and numeric value > 0
+    if (!data.servingSize) {
+      missingRequired.push('servingSize')
+    } else {
+      // Parse numeric value from serving size string (e.g., "330ml" -> 330, "0g" -> 0)
+      const servingSizeNumeric = parseFloat(data.servingSize)
+      if (isNaN(servingSizeNumeric) || servingSizeNumeric <= 0) {
+        missingRequired.push('servingSize')
+      }
+    }
+
+    // Serving unit validation
     if (!data.servingUnit) missingRequired.push('servingUnit')
-    if (data.nutrients.calories === undefined || data.nutrients.calories < 0) missingRequired.push('calories')
-    if (data.nutrients.protein_g === undefined || data.nutrients.protein_g < 0) missingRequired.push('protein')
-    if (data.nutrients.carbs_g === undefined || data.nutrients.carbs_g < 0) missingRequired.push('carbohydrates')
-    if (data.nutrients.fat_g === undefined || data.nutrients.fat_g < 0) missingRequired.push('fat')
+
+    // Calories validation - must be defined, not NaN, and >= 0
+    if (data.nutrients.calories === undefined || isNaN(data.nutrients.calories) || data.nutrients.calories < 0) {
+      missingRequired.push('calories')
+    }
+
+    // Protein validation - must be defined, not NaN, and >= 0
+    if (data.nutrients.protein_g === undefined || isNaN(data.nutrients.protein_g) || data.nutrients.protein_g < 0) {
+      missingRequired.push('protein')
+    }
+
+    // Carbs validation - must be defined, not NaN, and >= 0
+    if (data.nutrients.carbs_g === undefined || isNaN(data.nutrients.carbs_g) || data.nutrients.carbs_g < 0) {
+      missingRequired.push('carbohydrates')
+    }
+
+    // Fat validation - must be defined, not NaN, and >= 0
+    if (data.nutrients.fat_g === undefined || isNaN(data.nutrients.fat_g) || data.nutrients.fat_g < 0) {
+      missingRequired.push('fat')
+    }
 
     // Warnings for suspicious values
     if (data.nutrients.calories > 2000) warnings.push('Unusually high calories per serving')

@@ -32,14 +32,49 @@ export const invalidNutritionData = {
     productName: '',
   } as NutritionData,
 
+  productNameTooShort: {
+    ...validNutritionData,
+    productName: 'A', // Less than 2 characters
+  } as NutritionData,
+
   missingServingSize: {
     ...validNutritionData,
     servingSize: '',
   } as NutritionData,
 
+  zeroServingSize: {
+    ...validNutritionData,
+    servingSize: '0g',
+  } as NutritionData,
+
+  negativeServingSize: {
+    ...validNutritionData,
+    servingSize: '-100g',
+  } as NutritionData,
+
   negativeCalories: {
     ...validNutritionData,
     nutrients: { ...validNutritionData.nutrients, calories: -100 },
+  } as NutritionData,
+
+  missingCalories: {
+    ...validNutritionData,
+    nutrients: { ...validNutritionData.nutrients, calories: undefined as any },
+  } as NutritionData,
+
+  nanCalories: {
+    ...validNutritionData,
+    nutrients: { ...validNutritionData.nutrients, calories: NaN },
+  } as NutritionData,
+
+  missingProtein: {
+    ...validNutritionData,
+    nutrients: { ...validNutritionData.nutrients, protein_g: undefined as any },
+  } as NutritionData,
+
+  nanProtein: {
+    ...validNutritionData,
+    nutrients: { ...validNutritionData.nutrients, protein_g: NaN },
   } as NutritionData,
 
   missingBarcode: {
@@ -74,6 +109,16 @@ export const invalidNutritionData = {
 }
 
 export const boundaryNutritionData = {
+  minimumServingSize: {
+    ...validNutritionData,
+    servingSize: '0.01g',
+  } as NutritionData,
+
+  zeroCalories: {
+    ...validNutritionData,
+    nutrients: { ...validNutritionData.nutrients, calories: 0 },
+  } as NutritionData,
+
   highCalories: {
     ...validNutritionData,
     nutrients: { ...validNutritionData.nutrients, calories: 2500 },
