@@ -37,11 +37,6 @@ export const invalidNutritionData = {
     productName: 'A', // Less than 2 characters
   } as NutritionData,
 
-  missingServingSize: {
-    ...validNutritionData,
-    servingSize: '',
-  } as NutritionData,
-
   zeroServingSize: {
     ...validNutritionData,
     servingSize: '0g',
@@ -75,36 +70,6 @@ export const invalidNutritionData = {
   nanProtein: {
     ...validNutritionData,
     nutrients: { ...validNutritionData.nutrients, protein_g: NaN },
-  } as NutritionData,
-
-  missingBarcode: {
-    ...validNutritionData,
-    barcode: '',
-  } as NutritionData,
-
-  shortBarcode: {
-    ...validNutritionData,
-    barcode: '123', // Too short
-  } as NutritionData,
-
-  missingServingUnit: {
-    ...validNutritionData,
-    servingUnit: '',
-  } as NutritionData,
-
-  negativeProtein: {
-    ...validNutritionData,
-    nutrients: { ...validNutritionData.nutrients, protein_g: -5 },
-  } as NutritionData,
-
-  negativeCarbs: {
-    ...validNutritionData,
-    nutrients: { ...validNutritionData.nutrients, carbs_g: -10 },
-  } as NutritionData,
-
-  negativeFat: {
-    ...validNutritionData,
-    nutrients: { ...validNutritionData.nutrients, fat_g: -8 },
   } as NutritionData,
 }
 

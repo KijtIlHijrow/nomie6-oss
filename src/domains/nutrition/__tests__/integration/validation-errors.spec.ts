@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { nutritionService } from '../../nutrition-service'
 import {
   validNutritionData,
@@ -6,7 +6,36 @@ import {
   boundaryNutritionData,
 } from '../fixtures/mock-nutrition-data'
 
+// Mock barcode-cache module to avoid IndexedDB operations
+vi.mock('../../barcode-cache', () => ({
+  barcodeCache: {
+    instance: {
+      queueContribution: vi.fn().mockResolvedValue(undefined),
+    },
+    queueContribution: vi.fn().mockResolvedValue(undefined),
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+  },
+}))
+
 describe('Nutrition Contribution Validation', () => {
+  let originalOnlineValue: boolean
+
+  beforeEach(() => {
+    // Save original value
+    originalOnlineValue = navigator.onLine
+  })
+
+  afterEach(() => {
+    // Restore original value
+    Object.defineProperty(navigator, 'onLine', {
+      value: originalOnlineValue,
+      writable: true,
+      configurable: true,
+    })
+  })
+
   describe('Required Fields', () => {
     it('should reject missing product name', async () => {
       const result = await nutritionService.contributeProduct(
@@ -107,9 +136,6 @@ describe('Nutrition Contribution Validation', () => {
       // Should queue successfully (offline)
       expect(result.success).toBe(true)
       expect(result.queued).toBe(true)
-
-      // Reset
-      Object.defineProperty(navigator, 'onLine', { value: true, writable: true })
     })
 
     it('should accept zero calories (valid for zero-calorie products)', async () => {
@@ -121,8 +147,6 @@ describe('Nutrition Contribution Validation', () => {
 
       expect(result.success).toBe(true)
       expect(result.queued).toBe(true)
-
-      Object.defineProperty(navigator, 'onLine', { value: true, writable: true })
     })
 
     it('should accept high protein values (100g)', async () => {
@@ -134,8 +158,6 @@ describe('Nutrition Contribution Validation', () => {
 
       expect(result.success).toBe(true)
       expect(result.queued).toBe(true)
-
-      Object.defineProperty(navigator, 'onLine', { value: true, writable: true })
     })
 
     it('should accept high calories (>2000) with warning', async () => {
@@ -148,8 +170,6 @@ describe('Nutrition Contribution Validation', () => {
       // Should still succeed (warning, not error)
       expect(result.success).toBe(true)
       expect(result.queued).toBe(true)
-
-      Object.defineProperty(navigator, 'onLine', { value: true, writable: true })
     })
   })
 
@@ -189,8 +209,6 @@ describe('Nutrition Contribution Validation', () => {
       const result = await nutritionService.contributeProduct(data)
 
       expect(result.success).toBe(true)
-
-      Object.defineProperty(navigator, 'onLine', { value: true, writable: true })
     })
 
     it('should accept UPC-A barcode (12 digits)', async () => {
@@ -204,8 +222,6 @@ describe('Nutrition Contribution Validation', () => {
       const result = await nutritionService.contributeProduct(data)
 
       expect(result.success).toBe(true)
-
-      Object.defineProperty(navigator, 'onLine', { value: true, writable: true })
     })
 
     it('should accept EAN-8 barcode (8 digits)', async () => {
@@ -219,8 +235,6 @@ describe('Nutrition Contribution Validation', () => {
       const result = await nutritionService.contributeProduct(data)
 
       expect(result.success).toBe(true)
-
-      Object.defineProperty(navigator, 'onLine', { value: true, writable: true })
     })
   })
 })
