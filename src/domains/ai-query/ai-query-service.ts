@@ -583,7 +583,7 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
     }
   }
 
-  // Check for product search intent (before barcode scan)
+  // Check for product search intent (after explicit barcode scan, before food keyword suggestion)
   const searchKeywords = ['lookup', 'search', 'find', 'search for', 'look up']
   const hasSearchKeyword = searchKeywords.some(keyword => {
     if (keyword.includes(' ')) {
@@ -611,21 +611,24 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
     return regex.test(lowerMessage)
   })
 
-  if (hasSearchKeyword && hasFoodKeyword) {
+  if (hasSearchKeyword) {
     // Extract product name - everything after the search keyword
     const productName = extractProductName(lowerMessage, searchKeywords)
 
-    // Extract quantity using same logic as barcode scan
-    let quantity = 1
-    const quantityMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)?/)
-    if (quantityMatch) {
-      quantity = parseFloat(quantityMatch[1])
-    }
+    // Only proceed if we have a valid product name
+    if (productName && productName.length > 0) {
+      // Extract quantity using same logic as barcode scan
+      let quantity = 1
+      const quantityMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)?/)
+      if (quantityMatch) {
+        quantity = parseFloat(quantityMatch[1])
+      }
 
-    return {
-      type: 'search_product',
-      productName,
-      quantity,
+      return {
+        type: 'search_product',
+        productName,
+        quantity,
+      }
     }
   }
 
