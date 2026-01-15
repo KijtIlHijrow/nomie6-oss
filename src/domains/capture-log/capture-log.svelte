@@ -62,6 +62,9 @@
 
   import TimeSelect from '../../components/time-select/time-select.svelte'
   import CaptureAddonMenuController from './capture-addon-menu-controller.svelte'
+  import locate from '../../modules/locate/locate'
+  import Location from '../locations/LocationClass'
+  import { findNearestLocationHeavy } from '../locations/LocationStore'
 
   // Consts
 
@@ -97,16 +100,46 @@
   $: isPopulated = $ActiveLogStore.note?.trim().length > 0
 
   /**
+   * Scroll to show buttons when they appear
+   */
+  $: if (isFocused || isPopulated) {
+    setTimeout(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+    }, 100)
+  }
+
+  /**
    * Active Dates Formatted
    */
   $: selectedDateFormated = dayjs(new Date($ActiveLogStore.end || new Date().getTime())).format(dateTimeFormat)
 
-  const setFocused = () => {
+  const setFocused = async () => {
     showCaptureTextarea = true
     if (!$ActiveLogStore.end || !isFocused) {
       setCaptureLogDate(new Date().getTime())
     }
     isFocused = true
+
+    // Auto-capture location if not already set
+    if (!$ActiveLogStore.lat) {
+      try {
+        const theLoc: any = await locate()
+        let location = new Location({ lat: theLoc.latitude, lng: theLoc.longitude })
+        let nearest = findNearestLocationHeavy(location)
+        if (nearest && nearest.name) {
+          location.name = nearest.name
+        }
+        ActiveLogStore.update((s) => {
+          s.lat = location.lat
+          s.lng = location.lng
+          s.location = location.name
+          return s
+        })
+      } catch (e) {
+        // Silently fail if location not available
+        console.log('Could not get location:', e)
+      }
+    }
   }
 
   let dateTimeFormat = $Prefs.use24hour ? 'HH:mm' : 'h:mm a'
@@ -457,7 +490,7 @@
   </Container>
   {#if isFocused || isPopulated}
     <!-- transition:slide|global={{ delay: 75, duration: 75, easing: quintOut }} -->
-    <div class="glass absolute -bottom-14 xl:-bottom-8 z-50 h-14 w-full pt-2">
+    <div class="glass z-50 h-14 w-full pt-2">
       <Container>
         <div class=" xl:ml-auto xl:w-80 grid grid-cols-2 justify-center gap-4 items-center px-4">
           <Button
