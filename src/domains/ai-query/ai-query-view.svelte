@@ -17,6 +17,49 @@
   import { saveLog } from '../ledger/LedgerStore'
   import type { NutritionData } from '../nutrition/nutrition-types'
 
+  // AI Message format for conversation history
+  interface AIMessage {
+    role: 'user' | 'assistant' | 'system'
+    content: string
+  }
+
+  const MAX_HISTORY_MESSAGES = 20 // ~10 exchanges
+
+  /**
+   * Clean message content for AI consumption
+   * Removes UI artifacts and formats options as numbered lists
+   */
+  function cleanMessageContent(message: typeof messages[0]): string {
+    // For assistant messages with options, include numbered list
+    if (message.action && message.options) {
+      const optionsList = message.options
+        .filter(opt => opt.value !== '__divider__')
+        .map((opt, idx) => `${idx + 1}. ${opt.label}`)
+        .join('\n')
+      return `${message.content}\n\n${optionsList}`
+    }
+
+    // For messages showing user selections, clean up the "→" notation
+    // "How much Chicken? → 2" becomes just "How much Chicken?"
+    return message.content.split('→')[0].trim()
+  }
+
+  /**
+   * Convert UI messages to AI message format
+   * Filters out errors, loading states, and limits history length
+   */
+  function convertToAIMessages(uiMessages: typeof messages): AIMessage[] {
+    const converted = uiMessages
+      .filter(m => m.role !== 'error' && m.content !== '...') // Skip errors and loading
+      .map(m => ({
+        role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: cleanMessageContent(m)
+      }))
+
+    // Keep only recent messages if history is too long
+    return converted.slice(-MAX_HISTORY_MESSAGES)
+  }
+
   let question = ''
   let loading = false
   let error = ''
