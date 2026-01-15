@@ -49,7 +49,7 @@ export interface AIQueryResponse {
 }
 
 export interface IntentDetectionResult {
-  type: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode' | 'update_all_colors'
+  type: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode' | 'update_all_colors' | 'search_product'
   trackerName?: string
   value?: number
   trackerNames?: string[] // For multiple trackers
@@ -58,6 +58,7 @@ export interface IntentDetectionResult {
   suggestScan?: boolean // For food-related: suggest scan instead of forcing it
   referenceTracker?: string // For update_all_colors: the tracker whose color to match
   boardLabel?: string // For update_all_colors: the board/tab name to filter by (e.g., 'Care')
+  productName?: string // For search_product: the product name to search for
 }
 
 /**
@@ -582,6 +583,16 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
     }
   }
 
+  // Check for product search intent (before barcode scan)
+  const searchKeywords = ['lookup', 'search', 'find', 'search for', 'look up']
+  const hasSearchKeyword = searchKeywords.some(keyword => {
+    if (keyword.includes(' ')) {
+      return lowerMessage.includes(keyword)
+    }
+    const regex = new RegExp(`\\b${keyword}\\b`, 'i')
+    return regex.test(lowerMessage)
+  })
+
   // Check for food-related keywords (suggest barcode scan)
   const foodKeywords = [
     'ate', 'eaten', 'eating', 'eat',
@@ -599,6 +610,24 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
     const regex = new RegExp(`\\b${keyword}\\b`, 'i')
     return regex.test(lowerMessage)
   })
+
+  if (hasSearchKeyword && hasFoodKeyword) {
+    // Extract product name - everything after the search keyword
+    const productName = extractProductName(lowerMessage, searchKeywords)
+
+    // Extract quantity using same logic as barcode scan
+    let quantity = 1
+    const quantityMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)?/)
+    if (quantityMatch) {
+      quantity = parseFloat(quantityMatch[1])
+    }
+
+    return {
+      type: 'search_product',
+      productName,
+      quantity,
+    }
+  }
 
   if (hasFoodKeyword) {
     // Food-related message - suggest barcode scan
