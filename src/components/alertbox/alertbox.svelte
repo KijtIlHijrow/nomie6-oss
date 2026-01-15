@@ -28,14 +28,22 @@ import Markdown from '../markdown/markdown.svelte'
         closeModal(id)
       }
     },
+    handleKeydown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        methods.onCancel()
+      } else if (event.key === 'Enter') {
+        event.preventDefault()
+        event.stopPropagation()
+        methods.onOk()
+      }
+    }
   }
 </script>
 
-<KeyDown
-  on:Escape={() => {
-    methods.onCancel()
-  }}
-/>
+<svelte:window on:keydown={methods.handleKeydown} />
+
 <div class="alert-dialog-window card" role="alertdialog" aria-modal="true" aria-hidden={!showBase}>
   <div class="px-3 pt-3">
     {#if payload.title}

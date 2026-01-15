@@ -444,6 +444,7 @@ const interactInit = () => {
           id: id,
           component: AlertBox,
           position: 'center',
+          tappable: false,
           componentProps: {
             payload: {
               title: title,

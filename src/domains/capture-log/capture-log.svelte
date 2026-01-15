@@ -275,9 +275,9 @@
         methods.logSave()
         // All other keyboard events
       } else if (event.key === 'Escape') {
-        confirmClear()
         event.preventDefault()
         event.stopPropagation()
+        confirmClear()
         // All other keyboard events
       }
     },
@@ -326,6 +326,10 @@
   // })
   const confirmClear = async () => {
     if ($ActiveLogStore.note?.length > 0) {
+      // Blur the currently focused element so it doesn't capture keyboard events from the dialog
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
       const confirmed = await Interact.confirm('Discard this note?')
       if (confirmed) {
         methods.clear(true)
