@@ -2262,7 +2262,11 @@ function parseQuestion(question: string): {
 /**
  * Main function to answer a question about Nomie data
  */
-export async function answerQuestion(question: string, model: string = DEFAULT_MODEL): Promise<AIQueryResponse> {
+export async function answerQuestion(
+  question: string,
+  model: string = DEFAULT_MODEL,
+  conversationHistory: Array<{role: 'user' | 'assistant' | 'system', content: string}> = []
+): Promise<AIQueryResponse> {
   try {
     // Parse time context from question (AI enhancement)
     const timeContext = await parseTimeContext(question)
@@ -2526,8 +2530,66 @@ ${isIntervalQuestion ? `
 - Just state the facts directly: "The blast phase ends on February 6, 2026" (not "Since this period includes today and extends beyond it, we will use future tense. The blast phase ends on...")
 - Answer the question directly and concisely without explaining how you arrived at the answer.`
 
-    // Query AI
-    const answer = await queryOllama(context, model)
+    // Query AI - use chat API if conversation history is provided
+    let answer: string
+    const useChatAPI = conversationHistory.length > 0
+
+    if (useChatAPI) {
+      // Use chat API with full conversation history
+      const messages = [
+        {
+          role: 'system' as const,
+          content: context
+        },
+        ...conversationHistory,
+        {
+          role: 'user' as const,
+          content: question
+        }
+      ]
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 60000)
+
+      try {
+        const response = await fetch('http://127.0.0.1:11434/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model,
+            messages,
+            stream: false
+          }),
+          signal: controller.signal
+        })
+
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Ollama chat API error (${response.status}): ${errorText || response.statusText}`)
+        }
+
+        const result = await response.json()
+
+        // Extract answer from chat API response
+        answer = result.message?.content || result.response || ''
+
+        if (!answer) {
+          throw new Error('No response from Ollama chat API. The model may not be loaded or there was an error.')
+        }
+      } catch (error: any) {
+        clearTimeout(timeoutId)
+        if (error.name === 'AbortError') {
+          throw new Error('Request timed out after 60 seconds. The model may be too slow or the prompt too complex.')
+        }
+        console.error('Error querying Ollama chat API:', error)
+        throw error
+      }
+    } else {
+      // Use existing /api/generate endpoint (backward compatibility)
+      answer = await queryOllama(context, model)
+    }
 
     return {
       answer,
