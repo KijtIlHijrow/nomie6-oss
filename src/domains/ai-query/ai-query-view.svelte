@@ -121,6 +121,12 @@
   let showPermissionPrompt = false
   let pendingScanContext: { quantity: number; messageId: string; originalMessage: string } | null = null
 
+  // Product search state
+  let searchResults: NutritionData[] = []
+  let searchError: string | null = null
+  let isSearching: boolean = false
+  let currentSearchQuantity: number = 1
+
   // Conversation state for pending value requests
   let pendingValueRequest: { trackerTag: string; trackerType: string; messageId: string } | null = null
 
