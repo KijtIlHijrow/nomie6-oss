@@ -987,7 +987,12 @@ View your entry in the timeline to see all tracked nutrients.`
 
     try {
       console.log('Sending question to AI:', questionToAsk)
-      const response: AIQueryResponse = await answerQuestion(questionToAsk, selectedModel)
+
+      // Convert UI messages to AI format for conversation history
+      const aiMessages = convertToAIMessages(messages)
+
+      // Call AI with full conversation history
+      const response: AIQueryResponse = await answerQuestion(questionToAsk, selectedModel, aiMessages)
       console.log('AI Response:', response)
       
       // Remove loading message
