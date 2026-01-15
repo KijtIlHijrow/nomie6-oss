@@ -14,12 +14,20 @@
 
   const SCANNER_ID = 'barcode-scanner-reader'
 
+  function handleKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      handleCancel()
+    }
+  }
+
   onMount(async () => {
     await startScanning()
+    window.addEventListener('keydown', handleKeyDown)
   })
 
   onDestroy(async () => {
     await stopScanning()
+    window.removeEventListener('keydown', handleKeyDown)
   })
 
   async function startScanning() {

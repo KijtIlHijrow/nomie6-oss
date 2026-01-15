@@ -447,6 +447,62 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
     }
   }
 
+  // Check for barcode scanning intent (high priority - before add entry)
+  const scanKeywords = ['scan', 'barcode']
+  const hasScanKeyword = scanKeywords.some(keyword => {
+    const regex = new RegExp(`\\b${keyword}\\b`, 'i')
+    return regex.test(lowerMessage)
+  })
+
+  if (hasScanKeyword) {
+    // Explicit barcode scan request
+    // Try to extract quantity from message
+    let quantity = 1
+    const quantityMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)?/)
+    if (quantityMatch) {
+      quantity = parseFloat(quantityMatch[1])
+    }
+
+    return {
+      type: 'scan_barcode',
+      quantity,
+    }
+  }
+
+  // Check for food-related keywords (suggest barcode scan)
+  const foodKeywords = [
+    'ate', 'eaten', 'eating', 'eat',
+    'drank', 'drinking', 'drink',
+    'consumed', 'consuming',
+    'had', 'have',
+    'breakfast', 'lunch', 'dinner', 'snack', 'meal',
+    'food', 'protein bar', 'energy drink', 'yogurt', 'cereal'
+  ]
+
+  const hasFoodKeyword = foodKeywords.some(keyword => {
+    if (keyword.includes(' ')) {
+      return lowerMessage.includes(keyword)
+    }
+    const regex = new RegExp(`\\b${keyword}\\b`, 'i')
+    return regex.test(lowerMessage)
+  })
+
+  if (hasFoodKeyword) {
+    // Food-related message - suggest barcode scan
+    // Try to extract quantity
+    let quantity = 1
+    const quantityMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)?/)
+    if (quantityMatch) {
+      quantity = parseFloat(quantityMatch[1])
+    }
+
+    return {
+      type: 'scan_barcode',
+      quantity,
+      suggestScan: true, // This is a suggestion, not a forced action
+    }
+  }
+
   // If it has question keywords and no add keywords, it's a question
   if (hasQuestionKeyword && !hasAddKeyword) {
     return { type: 'question' }
@@ -612,62 +668,6 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
       trackerNames: trackerNames.length > 0 ? trackerNames : undefined,
       trackerName: trackerNames.length > 0 ? trackerNames[0] : undefined,
       value,
-    }
-  }
-
-  // Check for barcode scanning intent
-  const scanKeywords = ['scan', 'barcode']
-  const hasScanKeyword = scanKeywords.some(keyword => {
-    const regex = new RegExp(`\\b${keyword}\\b`, 'i')
-    return regex.test(lowerMessage)
-  })
-
-  if (hasScanKeyword) {
-    // Explicit barcode scan request
-    // Try to extract quantity from message
-    let quantity = 1
-    const quantityMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)?/)
-    if (quantityMatch) {
-      quantity = parseFloat(quantityMatch[1])
-    }
-
-    return {
-      type: 'scan_barcode',
-      quantity,
-    }
-  }
-
-  // Check for food-related keywords (suggest barcode scan)
-  const foodKeywords = [
-    'ate', 'eaten', 'eating', 'eat',
-    'drank', 'drinking', 'drink',
-    'consumed', 'consuming',
-    'had', 'have',
-    'breakfast', 'lunch', 'dinner', 'snack', 'meal',
-    'food', 'protein bar', 'energy drink', 'yogurt', 'cereal'
-  ]
-
-  const hasFoodKeyword = foodKeywords.some(keyword => {
-    if (keyword.includes(' ')) {
-      return lowerMessage.includes(keyword)
-    }
-    const regex = new RegExp(`\\b${keyword}\\b`, 'i')
-    return regex.test(lowerMessage)
-  })
-
-  if (hasFoodKeyword) {
-    // Food-related message - suggest barcode scan
-    // Try to extract quantity
-    let quantity = 1
-    const quantityMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)?/)
-    if (quantityMatch) {
-      quantity = parseFloat(quantityMatch[1])
-    }
-
-    return {
-      type: 'scan_barcode',
-      quantity,
-      suggestScan: true, // This is a suggestion, not a forced action
     }
   }
 

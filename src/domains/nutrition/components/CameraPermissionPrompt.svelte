@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount, onDestroy } from 'svelte'
   import { Capacitor } from '@capacitor/core'
   import { barcodeScanner } from '../barcode-scanner'
 
@@ -8,6 +9,20 @@
   async function handleOpenSettings() {
     await barcodeScanner.openSettings()
   }
+
+  function handleKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      onCancel()
+    }
+  }
+
+  onMount(() => {
+    window.addEventListener('keydown', handleKeyDown)
+  })
+
+  onDestroy(() => {
+    window.removeEventListener('keydown', handleKeyDown)
+  })
 
   const isNative = Capacitor.isNativePlatform()
 </script>

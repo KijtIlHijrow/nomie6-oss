@@ -1547,41 +1547,43 @@ View your entry in the timeline to see all tracked nutrients.`
   </div>
 
   <!-- Input Area - Fixed above tabs (portaled to body) -->
-  <div use:portal bind:this={inputElement} class="ai-chat-input fixed bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4">
-    {#if !ollamaAvailable}
-      <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-3">
-        <p class="text-xs text-yellow-800 dark:text-yellow-200 mb-2">
-          ⚠️ Ollama is not available. Make sure:
-        </p>
-        <ul class="text-xs text-yellow-700 dark:text-yellow-300 space-y-1 list-disc list-inside">
-          <li>Ollama is running (check docker-compose or run: <code class="bg-yellow-100 dark:bg-yellow-900 px-1 rounded">docker ps</code>)</li>
-          <li>Ollama is accessible at <code class="bg-yellow-100 dark:bg-yellow-900 px-1 rounded">http://localhost:11434</code></li>
-          <li>You have at least one model installed (e.g., <code class="bg-yellow-100 dark:bg-yellow-900 px-1 rounded">ollama pull llama3.2</code>)</li>
-        </ul>
+  {#if !showBarcodeScanner && !showManualEntry && !showPermissionPrompt}
+    <div use:portal bind:this={inputElement} class="ai-chat-input fixed bg-white dark:bg-gray-900 border-t border-gray-300 dark:border-gray-700 p-4">
+      {#if !ollamaAvailable}
+        <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-3">
+          <p class="text-xs text-yellow-800 dark:text-yellow-200 mb-2">
+            ⚠️ Ollama is not available. Make sure:
+          </p>
+          <ul class="text-xs text-yellow-700 dark:text-yellow-300 space-y-1 list-disc list-inside">
+            <li>Ollama is running (check docker-compose or run: <code class="bg-yellow-100 dark:bg-yellow-900 px-1 rounded">docker ps</code>)</li>
+            <li>Ollama is accessible at <code class="bg-yellow-100 dark:bg-yellow-900 px-1 rounded">http://localhost:11434</code></li>
+            <li>You have at least one model installed (e.g., <code class="bg-yellow-100 dark:bg-yellow-900 px-1 rounded">ollama pull llama3.2</code>)</li>
+          </ul>
+        </div>
+      {/if}
+      <div class="flex items-stretch gap-2">
+        <textarea
+          bind:value={question}
+          on:keypress={handleKeyPress}
+          placeholder={pendingValueRequest ? "Enter a number..." : "Ask a question or add an entry (e.g., 'add intraworkout')..."}
+          class="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 min-h-[60px] max-h-[120px] bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+          disabled={loading || (!ollamaAvailable && !pendingValueRequest)}
+          rows="2"
+        />
+        <button
+          on:click={handleSubmit}
+          disabled={loading || !ollamaAvailable || !question.trim()}
+          class="px-6 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center min-w-[80px]"
+        >
+          {#if loading}
+            <span class="animate-pulse">...</span>
+          {:else}
+            Send
+          {/if}
+        </button>
       </div>
-    {/if}
-    <div class="flex items-stretch gap-2">
-      <textarea
-        bind:value={question}
-        on:keypress={handleKeyPress}
-        placeholder={pendingValueRequest ? "Enter a number..." : "Ask a question or add an entry (e.g., 'add intraworkout')..."}
-        class="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 min-h-[60px] max-h-[120px] bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-        disabled={loading || (!ollamaAvailable && !pendingValueRequest)}
-        rows="2"
-      />
-      <button
-        on:click={handleSubmit}
-        disabled={loading || !ollamaAvailable || !question.trim()}
-        class="px-6 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center min-w-[80px]"
-      >
-        {#if loading}
-          <span class="animate-pulse">...</span>
-        {:else}
-          Send
-        {/if}
-      </button>
     </div>
-  </div>
+  {/if}
 </div>
 
 <!-- Barcode Scanner Modals -->
