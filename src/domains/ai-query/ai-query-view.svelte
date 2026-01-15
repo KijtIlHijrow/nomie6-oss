@@ -66,6 +66,22 @@
     return converted.slice(-MAX_HISTORY_MESSAGES)
   }
 
+  /**
+   * Map action type to config key for handleButtonClick
+   */
+  function getConfigKeyFromAction(action: string): 'type' | 'uom' | 'uom_category' | 'math' | 'positivity' | 'focus' | 'also_include' {
+    const mapping: Record<string, 'type' | 'uom' | 'uom_category' | 'math' | 'positivity' | 'focus' | 'also_include'> = {
+      'needs_tracker_type': 'type',
+      'needs_uom': 'uom',
+      'needs_uom_category': 'uom_category',
+      'needs_math': 'math',
+      'needs_positivity': 'positivity',
+      'needs_focus': 'focus',
+      'needs_also_include': 'also_include'
+    }
+    return mapping[action] || 'type'
+  }
+
   let question = ''
   let loading = false
   let error = ''
