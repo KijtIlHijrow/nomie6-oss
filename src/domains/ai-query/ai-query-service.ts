@@ -34,7 +34,7 @@ export interface AIQueryResponse {
   answer: string
   data?: any
   error?: string
-  action?: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'needs_manual_contribution' | 'update_all_colors'
+  action?: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'needs_manual_contribution' | 'update_all_colors' | 'search_product'
   trackerTag?: string
   trackerName?: string // Original tracker name with capitalization preserved
   trackerType?: string
@@ -46,6 +46,7 @@ export interface AIQueryResponse {
   quantity?: number // For barcode scan: quantity from message
   suggestBarcodeScan?: boolean // For food-related messages: suggest scanning
   updatedCount?: number // For update_all_colors: how many trackers were updated
+  productName?: string // For search_product: product name to search for
 }
 
 export interface IntentDetectionResult {
@@ -2517,6 +2518,17 @@ export async function answerQuestion(
           quantity: intent.quantity,
           originalMessage: question,
         }
+      }
+    }
+
+    // If it's a product search intent, return action for UI to handle
+    if (intent.type === 'search_product') {
+      return {
+        answer: `Searching for "${intent.productName}"...`,
+        action: 'search_product',
+        productName: intent.productName,
+        quantity: intent.quantity || 1,
+        originalMessage: question,
       }
     }
 

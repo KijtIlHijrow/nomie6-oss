@@ -1156,10 +1156,18 @@ View your entry in the timeline to see all tracked nutrients.`
       // Call AI with full conversation history
       const response: AIQueryResponse = await answerQuestion(questionToAsk, selectedModel, aiMessages)
       console.log('AI Response:', response)
-      
+
       // Remove loading message
       messages = messages.filter(m => m.id !== loadingMessageId)
-      
+
+      // Handle search_product intent
+      if (response.action === 'search_product' && response.productName) {
+        await handleProductSearch(response.productName, response.quantity || 1)
+        scrollToBottom()
+        loading = false
+        return // Don't send to LLM or add assistant message
+      }
+
       if (response.error) {
         error = response.error
         console.error('AI Error:', response.error)
