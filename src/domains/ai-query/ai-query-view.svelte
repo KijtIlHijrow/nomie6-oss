@@ -30,13 +30,17 @@
    * Removes UI artifacts and formats options as numbered lists
    */
   function cleanMessageContent(message: typeof messages[0]): string {
+    if (!message || !message.content) return ''
+
     // For assistant messages with options, include numbered list
     if (message.action && message.options) {
       const optionsList = message.options
         .filter(opt => opt.value !== '__divider__')
         .map((opt, idx) => `${idx + 1}. ${opt.label}`)
         .join('\n')
-      return `${message.content}\n\n${optionsList}`
+      if (optionsList) {  // Only append if not empty
+        return `${message.content}\n\n${optionsList}`
+      }
     }
 
     // For messages showing user selections, clean up the "→" notation
@@ -49,6 +53,8 @@
    * Filters out errors, loading states, and limits history length
    */
   function convertToAIMessages(uiMessages: typeof messages): AIMessage[] {
+    if (!uiMessages?.length) return []
+
     const converted = uiMessages
       .filter(m => m.role !== 'error' && m.content !== '...') // Skip errors and loading
       .map(m => ({
