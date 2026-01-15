@@ -2,6 +2,7 @@
 node_modules
 public/bundle.*
 artifacts
+.worktrees
 plugins/*
 public/vendors/*
 # Local Netlify folder
