@@ -87,7 +87,7 @@
     <slot />
     <div class="title-value">
       {#if title}
-        <div class="title {title.length > 15 ? 'long' : ''} {compact ? 'line-clamp-1' : 'line-clamp-2'}">{title}</div>
+        <div class="title {title.length > 25 ? 'long' : ''} {compact ? 'line-clamp-1' : 'line-clamp-2'}">{title}</div>
       {/if}
       <div class="value-sub">
         {#if value && !hideValue}
