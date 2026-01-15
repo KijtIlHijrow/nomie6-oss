@@ -17,6 +17,7 @@ import type { UOMElement } from '../uom/uom-types'
 import appConfig from '../../config/appConfig'
 import { focusTypes } from '../focus/focus-utils'
 import { parseIntentWithAI, suggestTrackerConfigWithAI, parseTimeRangeWithAI, extractValueWithAI, CONFIDENCE_THRESHOLDS, invalidateAICache } from './ai-query-ai-helpers'
+import { updateAllTrackerColors } from '../tracker/TrackerStore'
 
 /**
  * Format date for AI display in a human-readable format
@@ -33,7 +34,7 @@ export interface AIQueryResponse {
   answer: string
   data?: any
   error?: string
-  action?: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'needs_manual_contribution'
+  action?: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'needs_manual_contribution' | 'update_all_colors'
   trackerTag?: string
   trackerName?: string // Original tracker name with capitalization preserved
   trackerType?: string
@@ -44,16 +45,19 @@ export interface AIQueryResponse {
   options?: Array<{ label: string; value: string }> // Options for multiple choice
   quantity?: number // For barcode scan: quantity from message
   suggestBarcodeScan?: boolean // For food-related messages: suggest scanning
+  updatedCount?: number // For update_all_colors: how many trackers were updated
 }
 
 export interface IntentDetectionResult {
-  type: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode'
+  type: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode' | 'update_all_colors'
   trackerName?: string
   value?: number
   trackerNames?: string[] // For multiple trackers
   count?: number // For delete: how many entries to delete
   quantity?: number // For barcode scan: quantity from message
   suggestScan?: boolean // For food-related: suggest scan instead of forcing it
+  referenceTracker?: string // For update_all_colors: the tracker whose color to match
+  boardLabel?: string // For update_all_colors: the board/tab name to filter by (e.g., 'Care')
 }
 
 /**
@@ -444,6 +448,73 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
       type: 'delete_entry',
       trackerName,
       count
+    }
+  }
+
+  // Check for color update intent (high priority)
+  const colorUpdateKeywords = ['make all', 'update all', 'change all', 'set all', 'same color', 'same green', 'match.*color', 'all.*same']
+  const hasColorUpdateKeyword = colorUpdateKeywords.some(keyword => {
+    const regex = new RegExp(keyword.replace(/\*/g, '.*'), 'i')
+    return regex.test(lowerMessage)
+  })
+
+  // Check if message mentions matching a specific tracker's color
+  if (hasColorUpdateKeyword || lowerMessage.includes('same') && (lowerMessage.includes('color') || lowerMessage.includes('green'))) {
+    // Try to find reference tracker (e.g., "brush teeth", "brush_teeth")
+    let referenceTracker: string | undefined
+    let boardLabel: string | undefined
+    
+    // Look for board/tab context (e.g., "in Care tab", "on Care board", "Care tab")
+    const boardPatterns = [
+      /(?:in|on|the)\s+([A-Z][a-zA-Z]+)\s+(?:tab|board)/i,
+      /([A-Z][a-zA-Z]+)\s+(?:tab|board)/i,
+    ]
+    
+    for (const pattern of boardPatterns) {
+      const match = lowerMessage.match(pattern)
+      if (match && match[1]) {
+        boardLabel = match[1].trim()
+        break
+      }
+    }
+    
+    // Look for common patterns like "same as X", "match X", "like X"
+    const matchPatterns = [
+      /(?:same|match|like)\s+(?:as|the\s+)?(?:color\s+of\s+)?([a-zA-Z][a-zA-Z0-9_\s]*?)(?:\s+card|\s+tracker|$)/i,
+      /(?:make|update|change|set)\s+all\s+(?:cards?|trackers?|backgrounds?)\s+(?:the\s+)?(?:same|to\s+match)\s+(?:as|the\s+)?([a-zA-Z][a-zA-Z0-9_\s]*?)(?:\s+card|\s+tracker|$)/i,
+    ]
+    
+    for (const pattern of matchPatterns) {
+      const match = lowerMessage.match(pattern)
+      if (match && match[1]) {
+        const potentialTracker = match[1].trim().replace(/\s+/g, '_')
+        // Check if it matches any available tracker
+        for (const tracker of availableTrackers) {
+          const tagLower = tracker.tag.toLowerCase().replace('#', '')
+          const labelLower = tracker.label.toLowerCase().replace(/\s+/g, '_')
+          if (tagLower === potentialTracker || labelLower === potentialTracker || 
+              tagLower.includes(potentialTracker) || labelLower.includes(potentialTracker)) {
+            referenceTracker = tracker.tag.replace('#', '')
+            break
+          }
+        }
+        if (referenceTracker) break
+      }
+    }
+    
+    // Fallback: look for "brush teeth" or "brush_teeth" specifically
+    if (!referenceTracker) {
+      if (lowerMessage.includes('brush') && lowerMessage.includes('teeth')) {
+        referenceTracker = 'brush_teeth'
+      }
+    }
+    
+    if (referenceTracker) {
+      return {
+        type: 'update_all_colors',
+        referenceTracker,
+        boardLabel
+      }
     }
   }
 
@@ -1294,6 +1365,64 @@ export async function handleEntryCreation(
     return {
       answer: '',
       error: error.message || 'Failed to create entry',
+    }
+  }
+}
+
+/**
+ * Handle request to update all tracker colors to match a reference tracker
+ */
+export async function handleUpdateAllColors(referenceTrackerTag?: string, boardLabel?: string): Promise<AIQueryResponse> {
+  try {
+    // Default to brush_teeth if no reference tracker specified
+    const refTag = referenceTrackerTag || 'brush_teeth'
+    
+    // Find board if boardLabel is provided, or use active board as fallback
+    let board: any = undefined
+    const { getBoardsFromStorage, getActiveBoardHeavy } = await import('../board/UniboardStore')
+    
+    if (boardLabel) {
+      const boards = await getBoardsFromStorage()
+      board = boards.find(b => b.label.toLowerCase() === boardLabel.toLowerCase())
+      
+      if (!board) {
+        return {
+          answer: `Could not find a board/tab named "${boardLabel}". Please check the board name and try again.`,
+          action: 'update_all_colors',
+          error: `Board "${boardLabel}" not found`,
+        }
+      }
+    } else {
+      // If no board specified, try to use the active board
+      // This allows users to just say "make all cards same color" while on the Care tab
+      board = getActiveBoardHeavy()
+    }
+    
+    // Update tracker colors (filtered by board if provided)
+    const updatedCount = await updateAllTrackerColors(refTag, board)
+    
+    const boardContext = board ? ` in the "${board.label}" tab` : ''
+    
+    if (updatedCount > 0) {
+      return {
+        answer: `✓ Updated ${updatedCount} tracker${updatedCount !== 1 ? 's' : ''}${boardContext} to match the color of "${refTag}"`,
+        action: 'update_all_colors',
+        updatedCount,
+        trackerTag: refTag,
+      }
+    } else {
+      return {
+        answer: `No trackers were updated${boardContext}. The reference tracker "${refTag}" may not exist or all trackers already have the same color.`,
+        action: 'update_all_colors',
+        updatedCount: 0,
+        trackerTag: refTag,
+      }
+    }
+  } catch (error: any) {
+    return {
+      answer: '',
+      error: error.message || 'Failed to update tracker colors',
+      action: 'update_all_colors',
     }
   }
 }
@@ -2288,6 +2417,11 @@ export async function answerQuestion(
     // If it's an entry creation intent, handle it
     if (intent.type === 'add_entry') {
       return await handleEntryCreation(question, intent.trackerName, intent.value)
+    }
+
+    // If it's a color update intent, handle it
+    if (intent.type === 'update_all_colors') {
+      return await handleUpdateAllColors(intent.referenceTracker, intent.boardLabel)
     }
 
     // If it's a barcode scanning intent, return action for UI to handle

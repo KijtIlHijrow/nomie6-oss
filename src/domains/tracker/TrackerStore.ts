@@ -4,6 +4,7 @@ import NPaths from '../../paths'
 import TrackerClass from '../../modules/tracker/TrackerClass'
 import { createKVStore } from '../../store/KVStore'
 import { derived } from 'svelte/store'
+import type { UniboardType } from '../board/UniboardStore'
 
 /**
  * Create the Tracker KV Store
@@ -118,3 +119,51 @@ export const TrackersAsArray = derived(TrackerStore, ($TrackerStore) => {
     return $TrackerStore[key]
   })
 })
+
+/**
+ * Update all tracker colors to match a reference tracker
+ * @param referenceTag - The tag of the tracker whose color should be used (e.g., 'brush_teeth')
+ * @param board - Optional board to filter trackers by. If provided, only trackers in this board will be updated
+ * @returns Promise<number> - The number of trackers updated
+ */
+export const updateAllTrackerColors = async (referenceTag: string = 'brush_teeth', board?: UniboardType): Promise<number> => {
+  let updatedCount = 0
+  let referenceColor: string | undefined
+
+  await TrackerStore.updateSync((trackerMap) => {
+    // Find the reference tracker and get its color
+    const referenceTracker = trackerMap[referenceTag]
+    if (!referenceTracker) {
+      console.warn(`Reference tracker "${referenceTag}" not found`)
+      return trackerMap
+    }
+
+    referenceColor = referenceTracker.color
+    if (!referenceColor) {
+      console.warn(`Reference tracker "${referenceTag}" has no color set`)
+      return trackerMap
+    }
+
+    // If board is provided, only update trackers that are in the board's elements
+    const tagsToUpdate = board 
+      ? board.elements
+          .map(tag => tag.replace('#', '')) // Remove # prefix if present
+          .filter(tag => tag !== referenceTag && trackerMap[tag]) // Exclude reference tracker and ensure tracker exists
+      : Object.keys(trackerMap).filter(tag => tag !== referenceTag) // If no board, update all except reference
+
+    // Update trackers to use the reference color
+    tagsToUpdate.forEach((tag) => {
+      const tracker = new TrackerClass(trackerMap[tag])
+      tracker.color = referenceColor
+      trackerMap[tag] = tracker
+      updatedCount++
+    })
+
+    return trackerMap
+  })
+
+  // Re-initialize the trackable store to reflect changes
+  InitTrackableStore()
+
+  return updatedCount
+}
