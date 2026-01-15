@@ -112,6 +112,7 @@
   let showModelSelector = false
   let modelSelectorContainer: HTMLDivElement
   let inputElement: HTMLDivElement
+  let textareaElement: HTMLTextAreaElement
 
   // Barcode scanner state
   let showBarcodeScanner = false
@@ -923,6 +924,53 @@ View your entry in the timeline to see all tracked nutrients.`
     const questionToAsk = question.trim()
     question = '' // Clear input immediately
 
+    // Check for pending value request first
+    // Also check if the last message has needs_value action (fallback)
+    let valueRequestMessage = null
+    if (pendingValueRequest) {
+      valueRequestMessage = messages.find(m => m.id === pendingValueRequest.messageId)
+    } else {
+      // Fallback: check the most recent message with needs_value action
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].action === 'needs_value') {
+          valueRequestMessage = messages[i]
+          // Set pendingValueRequest for consistency
+          pendingValueRequest = {
+            trackerTag: messages[i].trackerTag || '',
+            trackerType: messages[i].trackerType || '',
+            messageId: messages[i].id,
+          }
+          break
+        }
+      }
+    }
+
+    if (valueRequestMessage) {
+      const value = await parseValueFromMessage(
+        questionToAsk,
+        pendingValueRequest?.trackerTag,
+        undefined // UOM not readily available here
+      )
+      if (value !== null) {
+        await handleButtonClick('submit_value', valueRequestMessage.id, undefined, undefined, value)
+        return
+      } else {
+        // Invalid value, ask again
+        messages = [
+          ...messages,
+          {
+            id: generateMessageId('assistant'),
+            role: 'assistant',
+            content: 'Please enter a valid number.',
+            timestamp: new Date(),
+          }
+        ]
+        loading = false
+        scrollToBottom()
+        return
+      }
+    }
+
     // ===== NEW: Check for numeric response to pending options =====
     const lastAssistantMessage = messages
       .slice()
@@ -951,53 +999,6 @@ View your entry in the timeline to see all tracked nutrients.`
       }
     }
     // ===== END NEW CODE =====
-
-    // Check for pending value request first
-    // Also check if the last message has needs_value action (fallback)
-    let valueRequestMessage = null
-    if (pendingValueRequest) {
-      valueRequestMessage = messages.find(m => m.id === pendingValueRequest.messageId)
-    } else {
-      // Fallback: check the most recent message with needs_value action
-      for (let i = messages.length - 1; i >= 0; i--) {
-        if (messages[i].action === 'needs_value') {
-          valueRequestMessage = messages[i]
-          // Set pendingValueRequest for consistency
-          pendingValueRequest = {
-            trackerTag: messages[i].trackerTag || '',
-            trackerType: messages[i].trackerType || '',
-            messageId: messages[i].id,
-          }
-          break
-        }
-      }
-    }
-    
-    if (valueRequestMessage) {
-      const value = await parseValueFromMessage(
-        questionToAsk,
-        pendingValueRequest?.trackerTag,
-        undefined // UOM not readily available here
-      )
-      if (value !== null) {
-        await handleButtonClick('submit_value', valueRequestMessage.id, undefined, undefined, value)
-        return
-      } else {
-        // Invalid value, ask again
-        messages = [
-          ...messages,
-          {
-            id: generateMessageId('assistant'),
-            role: 'assistant',
-            content: 'Please enter a valid number.',
-            timestamp: new Date(),
-          }
-        ]
-        loading = false
-        scrollToBottom()
-        return
-      }
-    }
 
     // Add user message
     const userMessage = {
@@ -1119,8 +1120,21 @@ View your entry in the timeline to see all tracked nutrients.`
     }
   }
 
+  function autoResizeTextarea() {
+    if (textareaElement) {
+      textareaElement.style.height = 'auto'
+      const maxHeight = window.innerHeight * 0.25 // 25vh
+      const newHeight = Math.min(textareaElement.scrollHeight, maxHeight)
+      textareaElement.style.height = newHeight + 'px'
+    }
+  }
+
   $: if (messages.length > 0) {
     scrollToBottom()
+  }
+
+  $: if (question !== undefined && textareaElement) {
+    autoResizeTextarea()
   }
 </script>
 
@@ -1662,12 +1676,14 @@ View your entry in the timeline to see all tracked nutrients.`
       {/if}
       <div class="flex items-stretch gap-2">
         <textarea
+          bind:this={textareaElement}
           bind:value={question}
           on:keypress={handleKeyPress}
+          on:input={autoResizeTextarea}
           placeholder={pendingValueRequest ? "Enter a number..." : "Ask a question or add an entry (e.g., 'add intraworkout')..."}
-          class="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 min-h-[60px] max-h-[120px] bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+          class="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 min-h-[60px] max-h-[25vh] overflow-y-auto bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           disabled={loading || (!ollamaAvailable && !pendingValueRequest)}
-          rows="2"
+          rows="1"
         />
         <button
           on:click={handleSubmit}
