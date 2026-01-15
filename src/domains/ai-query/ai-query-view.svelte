@@ -113,6 +113,7 @@
   let modelSelectorContainer: HTMLDivElement
   let inputElement: HTMLDivElement
   let textareaElement: HTMLTextAreaElement
+  let needsScrollbar = false
 
   // Barcode scanner state
   let showBarcodeScanner = false
@@ -1131,6 +1132,8 @@ View your entry in the timeline to see all tracked nutrients.`
         ? Math.min(Math.max(scrollHeight, minHeight), maxHeight)
         : minHeight
       textareaElement.style.height = newHeight + 'px'
+      // Only show scrollbar when content actually overflows
+      needsScrollbar = scrollHeight > maxHeight
     }
   }
 
@@ -1687,7 +1690,7 @@ View your entry in the timeline to see all tracked nutrients.`
           on:keypress={handleKeyPress}
           on:input={autoResizeTextarea}
           placeholder={pendingValueRequest ? "Enter a number..." : "Ask a question or add an entry (e.g., 'add intraworkout')..."}
-          class="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 min-h-[60px] max-h-[40vh] overflow-y-auto bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+          class="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 min-h-[60px] max-h-[40vh] {needsScrollbar ? 'overflow-y-auto' : 'overflow-y-hidden'} bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           disabled={loading || (!ollamaAvailable && !pendingValueRequest)}
           rows="1"
         />
