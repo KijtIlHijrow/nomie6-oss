@@ -918,10 +918,39 @@ View your entry in the timeline to see all tracked nutrients.`
 
   async function handleSubmit() {
     if (!question.trim()) return
-    
+
     // Entry creation doesn't require Ollama, so we'll check later for questions
     const questionToAsk = question.trim()
     question = '' // Clear input immediately
+
+    // ===== NEW: Check for numeric response to pending options =====
+    const lastAssistantMessage = messages
+      .slice()
+      .reverse()
+      .find(m => m.role === 'assistant' && m.action && m.options)
+
+    if (lastAssistantMessage && /^\d+$/.test(questionToAsk)) {
+      const optionIndex = parseInt(questionToAsk) - 1 // Convert 1-based to 0-based
+      const selectedOption = lastAssistantMessage.options[optionIndex]
+
+      if (selectedOption && selectedOption.value !== '__divider__') {
+        // Determine which config key this is for
+        const configKey = getConfigKeyFromAction(lastAssistantMessage.action)
+
+        // Auto-click the button
+        await handleButtonClick(
+          'select_config',
+          lastAssistantMessage.id,
+          lastAssistantMessage.trackerTag,
+          lastAssistantMessage.originalMessage,
+          lastAssistantMessage.value,
+          configKey,
+          selectedOption.value
+        )
+        return // Don't send to AI
+      }
+    }
+    // ===== END NEW CODE =====
 
     // Check for pending value request first
     // Also check if the last message has needs_value action (fallback)
