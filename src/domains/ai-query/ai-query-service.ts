@@ -2268,6 +2268,9 @@ export async function answerQuestion(
   conversationHistory: Array<{role: 'user' | 'assistant' | 'system', content: string}> = []
 ): Promise<AIQueryResponse> {
   try {
+    // Validate and get a valid model before proceeding
+    const validModel = await getValidModel(model)
+
     // Parse time context from question (AI enhancement)
     const timeContext = await parseTimeContext(question)
 
@@ -2549,14 +2552,16 @@ ${isIntervalQuestion ? `
       ]
 
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 60000)
+      // Use longer timeout (120 seconds) for chat API as models can be slower, especially on CPU
+      const chatTimeoutMs = 120000
+      const timeoutId = setTimeout(() => controller.abort(), chatTimeoutMs)
 
       try {
         const response = await fetch('http://localhost:11434/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model,
+            model: validModel,
             messages,
             stream: false
           }),
@@ -2567,6 +2572,233 @@ ${isIntervalQuestion ? `
 
         if (!response.ok) {
           const errorText = await response.text()
+          
+          // If model not found (404), try multiple alternative models
+          if (response.status === 404 && errorText.includes('not found')) {
+            try {
+              const availableModels = await getAvailableModels()
+              
+              // Build list of models to try in priority order
+              // IMPORTANT: Try WITHOUT tags first, as Ollama chat API often expects base names
+              const modelsToTry: string[] = []
+              const tried = new Set<string>() // Track what we've tried to avoid duplicates
+              
+              // Helper to extract base name (without tag)
+              const getBaseName = (modelName: string): string => modelName.split(':')[0]
+              
+              // Helper to add model variants - prioritize WITHOUT tags first
+              const addModelVariants = (baseName: string) => {
+                // Try WITHOUT tag first (this often works when API shows :latest)
+                if (availableModels.includes(baseName) && !tried.has(baseName)) {
+                  modelsToTry.push(baseName)
+                  tried.add(baseName)
+                }
+                // Then try with :latest tag
+                const withLatest = `${baseName}:latest`
+                if (availableModels.includes(withLatest) && !tried.has(withLatest)) {
+                  modelsToTry.push(withLatest)
+                  tried.add(withLatest)
+                }
+                // Also try just the base name even if not explicitly listed (Ollama sometimes accepts this)
+                if (!tried.has(baseName) && !availableModels.includes(baseName)) {
+                  modelsToTry.push(baseName)
+                  tried.add(baseName)
+                }
+              }
+              
+              // Strategy 1: Try the same model - prioritize base name without tag
+              const modelBase = getBaseName(validModel)
+              addModelVariants(modelBase)
+              
+              // Strategy 2: Try default model (mistral) - prioritize base name
+              if (modelBase !== 'mistral') {
+                addModelVariants('mistral')
+              }
+              
+              // Strategy 3: Try other non-embedding models - prioritize base names
+              const nonEmbeddingBases = new Set<string>()
+              availableModels.forEach(m => {
+                if (!m.toLowerCase().includes('embed') && 
+                    !m.toLowerCase().includes('nomic')) {
+                  const base = getBaseName(m)
+                  if (base !== modelBase) {
+                    nonEmbeddingBases.add(base)
+                  }
+                }
+              })
+              
+              // Add each base name (will try without tag first, then with)
+              nonEmbeddingBases.forEach(base => {
+                addModelVariants(base)
+              })
+              
+              console.log(`Will try models in this order: ${modelsToTry.join(', ')}`)
+              
+              // Try each alternative model in order
+              let lastError: string | null = null
+              for (const altModel of modelsToTry) {
+                try {
+                  console.warn(`Model '${validModel}' failed, trying '${altModel}'`)
+                  
+                  const retryController = new AbortController()
+                  const retryTimeoutId = setTimeout(() => retryController.abort(), chatTimeoutMs)
+                  
+                  const retryResponse = await fetch('http://localhost:11434/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      model: altModel,
+                      messages,
+                      stream: false
+                    }),
+                    signal: retryController.signal
+                  })
+                  
+                  clearTimeout(retryTimeoutId)
+                  
+                  if (retryResponse.ok) {
+                    const retryResult = await retryResponse.json()
+                    const retryAnswer = retryResult.message?.content || retryResult.response || ''
+                    if (retryAnswer) {
+                      // Success! Use this model's response
+                      console.log(`Successfully used model '${altModel}' instead of '${validModel}'`)
+                      answer = retryAnswer
+                      clearTimeout(timeoutId)
+                      return {
+                        answer,
+                        data: {
+                          parsed,
+                          trackerCount: data.trackers.length,
+                          logCount: data.logs.length,
+                        },
+                      }
+                    }
+                  } else {
+                    const retryErrorText = await retryResponse.text()
+                    lastError = `Model '${altModel}' failed: ${retryErrorText}`
+                  }
+                } catch (retryErr: any) {
+                  if (retryErr.name !== 'AbortError') {
+                    lastError = `Model '${altModel}' error: ${retryErr.message}`
+                  }
+                  // Continue to next model
+                }
+              }
+              
+              // All chat API attempts failed - try falling back to /api/generate endpoint
+              // Try ALL models with generate endpoint, prioritizing base names (without tags)
+              console.warn('All chat API attempts failed, falling back to /api/generate endpoint')
+              
+              // Build list of base names to try (without tags) for generate endpoint
+              const generateModelsToTry: string[] = []
+              const generateTried = new Set<string>()
+              
+              // Collect unique base names from available models (prioritize base names)
+              const baseNames = new Set<string>()
+              availableModels.forEach(m => {
+                const base = getBaseName(m)
+                baseNames.add(base)
+              })
+              
+              // Add base names first, then tagged versions
+              baseNames.forEach(base => {
+                if (!generateTried.has(base)) {
+                  generateModelsToTry.push(base) // Try base name first
+                  generateTried.add(base)
+                }
+                const tagged = `${base}:latest`
+                if (availableModels.includes(tagged) && !generateTried.has(tagged)) {
+                  generateModelsToTry.push(tagged) // Then try tagged version
+                  generateTried.add(tagged)
+                }
+              })
+              
+              // Filter out embedding models
+              const chatModelsToTry = generateModelsToTry.filter(m => 
+                !m.toLowerCase().includes('embed') && 
+                !m.toLowerCase().includes('nomic')
+              )
+              
+              for (const genModel of chatModelsToTry) {
+                try {
+                  console.warn(`Trying /api/generate with model '${genModel}'`)
+                  
+                  const fallbackPrompt = messages
+                    .map(m => {
+                      if (m.role === 'system') return `System: ${m.content}`
+                      if (m.role === 'user') return `User: ${m.content}`
+                      return `Assistant: ${m.content}`
+                    })
+                    .join('\n\n') + '\n\nAssistant:'
+                  
+                  const generateController = new AbortController()
+                  const generateTimeoutId = setTimeout(() => generateController.abort(), chatTimeoutMs)
+                  
+                  const generateResponse = await fetch('http://localhost:11434/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      model: genModel,
+                      prompt: fallbackPrompt,
+                      stream: false
+                    }),
+                    signal: generateController.signal
+                  })
+                  
+                  clearTimeout(generateTimeoutId)
+                  
+                  if (generateResponse.ok) {
+                    const generateResult = await generateResponse.json()
+                    const generateAnswer = generateResult.response || ''
+                    if (generateAnswer) {
+                      console.log(`Successfully used /api/generate endpoint with model '${genModel}'`)
+                      answer = generateAnswer.trim()
+                      clearTimeout(timeoutId)
+                      return {
+                        answer,
+                        data: {
+                          parsed,
+                          trackerCount: data.trackers.length,
+                          logCount: data.logs.length,
+                        },
+                      }
+                    }
+                  } else {
+                    const genErrorText = await generateResponse.text()
+                    console.warn(`Generate API also failed for '${genModel}': ${genErrorText}`)
+                  }
+                } catch (genErr: any) {
+                  if (genErr.name !== 'AbortError') {
+                    console.warn(`Generate API error for '${genModel}':`, genErr.message)
+                  }
+                  // Continue to next model
+                }
+              }
+              
+              // All attempts failed - build helpful error message
+              let errorMessage = `Ollama chat API error (${response.status}): ${errorText || response.statusText}`
+              if (availableModels.length > 0) {
+                errorMessage += `\n\nAvailable models: ${availableModels.join(', ')}`
+                errorMessage += `\n\nTried ${modelsToTry.length} alternative model(s) with chat API and fallback to generate API, but all failed.`
+                if (lastError) {
+                  errorMessage += ` Last chat API attempt: ${lastError}`
+                }
+                errorMessage += `\n\nPossible solutions:\n1. Ensure Ollama is running: docker ps | grep ollama\n2. Verify models are loaded: ollama list\n3. Try pulling/reinstalling models: ollama pull ${validModel.split(':')[0]}\n4. Restart Ollama: docker restart ollama\n5. Select a different model from the available list above`
+              } else {
+                errorMessage += '\n\nNo models are installed. Install a model with: ollama pull llama3.2'
+              }
+              
+              throw new Error(errorMessage)
+            } catch (e: any) {
+              // If error handling itself fails, throw the original error
+              if (e.message && (e.message.includes('Available models') || e.message.includes('Ollama chat API error'))) {
+                throw e // Re-throw our enhanced error
+              }
+              throw new Error(`Ollama chat API error (${response.status}): ${errorText || response.statusText}`)
+            }
+          }
+          
+          // For other errors, throw normally
           throw new Error(`Ollama chat API error (${response.status}): ${errorText || response.statusText}`)
         }
 
@@ -2582,14 +2814,14 @@ ${isIntervalQuestion ? `
       } catch (error: any) {
         clearTimeout(timeoutId)
         if (error.name === 'AbortError') {
-          throw new Error('Request timed out after 60 seconds. The model may be too slow or the prompt too complex.')
+          throw new Error(`Request timed out after ${chatTimeoutMs / 1000} seconds. The model may be too slow or the prompt too complex. Try using a faster model or simplifying your question.`)
         }
         console.error('Error querying Ollama chat API:', error)
         throw error
       }
     } else {
       // Use existing /api/generate endpoint (backward compatibility)
-      answer = await queryOllama(context, model)
+      answer = await queryOllama(context, validModel)
     }
 
     return {
@@ -2637,6 +2869,85 @@ export async function getAvailableModels(): Promise<string[]> {
   } catch (error) {
     console.error('Error fetching available models:', error)
     return []
+  }
+}
+
+/**
+ * Validate and get a valid model name, falling back to available models if needed
+ * 
+ * Handles cases where models might be listed with tags but need to be called without them,
+ * or vice versa. Also handles cases where the model name format differs between
+ * the tags API and the actual API calls.
+ */
+async function getValidModel(requestedModel: string): Promise<string> {
+  try {
+    const availableModels = await getAvailableModels()
+    
+    if (availableModels.length === 0) {
+      console.warn(`No models available, using default '${DEFAULT_MODEL}'`)
+      return DEFAULT_MODEL
+    }
+    
+    // First, try exact match
+    if (availableModels.includes(requestedModel)) {
+      return requestedModel
+    }
+    
+    // Try without tag (e.g., 'llama3.2:latest' -> 'llama3.2')
+    const modelWithoutTag = requestedModel.split(':')[0]
+    const modelWithoutTagMatch = availableModels.find(m => {
+      const mWithoutTag = m.split(':')[0]
+      return mWithoutTag === modelWithoutTag
+    })
+    
+    if (modelWithoutTagMatch) {
+      console.warn(`Model '${requestedModel}' not found exactly, using '${modelWithoutTagMatch}' instead`)
+      return modelWithoutTagMatch
+    }
+    
+    // Try with tag if requested doesn't have one (e.g., 'llama3.2' -> 'llama3.2:latest')
+    if (!requestedModel.includes(':')) {
+      const modelWithTagMatch = availableModels.find(m => {
+        const mWithoutTag = m.split(':')[0]
+        return mWithoutTag === requestedModel
+      })
+      
+      if (modelWithTagMatch) {
+        console.warn(`Model '${requestedModel}' not found, using '${modelWithTagMatch}' instead`)
+        return modelWithTagMatch
+      }
+    }
+    
+    // Try to find any model with similar base name
+    const similarModel = availableModels.find(m => {
+      const requestedBase = requestedModel.split(':')[0]
+      const mBase = m.split(':')[0]
+      return mBase.includes(requestedBase) || requestedBase.includes(mBase)
+    })
+    
+    if (similarModel) {
+      console.warn(`Model '${requestedModel}' not found, using similar model '${similarModel}' instead`)
+      return similarModel
+    }
+    
+    // Fall back to first available model (prefer non-embedding models)
+    const nonEmbeddingModel = availableModels.find(m => 
+      !m.toLowerCase().includes('embed') && 
+      !m.toLowerCase().includes('nomic')
+    )
+    
+    if (nonEmbeddingModel) {
+      console.warn(`Model '${requestedModel}' not found, using '${nonEmbeddingModel}' instead`)
+      return nonEmbeddingModel
+    }
+    
+    // Last resort: use first available
+    console.warn(`Model '${requestedModel}' not found, using '${availableModels[0]}' instead`)
+    return availableModels[0]
+  } catch (error) {
+    console.error('Error validating model:', error)
+    // Fall back to requested model or default if validation fails
+    return requestedModel || DEFAULT_MODEL
   }
 }
 

@@ -27,6 +27,12 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+      # Mount host CA certificates to fix TLS certificate verification issues
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /etc/ca-certificates:/etc/ca-certificates:ro
+      # Mount host's Ollama models so container can access models pulled on host
+      # On macOS with Docker Desktop, this allows sharing models between host and container
+      - ~/.ollama/models:/root/.ollama/models:ro
     networks:
       - journaleith-network
     restart: unless-stopped
