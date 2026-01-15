@@ -1123,7 +1123,7 @@ View your entry in the timeline to see all tracked nutrients.`
   function autoResizeTextarea() {
     if (textareaElement) {
       textareaElement.style.height = 'auto'
-      const maxHeight = window.innerHeight * 0.25 // 25vh
+      const maxHeight = window.innerHeight * 0.4 // 40vh
       const newHeight = Math.min(textareaElement.scrollHeight, maxHeight)
       textareaElement.style.height = newHeight + 'px'
     }
@@ -1681,7 +1681,7 @@ View your entry in the timeline to see all tracked nutrients.`
           on:keypress={handleKeyPress}
           on:input={autoResizeTextarea}
           placeholder={pendingValueRequest ? "Enter a number..." : "Ask a question or add an entry (e.g., 'add intraworkout')..."}
-          class="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 min-h-[60px] max-h-[25vh] overflow-y-auto bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+          class="flex-1 p-3 border border-gray-300 dark:border-gray-700 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 min-h-[60px] max-h-[40vh] overflow-y-auto bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           disabled={loading || (!ollamaAvailable && !pendingValueRequest)}
           rows="1"
         />
