@@ -26,7 +26,7 @@ function formatDateForAI(date: string | dayjs.Dayjs): string {
   return dayjs(date).format('dddd, Do MMMM YYYY')
 }
 
-const OLLAMA_ENDPOINT = 'http://127.0.0.1:11434/api/generate'
+const OLLAMA_ENDPOINT = 'http://localhost:11434/api/generate'
 const DEFAULT_MODEL = 'mistral' // You can change this to any model you have installed
 
 export interface AIQueryResponse {
@@ -2539,7 +2539,7 @@ ${isIntervalQuestion ? `
       const messages = [
         {
           role: 'system' as const,
-          content: context
+          content: context // Context built from data analysis above
         },
         ...conversationHistory,
         {
@@ -2573,6 +2573,7 @@ ${isIntervalQuestion ? `
         const result = await response.json()
 
         // Extract answer from chat API response
+        // Chat API returns message.content, but fall back to response for compatibility
         answer = result.message?.content || result.response || ''
 
         if (!answer) {
