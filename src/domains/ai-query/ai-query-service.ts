@@ -376,6 +376,48 @@ async function getRelevantData(
 }
 
 /**
+ * Extracts product name from message after search keyword
+ * Examples:
+ *   "lookup Monster Zero Ultra" → "Monster Zero Ultra"
+ *   "search for protein bar" → "protein bar"
+ *   "find greek yogurt 2 servings" → "greek yogurt"
+ */
+function extractProductName(message: string, searchKeywords: string[]): string {
+  const lowerMessage = message.toLowerCase()
+
+  // Find which search keyword was used
+  let keywordMatch: string | null = null
+  for (const keyword of searchKeywords) {
+    if (keyword.includes(' ')) {
+      if (lowerMessage.includes(keyword)) {
+        keywordMatch = keyword
+        break
+      }
+    } else {
+      const regex = new RegExp(`\\b${keyword}\\b`, 'i')
+      if (regex.test(lowerMessage)) {
+        keywordMatch = keyword
+        break
+      }
+    }
+  }
+
+  if (!keywordMatch) return message.trim()
+
+  // Extract everything after the keyword
+  const keywordIndex = lowerMessage.indexOf(keywordMatch)
+  let productName = message.substring(keywordIndex + keywordMatch.length).trim()
+
+  // Remove quantity patterns (e.g., "2 cans", "1 serving")
+  productName = productName.replace(/^\d+(?:\.\d+)?\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)\s*/i, '')
+
+  // Remove trailing quantity patterns (e.g., "yogurt 2 servings" → "yogurt")
+  productName = productName.replace(/\s+\d+(?:\.\d+)?\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)$/i, '')
+
+  return productName.trim()
+}
+
+/**
  * Detect intent from user message - whether they want to add an entry or ask a question
  */
 async function detectIntent(message: string, availableTrackers: Array<{ tag: string; label: string }>): Promise<IntentDetectionResult> {
