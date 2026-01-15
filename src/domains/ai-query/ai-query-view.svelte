@@ -1124,7 +1124,12 @@ View your entry in the timeline to see all tracked nutrients.`
     if (textareaElement) {
       textareaElement.style.height = 'auto'
       const maxHeight = window.innerHeight * 0.4 // 40vh
-      const newHeight = Math.min(textareaElement.scrollHeight, maxHeight)
+      const minHeight = 60 // Match min-h-[60px] from the class
+      const scrollHeight = textareaElement.scrollHeight
+      // If content is empty or very small, reset to minimum height
+      const newHeight = question && question.trim() 
+        ? Math.min(Math.max(scrollHeight, minHeight), maxHeight)
+        : minHeight
       textareaElement.style.height = newHeight + 'px'
     }
   }
@@ -1134,7 +1139,8 @@ View your entry in the timeline to see all tracked nutrients.`
   }
 
   $: if (question !== undefined && textareaElement) {
-    autoResizeTextarea()
+    // Use a small timeout to ensure DOM has updated
+    setTimeout(() => autoResizeTextarea(), 0)
   }
 </script>
 
