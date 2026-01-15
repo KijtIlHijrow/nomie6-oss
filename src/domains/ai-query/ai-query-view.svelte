@@ -9,6 +9,8 @@
   import AutoComplete from '../../components/auto-complete/auto-complete.svelte'
   import { barcodeScanner } from '../nutrition/barcode-scanner'
   import { nutritionService } from '../nutrition/nutrition-service'
+  import { nutritionixProvider } from '../nutrition/providers/nutritionix-provider'
+  import { usdaProvider } from '../nutrition/providers/usda-provider'
   import { BarcodeScannerModal, ManualBarcodeEntry, CameraPermissionPrompt, ManualNutritionForm } from '../nutrition/components'
   import { Capacitor } from '@capacitor/core'
   import TrackerClass from '../../modules/tracker/TrackerClass'
@@ -159,6 +161,63 @@
     }
 
     return Array.from(seen.values())
+  }
+
+  /**
+   * Search for products by name using multi-provider cascade
+   * Tries OpenFoodFacts first, then Nutritionix, then USDA until we have 3+ results
+   */
+  async function handleProductSearch(productName: string, quantity: number) {
+    isSearching = true
+    searchError = null
+    searchResults = []
+
+    try {
+      let allResults: NutritionData[] = []
+
+      // Primary: OpenFoodFacts (via nutritionService)
+      try {
+        const offResults = await nutritionService.search(productName)
+        allResults.push(...offResults)
+      } catch (error) {
+        console.warn('OpenFoodFacts search failed:', error)
+      }
+
+      // If <3 results, try Nutritionix
+      if (allResults.length < 3) {
+        try {
+          const nixResults = await nutritionixProvider.search(productName)
+          allResults.push(...nixResults)
+        } catch (error) {
+          console.warn('Nutritionix search failed:', error)
+        }
+      }
+
+      // If still <3, try USDA
+      if (allResults.length < 3) {
+        try {
+          const usdaResults = await usdaProvider.search(productName)
+          allResults.push(...usdaResults)
+        } catch (error) {
+          console.warn('USDA search failed:', error)
+        }
+      }
+
+      // Deduplicate by product name + brand
+      const unique = deduplicateResults(allResults)
+      searchResults = unique.slice(0, 5) // Top 5
+
+      if (searchResults.length === 0) {
+        searchError = `No results found for "${productName}"`
+      }
+
+      currentSearchQuantity = quantity
+    } catch (error) {
+      console.error('Product search failed:', error)
+      searchError = `Search failed: ${error.message}`
+    } finally {
+      isSearching = false
+    }
   }
 
   // Stable function reference for event listener to prevent memory leaks
