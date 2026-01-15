@@ -128,6 +128,7 @@
   let searchError: string | null = null
   let isSearching: boolean = false
   let currentSearchQuantity: number = 1
+  let nutritionData: NutritionData | null = null
 
   // Conversation state for pending value requests
   let pendingValueRequest: { trackerTag: string; trackerType: string; messageId: string } | null = null
@@ -218,6 +219,24 @@
     } finally {
       isSearching = false
     }
+  }
+
+  /**
+   * Handle user selecting a product from search results
+   * Reuses existing product confirmation flow (same as barcode scan)
+   */
+  function handleProductSelect(selectedProduct: NutritionData) {
+    // Clear search results
+    searchResults = []
+    searchError = null
+
+    // Set product data (triggers product confirmation card display)
+    nutritionData = selectedProduct
+
+    // The rest follows the existing barcode scan flow:
+    // - Shows product confirmation card
+    // - User can adjust quantity
+    // - User clicks "Log It" to create entry
   }
 
   // Stable function reference for event listener to prevent memory leaks
