@@ -130,6 +130,37 @@
   // Conversation state for pending value requests
   let pendingValueRequest: { trackerTag: string; trackerType: string; messageId: string } | null = null
 
+  /**
+   * Deduplicate nutrition results by normalized product name + brand
+   * Prefers results with more complete nutrient data
+   */
+  function deduplicateResults(results: NutritionData[]): NutritionData[] {
+    const seen = new Map<string, NutritionData>()
+
+    for (const result of results) {
+      // Create normalized key from product name + brand
+      const normalizedName = result.productName.toLowerCase().trim()
+      const normalizedBrand = (result.brand || '').toLowerCase().trim()
+      const key = `${normalizedBrand}|${normalizedName}`
+
+      const existing = seen.get(key)
+
+      if (!existing) {
+        seen.set(key, result)
+      } else {
+        // Keep result with more nutrient data
+        const existingNutrientCount = Object.keys(existing.nutrients).length
+        const newNutrientCount = Object.keys(result.nutrients).length
+
+        if (newNutrientCount > existingNutrientCount) {
+          seen.set(key, result)
+        }
+      }
+    }
+
+    return Array.from(seen.values())
+  }
+
   // Stable function reference for event listener to prevent memory leaks
   const handleClickOutside = (event: MouseEvent) => {
     if (modelSelectorContainer && !modelSelectorContainer.contains(event.target as Node)) {
