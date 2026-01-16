@@ -17,6 +17,7 @@
   import { Trackable } from '../trackable/Trackable.class'
   import { saveLog } from '../ledger/LedgerStore'
   import type { NutritionData } from '../nutrition/nutrition-types'
+  import SvelteMarkdown from 'svelte-markdown'
 
   // AI Message format for conversation history
   interface AIMessage {
@@ -1431,7 +1432,9 @@ View your entry in the timeline to see all tracked nutrients.`
               <span class="animate-pulse delay-150">●</span>
             </div>
           {:else}
-            <div class="whitespace-pre-wrap text-sm leading-relaxed selectable-text">{message.content}</div>
+            <div class="whitespace-pre-wrap text-sm leading-relaxed selectable-text">
+              <SvelteMarkdown source={message.content} />
+            </div>
             
             {#if message.log}
               <div class="mt-3 -mx-2">
