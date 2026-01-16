@@ -55,6 +55,14 @@ which would be converted into something like:
 - **Context** - a generic categorization / group using the +context format. For example ``Went to dinner with @mom +meal`
 - **Location** - a physical location that you store and use later
 
+## Features
+
+- **AI Chat** - Intelligent assistant for tracking, data entry, and nutrition lookup. [Learn more](docs/AI_CHAT.md)
+  - Product nutrition search across multiple databases
+  - Barcode scanning for mobile
+  - Natural language tracking
+  - Tracker creation and management
+
 ## Coding Rules
 
 - **Keep it readable** - focus on writing code that new people can easily understand and follow. If the code can't do it, then do it with comments. There's no such thing as too much commenting. (yes, I should follow my own rules)
