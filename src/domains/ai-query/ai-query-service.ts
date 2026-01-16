@@ -34,7 +34,7 @@ export interface AIQueryResponse {
   answer: string
   data?: any
   error?: string
-  action?: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'needs_manual_contribution' | 'update_all_colors'
+  action?: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode' | 'needs_value' | 'needs_tracker_creation' | 'needs_tracker_type' | 'needs_uom' | 'needs_uom_category' | 'needs_math' | 'needs_positivity' | 'needs_focus' | 'needs_also_include' | 'needs_default_value' | 'create_tracker_with_config' | 'needs_manual_contribution' | 'update_all_colors' | 'search_product'
   trackerTag?: string
   trackerName?: string // Original tracker name with capitalization preserved
   trackerType?: string
@@ -46,10 +46,11 @@ export interface AIQueryResponse {
   quantity?: number // For barcode scan: quantity from message
   suggestBarcodeScan?: boolean // For food-related messages: suggest scanning
   updatedCount?: number // For update_all_colors: how many trackers were updated
+  productName?: string // For search_product: product name to search for
 }
 
 export interface IntentDetectionResult {
-  type: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode' | 'update_all_colors'
+  type: 'add_entry' | 'question' | 'delete_entry' | 'scan_barcode' | 'update_all_colors' | 'search_product'
   trackerName?: string
   value?: number
   trackerNames?: string[] // For multiple trackers
@@ -58,6 +59,7 @@ export interface IntentDetectionResult {
   suggestScan?: boolean // For food-related: suggest scan instead of forcing it
   referenceTracker?: string // For update_all_colors: the tracker whose color to match
   boardLabel?: string // For update_all_colors: the board/tab name to filter by (e.g., 'Care')
+  productName?: string // For search_product: the product name to search for
 }
 
 /**
@@ -376,10 +378,53 @@ async function getRelevantData(
 }
 
 /**
+ * Extracts product name from message after search keyword
+ * Examples:
+ *   "lookup Monster Zero Ultra" → "Monster Zero Ultra"
+ *   "search for protein bar" → "protein bar"
+ *   "find greek yogurt 2 servings" → "greek yogurt"
+ */
+function extractProductName(message: string, searchKeywords: string[]): string {
+  const lowerMessage = message.toLowerCase()
+
+  // Find which search keyword was used
+  let keywordMatch: string | null = null
+  for (const keyword of searchKeywords) {
+    if (keyword.includes(' ')) {
+      if (lowerMessage.includes(keyword)) {
+        keywordMatch = keyword
+        break
+      }
+    } else {
+      const regex = new RegExp(`\\b${keyword}\\b`, 'i')
+      if (regex.test(lowerMessage)) {
+        keywordMatch = keyword
+        break
+      }
+    }
+  }
+
+  if (!keywordMatch) return message.trim()
+
+  // Extract everything after the keyword
+  const keywordIndex = lowerMessage.indexOf(keywordMatch)
+  let productName = message.substring(keywordIndex + keywordMatch.length).trim()
+
+  // Remove quantity patterns (e.g., "2 cans", "1 serving")
+  productName = productName.replace(/^\d+(?:\.\d+)?\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)\s*/i, '')
+
+  // Remove trailing quantity patterns (e.g., "yogurt 2 servings" → "yogurt")
+  productName = productName.replace(/\s+\d+(?:\.\d+)?\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)$/i, '')
+
+  return productName.trim()
+}
+
+/**
  * Detect intent from user message - whether they want to add an entry or ask a question
  */
 async function detectIntent(message: string, availableTrackers: Array<{ tag: string; label: string }>): Promise<IntentDetectionResult> {
   const lowerMessage = message.toLowerCase().trim()
+  console.log('[DEBUG] detectIntent called with message:', message)
 
   // Keywords that indicate entry creation intent - use word boundaries to avoid false matches
   const addKeywords = ['add', 'track', 'log', 'record', 'enter', 'create entry', 'new entry']
@@ -540,6 +585,16 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
     }
   }
 
+  // Check for product search intent (after explicit barcode scan, before food keyword suggestion)
+  const searchKeywords = ['lookup', 'search', 'find', 'search for', 'look up']
+  const hasSearchKeyword = searchKeywords.some(keyword => {
+    if (keyword.includes(' ')) {
+      return lowerMessage.includes(keyword)
+    }
+    const regex = new RegExp(`\\b${keyword}\\b`, 'i')
+    return regex.test(lowerMessage)
+  })
+
   // Check for food-related keywords (suggest barcode scan)
   const foodKeywords = [
     'ate', 'eaten', 'eating', 'eat',
@@ -557,6 +612,32 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
     const regex = new RegExp(`\\b${keyword}\\b`, 'i')
     return regex.test(lowerMessage)
   })
+
+  if (hasSearchKeyword) {
+    console.log('[DEBUG] Product search keyword detected in message:', message)
+    // Extract product name - everything after the search keyword
+    const productName = extractProductName(lowerMessage, searchKeywords)
+    console.log('[DEBUG] Extracted product name:', productName)
+
+    // Only proceed if we have a valid product name
+    if (productName && productName.length > 0) {
+      // Extract quantity using same logic as barcode scan
+      let quantity = 1
+      const quantityMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:servings?|portions?|bars?|cans?|bottles?|packages?|items?)?/)
+      if (quantityMatch) {
+        quantity = parseFloat(quantityMatch[1])
+      }
+
+      console.log('[DEBUG] Returning search_product intent with:', { productName, quantity })
+      return {
+        type: 'search_product',
+        productName,
+        quantity,
+      }
+    } else {
+      console.log('[DEBUG] Product name is empty, not triggering search')
+    }
+  }
 
   if (hasFoodKeyword) {
     // Food-related message - suggest barcode scan
@@ -2408,6 +2489,7 @@ export async function answerQuestion(
 
     // Check intent first
     const intent = await detectIntent(question, data.trackers)
+    console.log('[DEBUG] Intent detected:', intent)
 
     // If it's an entry deletion intent, handle it
     if (intent.type === 'delete_entry') {
@@ -2443,6 +2525,18 @@ export async function answerQuestion(
           quantity: intent.quantity,
           originalMessage: question,
         }
+      }
+    }
+
+    // If it's a product search intent, return action for UI to handle
+    if (intent.type === 'search_product') {
+      console.log('[DEBUG] Returning search_product action for UI with productName:', intent.productName)
+      return {
+        answer: `Searching for "${intent.productName}"...`,
+        action: 'search_product',
+        productName: intent.productName,
+        quantity: intent.quantity || 1,
+        originalMessage: question,
       }
     }
 

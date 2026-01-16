@@ -9,6 +9,8 @@
   import AutoComplete from '../../components/auto-complete/auto-complete.svelte'
   import { barcodeScanner } from '../nutrition/barcode-scanner'
   import { nutritionService } from '../nutrition/nutrition-service'
+  import { nutritionixProvider } from '$domains/nutrition/providers/nutritionix-provider'
+  import { usdaProvider } from '$domains/nutrition/providers/usda-provider'
   import { BarcodeScannerModal, ManualBarcodeEntry, CameraPermissionPrompt, ManualNutritionForm } from '../nutrition/components'
   import { Capacitor } from '@capacitor/core'
   import TrackerClass from '../../modules/tracker/TrackerClass'
@@ -121,8 +123,142 @@
   let showPermissionPrompt = false
   let pendingScanContext: { quantity: number; messageId: string; originalMessage: string } | null = null
 
+  // Product search state
+  let searchResults: NutritionData[] = []
+  let searchError: string | null = null
+  let isSearching: boolean = false
+  let currentSearchQuantity: number = 1
+  let nutritionData: NutritionData | null = null
+
   // Conversation state for pending value requests
   let pendingValueRequest: { trackerTag: string; trackerType: string; messageId: string } | null = null
+
+  /**
+   * Wraps a promise with a timeout
+   */
+  function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error('Search timeout')), timeoutMs)
+      ),
+    ])
+  }
+
+  /**
+   * Deduplicate nutrition results by normalized product name + brand
+   * Prefers results with more complete nutrient data
+   */
+  function deduplicateResults(results: NutritionData[]): NutritionData[] {
+    const seen = new Map<string, NutritionData>()
+
+    for (const result of results) {
+      // Create normalized key from product name + brand
+      const normalizedName = result.productName.toLowerCase().trim()
+      const normalizedBrand = (result.brand || '').toLowerCase().trim()
+      const key = `${normalizedBrand}|${normalizedName}`
+
+      const existing = seen.get(key)
+
+      if (!existing) {
+        seen.set(key, result)
+      } else {
+        // Keep result with more nutrient data
+        const existingNutrientCount = Object.keys(existing.nutrients).length
+        const newNutrientCount = Object.keys(result.nutrients).length
+
+        if (newNutrientCount > existingNutrientCount) {
+          seen.set(key, result)
+        }
+      }
+    }
+
+    return Array.from(seen.values())
+  }
+
+  /**
+   * Search for products by name using multi-provider cascade
+   * Tries OpenFoodFacts first, then Nutritionix, then USDA until we have 3+ results
+   */
+  async function handleProductSearch(productName: string, quantity: number) {
+    isSearching = true
+    searchError = null
+    searchResults = []
+
+    try {
+      let allResults: NutritionData[] = []
+
+      // Primary: OpenFoodFacts (via nutritionService)
+      try {
+        const offResults = await withTimeout(
+          nutritionService.search(productName),
+          10000 // 10s timeout
+        )
+        allResults.push(...offResults)
+      } catch (error) {
+        console.warn('OpenFoodFacts search failed:', error)
+      }
+
+      // If <3 results, try Nutritionix
+      if (allResults.length < 3) {
+        try {
+          const nixResults = await withTimeout(
+            nutritionixProvider.search(productName),
+            10000
+          )
+          allResults.push(...nixResults)
+        } catch (error) {
+          console.warn('Nutritionix search failed:', error)
+        }
+      }
+
+      // If still <3, try USDA
+      if (allResults.length < 3) {
+        try {
+          const usdaResults = await withTimeout(
+            usdaProvider.search(productName),
+            10000
+          )
+          allResults.push(...usdaResults)
+        } catch (error) {
+          console.warn('USDA search failed:', error)
+        }
+      }
+
+      // Deduplicate by product name + brand
+      const unique = deduplicateResults(allResults)
+      searchResults = unique.slice(0, 5) // Top 5
+
+      if (searchResults.length === 0) {
+        searchError = `No results found for "${productName}"`
+      }
+
+      currentSearchQuantity = quantity
+    } catch (error) {
+      console.error('Product search failed:', error)
+      searchError = `Search failed: ${error.message}`
+    } finally {
+      isSearching = false
+    }
+  }
+
+  /**
+   * Handle user selecting a product from search results
+   * Reuses existing product confirmation flow (same as barcode scan)
+   */
+  function handleProductSelect(selectedProduct: NutritionData) {
+    // Clear search results
+    searchResults = []
+    searchError = null
+
+    // Set product data (triggers product confirmation card display)
+    nutritionData = selectedProduct
+
+    // The rest follows the existing barcode scan flow:
+    // - Shows product confirmation card
+    // - User can adjust quantity
+    // - User clicks "Log It" to create entry
+  }
 
   // Stable function reference for event listener to prevent memory leaks
   const handleClickOutside = (event: MouseEvent) => {
@@ -1041,10 +1177,18 @@ View your entry in the timeline to see all tracked nutrients.`
       // Call AI with full conversation history
       const response: AIQueryResponse = await answerQuestion(questionToAsk, selectedModel, aiMessages)
       console.log('AI Response:', response)
-      
+
       // Remove loading message
       messages = messages.filter(m => m.id !== loadingMessageId)
-      
+
+      // Handle search_product intent
+      if (response.action === 'search_product' && response.productName) {
+        await handleProductSearch(response.productName, response.quantity || 1)
+        scrollToBottom()
+        loading = false
+        return // Don't send to LLM or add assistant message
+      }
+
       if (response.error) {
         error = response.error
         console.error('AI Error:', response.error)
@@ -1666,6 +1810,49 @@ View your entry in the timeline to see all tracked nutrients.`
       </div>
       {/each}
     </div>
+
+    <!-- Product Search Results -->
+    {#if isSearching}
+      <div class="search-loading">
+        <div class="spinner"></div>
+        <p>Searching for products...</p>
+      </div>
+    {/if}
+
+    {#if searchError && searchResults.length === 0}
+      <div class="search-error">
+        <p>{searchError}</p>
+        <button
+          class="btn btn-sm"
+          on:click={() => {
+            searchError = null
+          }}
+        >
+          Dismiss
+        </button>
+      </div>
+    {/if}
+
+    {#if searchResults.length > 0}
+      <div class="search-results">
+        <h4>Select Product:</h4>
+        {#each searchResults as result}
+          <button
+            class="product-result-item"
+            on:click={() => handleProductSelect(result)}
+          >
+            <div class="product-info">
+              <div class="product-name">{result.productName}</div>
+              {#if result.brand}
+                <div class="product-brand">{result.brand}</div>
+              {/if}
+              <div class="product-serving">{result.servingSize}</div>
+            </div>
+            <div class="product-source-badge">{result.source}</div>
+          </button>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <!-- Input Area - Fixed above tabs (portaled to body) -->
@@ -1810,6 +1997,88 @@ View your entry in the timeline to see all tracked nutrients.`
     -moz-user-select: text !important;
     -ms-user-select: text !important;
     cursor: text;
+  }
+
+  /* Product Search Styles */
+  .search-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    gap: 0.5rem;
+  }
+
+  .search-error {
+    padding: 1rem;
+    background: var(--color-red-faded);
+    border-radius: 8px;
+    margin: 0.5rem 0;
+  }
+
+  .search-error p {
+    margin: 0 0 0.5rem 0;
+    color: var(--color-red);
+  }
+
+  .search-results {
+    margin: 1rem 0;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .search-results h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.9rem;
+    opacity: 0.7;
+  }
+
+  .product-result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background: var(--color-solid-2);
+    border: 1px solid var(--color-solid-3);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+  }
+
+  .product-result-item:hover {
+    background: var(--color-solid-3);
+    transform: translateX(2px);
+  }
+
+  .product-info {
+    flex: 1;
+  }
+
+  .product-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  .product-brand {
+    font-size: 0.85rem;
+    opacity: 0.7;
+    margin-bottom: 0.25rem;
+  }
+
+  .product-serving {
+    font-size: 0.8rem;
+    opacity: 0.6;
+  }
+
+  .product-source-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--color-primary-faded);
+    color: var(--color-primary);
+    border-radius: 4px;
+    text-transform: uppercase;
   }
 </style>
 

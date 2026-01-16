@@ -32,6 +32,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
+      '$domains': path.resolve(__dirname, 'src/domains'),
     },
   },
   plugins: [

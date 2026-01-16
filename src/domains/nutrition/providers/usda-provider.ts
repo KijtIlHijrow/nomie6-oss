@@ -12,6 +12,7 @@ import type {
   USDAResponse,
   NutritionContribution,
 } from '../nutrition-types'
+import { appConfig } from '../../../config/appConfig'
 
 export class USDAProvider implements NutritionProvider {
   name = 'usda'
@@ -178,3 +179,6 @@ export class USDAProvider implements NutritionProvider {
     }
   }
 }
+
+// Singleton instance
+export const usdaProvider = new USDAProvider(appConfig.nutritionApis?.usdaApiKey || 'DEMO_KEY')

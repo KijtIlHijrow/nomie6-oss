@@ -12,6 +12,7 @@ import type {
   NutritionixResponse,
   NutritionContribution,
 } from '../nutrition-types'
+import { appConfig } from '../../../config/appConfig'
 
 export class NutritionixProvider implements NutritionProvider {
   name = 'nutritionix'
@@ -188,3 +189,9 @@ export class NutritionixProvider implements NutritionProvider {
     }
   }
 }
+
+// Singleton instance
+export const nutritionixProvider = new NutritionixProvider(
+  appConfig.nutritionApis?.nutritionixAppId || '',
+  appConfig.nutritionApis?.nutritionixApiKey || ''
+)
