@@ -2022,6 +2022,8 @@ View your entry in the timeline to see all tracked nutrients.`
 
   .search-results {
     margin: 1rem 0;
+    max-height: 400px;
+    overflow-y: auto;
   }
 
   .search-results h4 {
