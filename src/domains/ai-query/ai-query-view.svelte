@@ -134,6 +134,18 @@
   let pendingValueRequest: { trackerTag: string; trackerType: string; messageId: string } | null = null
 
   /**
+   * Wraps a promise with a timeout
+   */
+  function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error('Search timeout')), timeoutMs)
+      ),
+    ])
+  }
+
+  /**
    * Deduplicate nutrition results by normalized product name + brand
    * Prefers results with more complete nutrient data
    */
@@ -178,7 +190,10 @@
 
       // Primary: OpenFoodFacts (via nutritionService)
       try {
-        const offResults = await nutritionService.search(productName)
+        const offResults = await withTimeout(
+          nutritionService.search(productName),
+          10000 // 10s timeout
+        )
         allResults.push(...offResults)
       } catch (error) {
         console.warn('OpenFoodFacts search failed:', error)
@@ -187,7 +202,10 @@
       // If <3 results, try Nutritionix
       if (allResults.length < 3) {
         try {
-          const nixResults = await nutritionixProvider.search(productName)
+          const nixResults = await withTimeout(
+            nutritionixProvider.search(productName),
+            10000
+          )
           allResults.push(...nixResults)
         } catch (error) {
           console.warn('Nutritionix search failed:', error)
@@ -197,7 +215,10 @@
       // If still <3, try USDA
       if (allResults.length < 3) {
         try {
-          const usdaResults = await usdaProvider.search(productName)
+          const usdaResults = await withTimeout(
+            usdaProvider.search(productName),
+            10000
+          )
           allResults.push(...usdaResults)
         } catch (error) {
           console.warn('USDA search failed:', error)
