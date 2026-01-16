@@ -1821,18 +1821,18 @@ View your entry in the timeline to see all tracked nutrients.`
 
     {#if searchResults.length > 0}
       <div class="search-results">
-        <h4>Select Product:</h4>
+        <h4 class="text-gray-900 dark:text-white font-semibold">Select Product:</h4>
         {#each searchResults as result}
           <button
             class="product-result-item"
             on:click={() => handleProductSelect(result)}
           >
             <div class="product-info">
-              <div class="product-name">{result.productName}</div>
+              <div class="product-name text-gray-900 dark:text-white">{result.productName}</div>
               {#if result.brand}
-                <div class="product-brand">{result.brand}</div>
+                <div class="product-brand text-gray-600 dark:text-gray-400">{result.brand}</div>
               {/if}
-              <div class="product-serving">{result.servingSize}</div>
+              <div class="product-serving text-gray-500 dark:text-gray-500">{result.servingSize}</div>
             </div>
             <div class="product-source-badge">{result.source}</div>
           </button>
@@ -2016,7 +2016,6 @@ View your entry in the timeline to see all tracked nutrients.`
   .search-results h4 {
     margin: 0 0 0.5rem 0;
     font-size: 0.9rem;
-    opacity: 0.7;
   }
 
   .product-result-item {
@@ -2050,13 +2049,11 @@ View your entry in the timeline to see all tracked nutrients.`
 
   .product-brand {
     font-size: 0.85rem;
-    opacity: 0.7;
     margin-bottom: 0.25rem;
   }
 
   .product-serving {
     font-size: 0.8rem;
-    opacity: 0.6;
   }
 
   .product-source-badge {
