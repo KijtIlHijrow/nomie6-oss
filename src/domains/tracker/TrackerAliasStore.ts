@@ -61,6 +61,7 @@ export const createMapping = async (
 }
 
 export const findMappingByAlias = async (alias: string): Promise<TrackerAliasMapping | null> => {
+  await TrackerAliasStore.init()
   const state = TrackerAliasStore.rawState()
   const mappings = Object.values(state) as TrackerAliasMapping[]
   return mappings.find(m => m.alias.toLowerCase() === alias.toLowerCase()) || null

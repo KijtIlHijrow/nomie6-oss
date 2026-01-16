@@ -2,11 +2,20 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { get } from 'svelte/store'
 
 // Mock Storage before importing TrackerAliasStore
+// Use a simple in-memory store to persist data across get/put calls
+const mockStorageData: Record<string, any> = {}
+
 vi.mock('../storage/storage', () => {
   const mockStorage = {
-    get: vi.fn().mockResolvedValue(null),
-    put: vi.fn().mockResolvedValue({}),
-    delete: vi.fn().mockResolvedValue({}),
+    get: vi.fn((key: string) => Promise.resolve(mockStorageData[key] || null)),
+    put: vi.fn((key: string, value: any) => {
+      mockStorageData[key] = value
+      return Promise.resolve({})
+    }),
+    delete: vi.fn((key: string) => {
+      delete mockStorageData[key]
+      return Promise.resolve({})
+    }),
   }
   return { default: mockStorage }
 })
@@ -48,6 +57,15 @@ describe('TrackerAliasStore', () => {
     await TrackerAliasStore.init()
     await createMapping('#carbohydrates', 'CARBS', 0.95, true)
 
+    const found = await findMappingByAlias('carbs')
+    expect(found).not.toBeNull()
+  })
+
+  it('should handle lookup without explicit init call', async () => {
+    await TrackerAliasStore.clear()
+    await createMapping('#carbohydrates', 'carbs', 0.95, true)
+
+    // Simulate lookup on fresh store (reinit needed)
     const found = await findMappingByAlias('carbs')
     expect(found).not.toBeNull()
   })
