@@ -12,7 +12,7 @@
   import { usdaProvider } from '$domains/nutrition/providers/usda-provider'
   import { BarcodeScannerModal, ManualBarcodeEntry, CameraPermissionPrompt, ManualNutritionForm } from '../nutrition/components'
   import { Capacitor } from '@capacitor/core'
-  import TrackerClass from '../../modules/tracker/TrackerClass'
+  import TrackerClass, { toTag } from '../../modules/tracker/TrackerClass'
   import { TrackerStore } from '../tracker/TrackerStore'
   import { Trackable } from '../trackable/Trackable.class'
   import { saveLog } from '../ledger/LedgerStore'
@@ -127,7 +127,6 @@
   let searchError: string | null = null
   let isSearching: boolean = false
   let currentSearchQuantity: number = 1
-  let nutritionData: NutritionData | null = null
 
   // Conversation state for pending value requests
   let pendingValueRequest: { trackerTag: string; trackerType: string; messageId: string } | null = null
@@ -229,21 +228,115 @@
   }
 
   /**
-   * Handle user selecting a product from search results
-   * Reuses existing product confirmation flow (same as barcode scan)
+   * Convert string to Title Case
    */
-  function handleProductSelect(selectedProduct: NutritionData) {
+  function toTitleCase(str: string): string {
+    return str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
+  }
+
+  /**
+   * Handle user selecting a product from search results
+   * Creates a tracker for the product with nutrition data auto-included
+   */
+  async function handleProductSelect(selectedProduct: NutritionData) {
     // Clear search results
     searchResults = []
     searchError = null
 
-    // Set product data (triggers product confirmation card display)
-    nutritionData = selectedProduct
+    loading = true
 
-    // The rest follows the existing barcode scan flow:
-    // - Shows product confirmation card
-    // - User can adjust quantity
-    // - User clicks "Log It" to create entry
+    try {
+      // Create nutrition trackers if needed
+      await ensureNutritionTrackers()
+
+      // Convert product name to title case
+      const productLabel = toTitleCase(selectedProduct.productName)
+
+      // Create tracker tag from product name
+      const trackerTag = toTag(selectedProduct.productName)
+
+      // Check if tracker already exists
+      const currentTrackers = $TrackerStore
+      if (currentTrackers[trackerTag]) {
+        messages = [...messages, {
+          id: generateMessageId('assistant'),
+          role: 'assistant',
+          content: `ℹ️ Tracker #${trackerTag} already exists. You can tap it to log this product.`,
+          timestamp: new Date(),
+        }]
+        loading = false
+        return
+      }
+
+      // Calculate nutrition per serving
+      const nutrients = {
+        calories: Math.round(selectedProduct.nutrients.calories),
+        protein: Math.round(selectedProduct.nutrients.protein_g),
+        carbs: Math.round(selectedProduct.nutrients.carbs_g),
+        fat: Math.round(selectedProduct.nutrients.fat_g),
+        sodium: Math.round(selectedProduct.nutrients.sodium_mg),
+      }
+
+      // Build include string with nutrition trackers
+      const includeString = [
+        `#calories(${nutrients.calories})`,
+        `#protein(${nutrients.protein})`,
+        `#carbs(${nutrients.carbs})`,
+        `#fat(${nutrients.fat})`,
+        `#sodium(${nutrients.sodium})`,
+      ].join(' ')
+
+      // Create product tracker
+      const productTracker = new TrackerClass({
+        tag: trackerTag,
+        label: productLabel,
+        type: 'tick',
+        emoji: '🍽️',
+        color: '#FF6B6B',
+        include: includeString,
+        one_tap: true,
+      })
+
+      const trackable = new Trackable({ type: 'tracker', tracker: productTracker })
+      await saveTrackersToStorage([trackable])
+      await InitTrackableStore()
+
+      // Display success message
+      const productInfo = `${productLabel}${selectedProduct.brand ? ` (${toTitleCase(selectedProduct.brand)})` : ''}`
+      const nutritionDisplay = `✅ **Tracker Created!**
+
+📦 **Product:** ${productInfo}
+📏 **Serving:** ${selectedProduct.servingSize}${selectedProduct.servingUnit}
+
+**Nutrition per serving:**
+🔥 Calories: ${nutrients.calories} cal
+💪 Protein: ${nutrients.protein}g
+🍞 Carbs: ${nutrients.carbs}g
+🥑 Fat: ${nutrients.fat}g
+🧂 Sodium: ${nutrients.sodium}mg
+
+Tap #${trackerTag} to log a serving anytime!`
+
+      messages = [...messages, {
+        id: generateMessageId('assistant'),
+        role: 'assistant',
+        content: nutritionDisplay,
+        timestamp: new Date(),
+      }]
+
+      scrollToBottom()
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      messages = [...messages, {
+        id: generateMessageId('error'),
+        role: 'error',
+        content: `❌ Error creating tracker: ${errorMessage}`,
+        timestamp: new Date(),
+      }]
+      scrollToBottom()
+    } finally {
+      loading = false
+    }
   }
 
   // Stable function reference for event listener to prevent memory leaks
@@ -859,7 +952,7 @@
     ]
 
     // Get current trackers
-    const currentTrackers = TrackerStore.state()
+    const currentTrackers = $TrackerStore
     const existingTags: Record<string, boolean> = {}
 
     // Track which trackers need to be created
@@ -1832,7 +1925,7 @@ View your entry in the timeline to see all tracked nutrients.`
               {#if result.brand}
                 <div class="product-brand text-gray-600 dark:text-gray-400">{result.brand}</div>
               {/if}
-              <div class="product-serving text-gray-500 dark:text-gray-500">{result.servingSize}</div>
+              <div class="product-serving text-gray-500 dark:text-gray-500">{result.servingSize}{result.servingUnit}</div>
             </div>
             <div class="product-source-badge">{result.source}</div>
           </button>
