@@ -56,7 +56,7 @@ const appConfig = {
     // Get free API key (500 requests/day): https://www.nutritionix.com/business/api
 
     // USDA FoodData Central API key (optional but recommended)
-    usdaApiKey: 'DEMO_KEY',
+    usdaApiKey: 'nrmwUJvJoWh8XrOr6Wwj5U2XciN6w7Zirwxm5Zcg',
     // Get free API key (1000 requests/hour): https://fdc.nal.usda.gov/api-key-signup.html
 
     // Behaviour settings
