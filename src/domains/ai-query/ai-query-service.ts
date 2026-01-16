@@ -615,6 +615,7 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
   if (hasSearchKeyword) {
     // Extract product name - everything after the search keyword
     const productName = extractProductName(lowerMessage, searchKeywords)
+    console.log('[INTENT] Extracted product name from "' + message + '":', productName)
 
     // Only proceed if we have a valid product name
     if (productName && productName.length > 0) {

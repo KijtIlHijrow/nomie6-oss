@@ -1,0 +1,119 @@
+{
+  "performance_optimizations": [
+    {
+      "id": "perf-001",
+      "type": "performance_optimizations",
+      "title": "Lazy load Plotly.js to reduce initial bundle size by ~3MB",
+      "description": "The analytics view imports plotly.js-dist-min (~3MB minified) at the top level via `import Plotly from 'plotly.js-dist-min'`. This massive library is loaded for all users even if they never use the analytics/pivot table feature. Plotly should be dynamically imported only when the analytics view is accessed.",
+      "rationale": "Plotly.js is one of the largest charting libraries available. Loading it synchronously on app start dramatically increases Time to Interactive and First Contentful Paint. The analytics feature is an advanced feature that many users may never access, making this an excellent candidate for code splitting.",
+      "category": "bundle_size",
+      "impact": "high",
+      "affectedAreas": [
+        "src/domains/analytics/analytics-view.svelte",
+        "src/domains/analytics/Pivot-table/PlotlyRenderers.js",
+        "src/domains/analytics/Pivot-table/PlotlyRenderer.svelte",
+        "src/domains/analytics/Pivot-table/ScatterRenderer.svelte"
+      ],
+      "currentMetric": "~3MB added to initial bundle from plotly.js-dist-min",
+      "expectedImprovement": "~3MB reduction in initial bundle, 40-60% faster initial page load on slower connections",
+      "implementation": "1. Convert Plotly import to dynamic import: `const Plotly = await import('plotly.js-dist-min')`\n2. Show loading spinner while Plotly loads\n3. Update PlotlyRenderers.js to accept Plotly as a parameter\n4. Consider preloading Plotly when user hovers over analytics nav item",
+      "tradeoffs": "Slight delay when first accessing analytics view (~1-2s on slower connections)",
+      "estimatedEffort": "small"
+    },
+    {
+      "id": "perf-002",
+      "type": "performance_optimizations",
+      "title": "Replace full Lodash imports with individual function imports",
+      "description": "Two files import the entire Lodash library using `import _ from 'lodash'`: src/domains/usage/usage-stats.ts (uses only _.mean, _.compact) and src/domains/usage/usage-chart.svelte (uses only _.findIndex). This defeats tree-shaking and includes the entire ~70KB library. Most other files correctly use individual imports like `import debounce from 'lodash/debounce'`.",
+      "rationale": "Lodash is approximately 70KB minified. The usage-stats.ts file only uses 2 functions (mean, compact) and usage-chart.svelte uses only 1 function (findIndex). Using individual imports would reduce the included code to ~2-3KB total for these functions.",
+      "category": "bundle_size",
+      "impact": "medium",
+      "affectedAreas": [
+        "src/domains/usage/usage-stats.ts",
+        "src/domains/usage/usage-chart.svelte"
+      ],
+      "currentMetric": "~70KB included from full Lodash import",
+      "expectedImprovement": "~65KB reduction in bundle size",
+      "implementation": "1. In usage-stats.ts: Replace `import _ from 'lodash'` with `import mean from 'lodash/mean'` and `import compact from 'lodash/compact'`\n2. In usage-chart.svelte: Replace `import _ from 'lodash'` with `import findIndex from 'lodash/findIndex'`\n3. Update function calls: `_.mean()` -> `mean()`, `_.compact()` -> `compact()`, `_.findIndex()` -> `findIndex()`",
+      "tradeoffs": "None - purely mechanical refactor with same functionality",
+      "estimatedEffort": "trivial"
+    },
+    {
+      "id": "perf-003",
+      "type": "performance_optimizations",
+      "title": "Fix O(n²) log merging algorithm in timeline-loader",
+      "description": "In timeline-loader.svelte line 112, logs are merged using a pattern that creates O(n²) time complexity: `logs.filter((l) => !queryLogs.find((lg) => lg._id === l._id))`. For each existing log, it searches through all query logs, which becomes very slow with large log collections (thousands of entries).",
+      "rationale": "Users with extensive tracking history may have thousands of log entries. With the current O(n²) algorithm, merging 1000 existing logs with 100 new logs requires 100,000 comparisons. Using a Set or Map lookup reduces this to O(n) with only 1,100 operations - a 90x improvement.",
+      "category": "runtime",
+      "impact": "medium",
+      "affectedAreas": [
+        "src/domains/timeline/timeline-loader.svelte"
+      ],
+      "currentMetric": "O(n²) complexity for log merging - ~100,000 comparisons for 1000 logs",
+      "expectedImprovement": "O(n) complexity - 90x faster for large log collections, noticeable scroll performance improvement",
+      "implementation": "1. Create a Set of query log IDs: `const queryLogIds = new Set(queryLogs.map(lg => lg._id))`\n2. Replace filter+find with Set lookup: `logs.filter(l => !queryLogIds.has(l._id))`\n3. Merge and sort as before",
+      "tradeoffs": "Minor additional memory for the Set (~8 bytes per log ID)",
+      "estimatedEffort": "trivial"
+    },
+    {
+      "id": "perf-004",
+      "type": "performance_optimizations",
+      "title": "Add virtualization to log-list component for large lists",
+      "description": "The log-list.svelte component renders all logs using `{#each internalLogs as log}` without virtualization, while the project already has VirtualList (@sveltejs/svelte-virtual-list) and a custom NvirtualList wrapper. Timeline views use virtualization, but regular log lists (used in search results, history views) don't, causing slow rendering for large result sets.",
+      "rationale": "Rendering hundreds of log entries creates hundreds of DOM nodes, consuming memory and causing layout thrashing. The timeline uses virtualization for exactly this reason. Log lists in search results and other views should follow the same pattern to maintain smooth scrolling and reduce memory usage.",
+      "category": "rendering",
+      "impact": "medium",
+      "affectedAreas": [
+        "src/components/log-list/log-list.svelte",
+        "src/components/log-list/log-list-loader.svelte"
+      ],
+      "currentMetric": "Renders all log entries regardless of list size, ~100ms+ for 100+ items",
+      "expectedImprovement": "Only render visible items (~10-15), 80% reduction in DOM nodes, smoother scrolling",
+      "implementation": "1. Import NvirtualList from '../../components/nvirtual-list/nvirtual-list.svelte'\n2. Wrap the log items in NvirtualList instead of plain {#each}\n3. Add height prop for virtual list container\n4. Handle scroll events for infinite loading if needed",
+      "tradeoffs": "Requires fixed height container for virtualization to work properly",
+      "estimatedEffort": "small"
+    },
+    {
+      "id": "perf-005",
+      "type": "performance_optimizations",
+      "title": "Consolidate charting libraries - remove Plotly.js or Chart.js",
+      "description": "The project includes both Chart.js (~200KB) and Plotly.js (~3MB) for charting. Chart.js is used for general usage charts (usage-chart.svelte, chartjs.svelte), while Plotly.js is used only for the pivot table analytics feature. Consider whether both libraries are necessary, or if one could serve all charting needs.",
+      "rationale": "Maintaining two charting libraries increases bundle size by ~3.2MB, creates inconsistent chart styling, and doubles the learning curve for contributors. If the pivot table feature's advanced charts could be simplified or replaced with Chart.js, significant bundle savings would result.",
+      "category": "bundle_size",
+      "impact": "high",
+      "affectedAreas": [
+        "src/domains/analytics/analytics-view.svelte",
+        "src/domains/analytics/Pivot-table/",
+        "src/components/charts/chartjs.svelte",
+        "src/domains/usage/usage-chart.svelte",
+        "package.json"
+      ],
+      "currentMetric": "~3.2MB total for both Chart.js (200KB) and Plotly.js (3MB)",
+      "expectedImprovement": "If Plotly removed: ~3MB reduction; If Chart.js removed: ~200KB reduction + consistent APIs",
+      "implementation": "Option A (Remove Plotly): 1. Evaluate if pivot table charts can use Chart.js plugins (chartjs-plugin-annotation already used)\n2. Rebuild pivot renderers using Chart.js\n3. Remove plotly.js dependencies\n\nOption B (Keep both, lazy load): See perf-001 for lazy loading Plotly",
+      "tradeoffs": "Plotly offers more advanced visualization options (3D charts, heatmaps). Removing it may limit analytics capabilities. Chart.js is more lightweight but less feature-rich.",
+      "estimatedEffort": "large"
+    }
+  ],
+  "metadata": {
+    "totalBundleSize": "Estimated 5-6MB (uncompressed) including plotly.js",
+    "largestDependencies": [
+      "plotly.js-dist-min (~3MB)",
+      "chart.js (~200KB)",
+      "lodash (~70KB if fully imported)",
+      "pouchdb (~140KB)",
+      "leaflet (~140KB)",
+      "ionicons (variable based on usage)"
+    ],
+    "filesAnalyzed": 245,
+    "potentialSavings": "~3.5MB bundle reduction (primarily from Plotly lazy loading and lodash optimization)",
+    "generatedAt": "2025-01-11T11:30:00Z",
+    "analysisNotes": [
+      "Project uses Svelte 4.x with Vite build system",
+      "Virtual list component exists but not used consistently",
+      "Most lodash imports are correctly using individual function imports (21 of 23 files)",
+      "dayjs is correctly used instead of moment.js - good choice for date handling",
+      "PWA configured with large file cache limit (10MB) which may affect initial load"
+    ]
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "security_hardening": [
+    {
+      "id": "sec-001",
+      "type": "security_hardening",
+      "title": "Remove hardcoded CouchDB credentials from docker-compose.yml",
+      "description": "The docker-compose.yml file contains hardcoded database credentials (COUCHDB_USER=admin, COUCHDB_PASSWORD=nomie123). These weak default credentials are committed to version control and pose a significant security risk if the application is deployed without changing them.",
+      "rationale": "Hardcoded credentials in version control can be discovered by attackers through public repositories, exposed in CI/CD logs, or used by malicious insiders. The weak password 'nomie123' is easily guessable and provides administrative access to the CouchDB database containing all user data.",
+      "category": "secrets_management",
+      "severity": "critical",
+      "affectedFiles": ["docker-compose.yml"],
+      "vulnerability": "CWE-798: Use of Hard-coded Credentials",
+      "currentRisk": "Attacker can gain full administrative access to CouchDB database using default credentials, potentially compromising all stored user data including personal tracking information",
+      "remediation": "1) Use environment variables loaded from a .env file (not committed to git) for credentials. 2) Add .env to .gitignore. 3) Create a .env.example with placeholder values. 4) Use Docker secrets or a secrets manager (e.g., HashiCorp Vault) for production deployments. 5) Enforce strong password requirements.",
+      "references": ["https://cwe.mitre.org/data/definitions/798.html", "https://owasp.org/www-community/vulnerabilities/Use_of_hard-coded_password"],
+      "compliance": ["SOC2", "PCI-DSS", "GDPR"]
+    },
+    {
+      "id": "sec-002",
+      "type": "security_hardening",
+      "title": "Strengthen encryption implementation with proper IV and authenticated encryption",
+      "description": "The encryption module (src/utils/encrypt/encrypt.ts) uses CryptoJS.AES without specifying an Initialization Vector (IV) and without authenticated encryption. The password is used directly as the encryption key without a proper key derivation function (KDF).",
+      "rationale": "Without a random IV, identical plaintexts will produce identical ciphertexts, enabling pattern analysis attacks. Without authenticated encryption (like AES-GCM), the ciphertext can be tampered with without detection. Using a password directly as a key (without PBKDF2/scrypt) makes the encryption vulnerable to brute-force attacks.",
+      "category": "data_protection",
+      "severity": "high",
+      "affectedFiles": ["src/utils/encrypt/encrypt.ts"],
+      "vulnerability": "CWE-327: Use of a Broken or Risky Cryptographic Algorithm",
+      "currentRisk": "Encrypted user data may be vulnerable to pattern analysis, tampering attacks, and brute-force key recovery. Sensitive personal tracking data could be compromised.",
+      "remediation": "1) Generate a random IV for each encryption operation and prepend it to the ciphertext. 2) Use AES-GCM for authenticated encryption. 3) Implement a key derivation function (PBKDF2 with 100,000+ iterations or scrypt) to derive the encryption key from the user's password. 4) Consider using the Web Crypto API (SubtleCrypto) instead of CryptoJS for better security and performance.",
+      "references": ["https://cwe.mitre.org/data/definitions/327.html", "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html"],
+      "compliance": ["SOC2", "HIPAA", "GDPR"]
+    },
+    {
+      "id": "sec-003",
+      "type": "security_hardening",
+      "title": "Secure storage of CouchDB remote credentials",
+      "description": "The PouchDB engine (src/domains/storage/engines/pouchdb/engine.pouchdb.ts) stores CouchDB remote sync credentials (username, password) in localStorage in plaintext via Storage.local.put('pouchdb-remote', remote). This data persists and is accessible to any JavaScript running on the page.",
+      "rationale": "Storing credentials in localStorage makes them accessible through XSS attacks, browser extensions, and physical access to the device. An XSS vulnerability anywhere in the application could lead to credential theft and unauthorized access to the user's remote CouchDB instance.",
+      "category": "secrets_management",
+      "severity": "high",
+      "affectedFiles": ["src/domains/storage/engines/pouchdb/engine.pouchdb.ts", "src/domains/storage/storage.ts"],
+      "vulnerability": "CWE-922: Insecure Storage of Sensitive Information",
+      "currentRisk": "Remote database credentials could be stolen through XSS, malicious browser extensions, or physical device access, allowing attackers to access or modify all synced user data",
+      "remediation": "1) Encrypt credentials before storing in localStorage using a key derived from user authentication. 2) Consider using the browser's Credential Management API for credential storage. 3) Implement session-based authentication with short-lived tokens instead of storing raw passwords. 4) Use IndexedDB with encryption for more secure local storage. 5) Clear credentials on logout.",
+      "references": ["https://cwe.mitre.org/data/definitions/922.html", "https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#local-storage"],
+      "compliance": ["SOC2", "GDPR"]
+    },
+    {
+      "id": "sec-004",
+      "type": "security_hardening",
+      "title": "Implement Content Security Policy (CSP) header",
+      "description": "The nginx.conf includes basic security headers (X-Frame-Options, X-Content-Type-Options, X-XSS-Protection) but lacks a Content Security Policy (CSP) header. The development environment (Vite dev server) has no security headers configured. CSP is the primary defense against XSS attacks.",
+      "rationale": "Without CSP, the application is more vulnerable to XSS attacks, inline script injection, and data exfiltration. CSP provides defense-in-depth by restricting the sources from which scripts, styles, and other resources can be loaded, significantly reducing the attack surface.",
+      "category": "configuration",
+      "severity": "medium",
+      "affectedFiles": ["nginx.conf", "vite.config.mjs"],
+      "vulnerability": "CWE-1021: Improper Restriction of Rendered UI Layers or Frames",
+      "currentRisk": "XSS attacks could execute arbitrary JavaScript, steal user data, or perform actions on behalf of the user. The application tracks sensitive personal data making XSS particularly dangerous.",
+      "remediation": "1) Add a strict CSP header to nginx.conf: Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://localhost:11434 https://*.couchdb.com; 2) Configure Vite to add security headers in development. 3) Use nonces or hashes for any inline scripts. 4) Remove 'unsafe-inline' from script-src if possible. 5) Set up CSP reporting to monitor violations.",
+      "references": ["https://cwe.mitre.org/data/definitions/1021.html", "https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP", "https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html"],
+      "compliance": ["SOC2", "PCI-DSS"]
+    },
+    {
+      "id": "sec-005",
+      "type": "security_hardening",
+      "title": "Remove global window object exposures for sensitive modules",
+      "description": "Multiple sensitive modules are exposed on the global window object: window['NStorage'] (storage engine), window['interact'] (interaction methods), and window['Feature'] (feature flags). These expose internal application APIs that could be abused through browser console or XSS attacks.",
+      "rationale": "Exposing internal APIs on the global window object allows attackers who gain JavaScript execution (through XSS, browser console, or malicious extensions) to directly manipulate application state, access stored data, or bypass intended user flows. This violates the principle of least privilege.",
+      "category": "authorization",
+      "severity": "medium",
+      "affectedFiles": ["src/domains/storage/storage.ts", "src/store/interact.ts", "src/App.svelte"],
+      "vulnerability": "CWE-749: Exposed Dangerous Method or Function",
+      "currentRisk": "An attacker with JavaScript execution capability could directly access the storage layer to read/modify user data, trigger UI interactions, or access feature flags without going through proper application flows",
+      "remediation": "1) Remove window object assignments in production builds using environment-based conditionals. 2) Keep debug assignments only in development mode: if (import.meta.env.DEV) { window['NStorage'] = Storage }. 3) Consider using proper debugging tools instead of global exposure. 4) Implement access controls on sensitive storage operations.",
+      "references": ["https://cwe.mitre.org/data/definitions/749.html", "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/12-Testing_Browser_Storage"],
+      "compliance": ["SOC2"]
+    }
+  ],
+  "metadata": {
+    "dependenciesScanned": 45,
+    "knownVulnerabilities": 0,
+    "filesAnalyzed": 25,
+    "criticalIssues": 1,
+    "highIssues": 2,
+    "mediumIssues": 2,
+    "lowIssues": 0,
+    "generatedAt": "2026-01-11T11:15:00Z",
+    "analysisNotes": [
+      "npm audit was not run due to command restrictions - manual dependency review recommended",
+      "No @html directives found in Svelte templates - good XSS prevention practice",
+      "Firebase configuration uses environment variables properly (VITE_APP_* prefix)",
+      "PouchDB syncs credentials over HTTPS which is good, but local storage is insecure",
+      "No SQL injection risks found - application uses PouchDB/CouchDB (NoSQL)",
+      "Security headers present in nginx.conf but missing CSP"
+    ]
+  }
+}

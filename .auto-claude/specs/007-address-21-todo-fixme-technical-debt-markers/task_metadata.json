@@ -1,0 +1,9 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "code_quality",
+  "ideaId": "cq-005",
+  "rationale": "TODO comments that remain in production code represent acknowledged technical debt that never got prioritized. Some of these TODOs may reference outdated concerns or indicate incomplete features that users might encounter. Tracking these systematically helps prioritize technical debt payoff.",
+  "category": "refactoring",
+  "codeQualitySeverity": "minor",
+  "priority": "medium"
+}

@@ -1,0 +1,107 @@
+{
+  "project_root": "/Users/keith.ruggier/nomie6-oss",
+  "project_type": "single",
+  "services": {
+    "main": {
+      "name": "main",
+      "path": "/Users/keith.ruggier/nomie6-oss",
+      "language": "TypeScript",
+      "framework": "Svelte",
+      "type": "frontend",
+      "package_manager": "npm",
+      "default_port": 5001,
+      "build_tool": "Vite",
+      "styling": "Tailwind CSS",
+      "dev_command": "npm run dev",
+      "key_directories": {
+        "src": {
+          "path": "src",
+          "purpose": "Source code"
+        }
+      },
+      "entry_point": "src/main.ts",
+      "dependencies": [
+        "@capacitor/cli",
+        "@capacitor/core",
+        "@capacitor/ios",
+        "@composi/gestures",
+        "@sveltejs/svelte-virtual-list",
+        "@tailwindcss/line-clamp",
+        "archiver",
+        "calculate-correlation",
+        "canvas-confetti",
+        "chart.js",
+        "chartjs-plugin-annotation",
+        "crypto-js",
+        "date-streaks",
+        "dayjs",
+        "esri-leaflet",
+        "expr-eval",
+        "install",
+        "ionicons",
+        "js-file-download",
+        "latlon-geohash"
+      ],
+      "dev_dependencies": [
+        "@babel/core",
+        "@babel/preset-env",
+        "@commitlint/cli",
+        "@commitlint/config-conventional",
+        "@kazzkiq/svelte-preprocess-scss",
+        "@rgossiaux/svelte-headlessui",
+        "@sveltejs/gestures",
+        "@sveltejs/vite-plugin-svelte",
+        "@tailwindcss/typography",
+        "@tsconfig/svelte"
+      ],
+      "testing": "Vitest",
+      "e2e_testing": "Cypress",
+      "dockerfile": "Dockerfile",
+      "environment": {
+        "variables": {
+          "NODE_ENV": {
+            "value": null,
+            "source": "docker-compose.yml",
+            "type": "string",
+            "sensitive": false,
+            "required": false
+          },
+          "COUCHDB_USER": {
+            "value": null,
+            "source": "docker-compose.yml",
+            "type": "string",
+            "sensitive": false,
+            "required": false
+          },
+          "COUCHDB_PASSWORD": {
+            "value": null,
+            "source": "docker-compose.yml",
+            "type": "string",
+            "sensitive": false,
+            "required": false
+          }
+        },
+        "required_count": 0,
+        "optional_count": 0,
+        "detected_count": 3
+      }
+    }
+  },
+  "infrastructure": {
+    "docker_compose": "docker-compose.yml",
+    "docker_services": [
+      "dev",
+      "ollama",
+      "couchdb"
+    ],
+    "dockerfile": "Dockerfile",
+    "ci": "GitHub Actions",
+    "ci_workflows": [],
+    "deployment": "Netlify"
+  },
+  "conventions": {
+    "js_linting": "ESLint",
+    "formatting": "Prettier",
+    "typescript": true
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "performance_optimizations",
+  "ideaId": "perf-001",
+  "rationale": "Plotly.js is one of the largest charting libraries available. Loading it synchronously on app start dramatically increases Time to Interactive and First Contentful Paint. The analytics feature is an advanced feature that many users may never access, making this an excellent candidate for code splitting.",
+  "category": "performance",
+  "performanceCategory": "bundle_size",
+  "impact": "high"
+}

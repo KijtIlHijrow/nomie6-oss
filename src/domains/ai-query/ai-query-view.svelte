@@ -181,6 +181,7 @@
    * Tries OpenFoodFacts first, then Nutritionix, then USDA until we have 3+ results
    */
   async function handleProductSearch(productName: string, quantity: number) {
+    console.log('[SEARCH] Searching for product:', productName)
     isSearching = true
     searchError = null
     searchResults = []
@@ -194,6 +195,7 @@
           nutritionService.search(productName),
           10000 // 10s timeout
         )
+        console.log('[SEARCH] OpenFoodFacts returned', offResults.length, 'results')
         allResults.push(...offResults)
       } catch (error) {
         console.warn('OpenFoodFacts search failed:', error)
@@ -1183,6 +1185,7 @@ View your entry in the timeline to see all tracked nutrients.`
 
       // Handle search_product intent
       if (response.action === 'search_product' && response.productName) {
+        console.log('[VIEW] Received search_product action with productName:', response.productName)
         await handleProductSearch(response.productName, response.quantity || 1)
         scrollToBottom()
         loading = false

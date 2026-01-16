@@ -1,0 +1,8 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "documentation_gaps",
+  "ideaId": "doc-005",
+  "rationale": "The Trackable system is fundamental to Nomie - it's the abstraction layer for all things users can track. Developers building plugins or extending functionality need to understand how to work with trackables. The LedgerStore has better documentation (30 JSDoc comments) and should serve as the model.",
+  "category": "documentation",
+  "priority": "medium"
+}

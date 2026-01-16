@@ -1,0 +1,13 @@
+{
+  "feature": "Address 21+ TODO/FIXME technical debt markers",
+  "description": "Found 21+ TODO, FIXME, and incomplete implementation comments scattered across the codebase indicating known technical debt. Examples include: 'TODO: Make this not sloppy' (score-note.ts), 'TODO: replace this with the util version' (import.ts), 'TODO: Make the pie chart work' (pie.svelte), 'TODO: This is incomplete' (uom-modal.svelte).",
+  "created_at": "2026-01-11T10:22:47.178Z",
+  "updated_at": "2026-01-11T10:22:47.178Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

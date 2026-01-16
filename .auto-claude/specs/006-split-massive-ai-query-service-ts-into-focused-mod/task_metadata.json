@@ -1,0 +1,9 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "code_quality",
+  "ideaId": "cq-001",
+  "rationale": "Files over 500 lines become hard to navigate, test, and maintain. At 2,129 lines, this file requires developers to hold too much context in their heads. Breaking it into focused modules will improve testability, make code reviews easier, and reduce the risk of introducing bugs when making changes.",
+  "category": "refactoring",
+  "codeQualitySeverity": "critical",
+  "priority": "urgent"
+}

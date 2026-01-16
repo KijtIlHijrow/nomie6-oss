@@ -1,0 +1,13 @@
+{
+  "feature": "Split massive ai-query-service.ts into focused modules",
+  "description": "The file src/domains/ai-query/ai-query-service.ts has grown to 2,129 lines and handles at least 8 distinct responsibilities: Ollama API communication, intent detection, question parsing, tracker creation, log entry creation, data retrieval, period detection, and fuzzy matching. This severely violates the Single Responsibility Principle.",
+  "created_at": "2026-01-11T10:22:25.134Z",
+  "updated_at": "2026-01-11T10:22:25.134Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

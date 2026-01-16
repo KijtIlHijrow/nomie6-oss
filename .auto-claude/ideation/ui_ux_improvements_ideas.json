@@ -1,0 +1,111 @@
+{
+  "ui_ux_improvements": [
+    {
+      "id": "uiux-001",
+      "type": "ui_ux_improvements",
+      "title": "Add Hover States to Interactive List Items",
+      "description": "Add consistent hover state feedback to clickable list items throughout the application to improve perceived interactivity",
+      "rationale": "Analysis shows only 28 hover state occurrences across 6 files in the entire codebase. Interactive elements like ListItem components with clickable=true lack visual hover feedback, making it unclear what's clickable. This is a fundamental UX pattern that's currently missing.",
+      "category": "interaction",
+      "affected_components": [
+        "src/components/list-item/list-item.svelte",
+        "src/components/list-item/list-item.css"
+      ],
+      "screenshots": [],
+      "current_state": "ListItem components with clickable prop only have :active state feedback via .hit-mark overlay. There is no hover state styling, making it unclear to desktop users which items are interactive before clicking.",
+      "proposed_change": "Add hover styles to the n-item class in list-item.css: .n-item.clickable:hover { @apply bg-gray-100 dark:bg-gray-800; } and transition smoothly with @apply transition-colors duration-150. This provides immediate visual feedback that an item is interactive.",
+      "user_benefit": "Users on desktop/mouse devices immediately understand which items are clickable, reducing hesitation and improving confidence in the interface. Creates a more polished, professional feel.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "uiux-002",
+      "type": "ui_ux_improvements",
+      "title": "Add ARIA Live Regions to Toast Notifications",
+      "description": "Add aria-live='polite' to toast notifications so screen reader users are notified of transient messages",
+      "rationale": "Toast component (toast.svelte) has role='dialog' but lacks aria-live attribute. Screen reader users won't be notified of success/failure toasts which are critical for feedback. Accessibility audit shows only 50 ARIA attribute usages across 26 files indicating accessibility gaps.",
+      "category": "accessibility",
+      "affected_components": [
+        "src/components/toast/toast.svelte",
+        "src/components/toast/toasts.svelte"
+      ],
+      "screenshots": [],
+      "current_state": "Toast notifications appear visually but are not announced to screen readers. The toast.svelte has role='dialog' but toasts are better suited for aria-live regions since they don't require focus and are transient announcements.",
+      "proposed_change": "In toasts.svelte container, add aria-live='polite' and aria-atomic='true' to the wrapper div. Change individual toast role from 'dialog' to 'status' for informational toasts and 'alert' for error/warning toasts. Add aria-label describing the notification type.",
+      "user_benefit": "Screen reader users will be notified of success messages, errors, and system feedback without interrupting their current focus. Makes the app accessible to visually impaired users who depend on screen readers.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "uiux-003",
+      "type": "ui_ux_improvements",
+      "title": "Implement Skeleton Loading Pattern for Data Lists",
+      "description": "Add skeleton/shimmer loading states instead of simple spinners for data-heavy views like history, timeline, and stats",
+      "rationale": "Currently the app uses spinner.svelte for loading states (15+ files reference isLoading). While spinners are fine for brief loads, skeleton screens reduce perceived loading time by showing the structure of content before it loads. No skeleton pattern exists despite 52 files using placeholders.",
+      "category": "performance",
+      "affected_components": [
+        "src/components/spinner/spinner.svelte",
+        "src/routes/history.svelte",
+        "src/domains/timeline/timeline-loader.svelte",
+        "src/domains/stats2/stats2-modal.svelte"
+      ],
+      "screenshots": [],
+      "current_state": "Loading states show a centered spinner (Circle3.svelte) while fetching data. This provides minimal information about what will appear and can feel slow for longer loads. Users see an empty screen with a spinning indicator.",
+      "proposed_change": "Create a new skeleton.svelte component with animated pulse effect using Tailwind's animate-pulse. Create specific skeleton variants: SkeletonListItem, SkeletonCard, SkeletonChart. Replace spinner usage in history.svelte and timeline-loader.svelte with appropriate skeletons that mirror the actual content layout.",
+      "user_benefit": "Users perceive faster loading as they see the page structure immediately. Skeleton screens reduce anxiety about whether the app is working and set expectations for the content that will appear. Research shows this can reduce perceived wait time by up to 30%.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "uiux-004",
+      "type": "ui_ux_improvements",
+      "title": "Standardize Focus Ring Styling Across Components",
+      "description": "Create consistent focus indicator styling across all interactive elements for keyboard navigation accessibility",
+      "rationale": "Analysis shows 42 occurrences of focus:ring across 28 files with inconsistent implementation. Some use ring-primary-500, others ring-yellow-500, and many interactive elements lack focus indicators entirely. This creates an inconsistent and inaccessible keyboard navigation experience.",
+      "category": "accessibility",
+      "affected_components": [
+        "src/components/button/button.css",
+        "src/components/input/input.svelte",
+        "src/components/list-item/list-item.svelte",
+        "src/style/main.css"
+      ],
+      "screenshots": [],
+      "current_state": "Focus styling is inconsistent: buttons use ring-primary-500, header buttons use ring-yellow-500, some inputs use focus:ring-2, and many components have focus:outline-none without alternative focus indicators. Non-button clickables like list items lack focus styles entirely.",
+      "proposed_change": "Add a focus utility class in main.css: .focus-visible-ring { @apply focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:outline-none; }. Apply this consistently to all interactive elements. Use focus-visible instead of focus to only show ring for keyboard navigation (not mouse clicks). Add tabindex='0' and focus styles to clickable list items.",
+      "user_benefit": "Keyboard users can easily navigate the entire application with clear visibility of where they are. Creates an inclusive experience for users who cannot use a mouse due to motor disabilities. Also helps power users who prefer keyboard shortcuts.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "uiux-005",
+      "type": "ui_ux_improvements",
+      "title": "Add Confirmation Animation to Confirm Button Pattern",
+      "description": "Improve the visual feedback for the button confirm pattern with clearer animation and instructional text",
+      "rationale": "The button.svelte has a clever confirm pattern (click once to prime, click again to confirm) but the current UX is confusing. The button just turns red with animate-pulse, providing no instruction that a second click is needed.",
+      "category": "usability",
+      "affected_components": [
+        "src/components/button/button.svelte",
+        "src/components/button/button.css"
+      ],
+      "screenshots": [],
+      "current_state": "When confirm=true on a button, clicking once sets confirming=true which applies bg-red-500 and animate-pulse classes. The original button text remains, and there's no indication to the user that they need to click again. After 3 seconds it resets silently.",
+      "proposed_change": "Replace the confirmation animation with: 1) Show 'Tap again to confirm' text or original text with confirmation icon overlay, 2) Add a countdown indicator (subtle progress bar or timer animation) showing the 3-second window, 3) Use transform and scale animation rather than just color pulse for more obvious state change. Update the empty div in line 94-98 to actually render confirmation UI.",
+      "user_benefit": "Users understand immediately that an action requires confirmation and how to complete or cancel it. Reduces accidental destructive actions while making intentional confirmations faster. Eliminates confusion about why the button changed color.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    }
+  ],
+  "metadata": {
+    "generated_at": "2026-01-11T11:20:00.000Z",
+    "analysis_method": "static_code_analysis",
+    "note": "Visual verification with Puppeteer was not available. Analysis based on component code review, CSS patterns, and accessibility attribute search.",
+    "total_components_analyzed": 99,
+    "patterns_identified": {
+      "aria_attributes": "50 occurrences across 26 files",
+      "focus_states": "42 occurrences across 28 files",
+      "hover_states": "28 occurrences across 6 files",
+      "loading_patterns": "15+ files with isLoading",
+      "empty_states": "125 usages (good coverage)"
+    }
+  }
+}

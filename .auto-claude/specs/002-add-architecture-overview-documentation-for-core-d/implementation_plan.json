@@ -1,0 +1,13 @@
+{
+  "feature": "Add architecture overview documentation for core domains",
+  "description": "The src/domains/ directory contains 45+ domain modules (ledger, trackable, storage, usage, etc.) with no documentation explaining the architecture, module responsibilities, or data flow between them. Developers must read source code to understand system design.",
+  "created_at": "2026-01-11T10:21:30.309Z",
+  "updated_at": "2026-01-11T10:21:30.309Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

@@ -1,0 +1,911 @@
+{
+  "id": "roadmap-2026-01-11",
+  "project_name": "Nomie 6",
+  "version": "1.0",
+  "vision": "An open-source life tracker and data journal that lets you track anything using natural language with hashtags",
+  "target_audience": {
+    "primary": "Health-conscious individuals interested in quantified self and life tracking who want to monitor habits, moods, activities, and personal metrics",
+    "secondary": [
+      "People managing mental health through mood tracking",
+      "Fitness enthusiasts tracking workouts and physical metrics",
+      "Privacy-focused users who want local-first data ownership",
+      "Journaling enthusiasts who prefer structured data capture",
+      "Developers and tech-savvy users comfortable with self-hosting"
+    ]
+  },
+  "phases": [
+    {
+      "id": "phase-1",
+      "name": "Foundation & Quick Wins",
+      "description": "Solidify core experience, improve onboarding, and deliver quick wins that address critical user pain points and competitor weaknesses",
+      "order": 1,
+      "status": "planned",
+      "features": [
+        "feature-1",
+        "feature-2",
+        "feature-3",
+        "feature-4",
+        "feature-5",
+        "feature-6"
+      ],
+      "milestones": [
+        {
+          "id": "milestone-1-1",
+          "title": "New users can get started in under 2 minutes",
+          "description": "Complete onboarding flow with templates gets users tracking immediately",
+          "features": [
+            "feature-1",
+            "feature-2"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-1-2",
+          "title": "Quick capture from anywhere",
+          "description": "Users can log entries with minimal friction using improved input and quick actions",
+          "features": [
+            "feature-3",
+            "feature-4"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-1-3",
+          "title": "Data export is comprehensive and reliable",
+          "description": "Users can export all their data including notes and visualizations",
+          "features": [
+            "feature-5",
+            "feature-6"
+          ],
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "name": "Mobile Excellence",
+      "description": "Deliver native mobile experiences with platform-specific features like widgets and health integrations",
+      "order": 2,
+      "status": "planned",
+      "features": [
+        "feature-7",
+        "feature-8",
+        "feature-9",
+        "feature-10",
+        "feature-11"
+      ],
+      "milestones": [
+        {
+          "id": "milestone-2-1",
+          "title": "iOS app available on App Store with HealthKit sync",
+          "description": "Native iOS app with full functionality and Apple Health integration",
+          "features": [
+            "feature-7",
+            "feature-8"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-2-2",
+          "title": "Android app available on Play Store",
+          "description": "Native Android app with widget support",
+          "features": [
+            "feature-9",
+            "feature-10"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-2-3",
+          "title": "Smart reminders keep users engaged",
+          "description": "Notification system with smart timing for habit reminders",
+          "features": [
+            "feature-11"
+          ],
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "Enhanced Insights & Analytics",
+      "description": "Improve data visualization and correlation analysis to help users understand patterns in their lives",
+      "order": 3,
+      "status": "planned",
+      "features": [
+        "feature-12",
+        "feature-13",
+        "feature-14",
+        "feature-15",
+        "feature-16"
+      ],
+      "milestones": [
+        {
+          "id": "milestone-3-1",
+          "title": "Users discover meaningful correlations in their data",
+          "description": "Enhanced correlation analysis with explanations and actionable insights",
+          "features": [
+            "feature-12",
+            "feature-13"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-3-2",
+          "title": "Rich visualizations tell the data story",
+          "description": "Improved charts, dashboards, and shareable insights",
+          "features": [
+            "feature-14",
+            "feature-15"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-3-3",
+          "title": "AI-powered insights surface patterns automatically",
+          "description": "AI integration helps users understand their data without manual analysis",
+          "features": [
+            "feature-16"
+          ],
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "Technical Excellence",
+      "description": "Address technical debt, improve performance, and enhance developer experience for long-term sustainability",
+      "order": 4,
+      "status": "planned",
+      "features": [
+        "feature-17",
+        "feature-18",
+        "feature-19",
+        "feature-20"
+      ],
+      "milestones": [
+        {
+          "id": "milestone-4-1",
+          "title": "Codebase is maintainable and well-tested",
+          "description": "Stats module refactored, test coverage improved, technical debt reduced",
+          "features": [
+            "feature-17",
+            "feature-18"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-4-2",
+          "title": "Self-hosting is simple and well-documented",
+          "description": "One-command deployment and clear documentation for self-hosters",
+          "features": [
+            "feature-19",
+            "feature-20"
+          ],
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "name": "Growth & Community",
+      "description": "Features to grow the user base, improve retention, and build community around the project",
+      "order": 5,
+      "status": "planned",
+      "features": [
+        "feature-21",
+        "feature-22",
+        "feature-23",
+        "feature-24"
+      ],
+      "milestones": [
+        {
+          "id": "milestone-5-1",
+          "title": "Social tracking enables relationship insights",
+          "description": "Enhanced people tracking helps users understand social patterns",
+          "features": [
+            "feature-21"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-5-2",
+          "title": "Community contributes tracker templates",
+          "description": "Template marketplace allows users to share and discover tracking setups",
+          "features": [
+            "feature-22",
+            "feature-23"
+          ],
+          "status": "planned"
+        },
+        {
+          "id": "milestone-5-3",
+          "title": "Gamification keeps users motivated",
+          "description": "Optional achievements and rewards for consistent tracking",
+          "features": [
+            "feature-24"
+          ],
+          "status": "planned"
+        }
+      ]
+    }
+  ],
+  "features": [
+    {
+      "id": "feature-1",
+      "title": "Guided Onboarding Experience",
+      "description": "A step-by-step onboarding flow that introduces users to Nomie's hashtag system, helps them create their first trackers, and gets them logging within 2 minutes. Includes sample data to demonstrate features.",
+      "rationale": "Competitor Daylio is praised for good onboarding, while Bearable is criticized for being overwhelming. A great first experience is critical for user retention and addresses the known gap in onboarding.",
+      "priority": "must",
+      "complexity": "medium",
+      "impact": "high",
+      "phase_id": "phase-1",
+      "dependencies": [],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "New users complete onboarding in under 2 minutes",
+        "Users have at least 3 trackers created by end of onboarding",
+        "Users make their first log entry during onboarding",
+        "Skip option available for experienced users",
+        "Tutorial can be replayed from settings"
+      ],
+      "user_stories": [
+        "As a new user, I want to understand how Nomie works quickly so that I can start tracking without confusion",
+        "As a new user, I want suggested trackers for my use case so that I don't have to figure out what to track"
+      ],
+      "competitor_insight_ids": [
+        "bearable-pain-1",
+        "gap-3"
+      ]
+    },
+    {
+      "id": "feature-2",
+      "title": "Starter Template Library",
+      "description": "Pre-built tracker configurations for common use cases (mood tracking, fitness, sleep, medication, productivity) that users can import with one tap. Each template includes appropriate trackers, boards, and goals.",
+      "rationale": "Reduces friction for new users by eliminating blank slate paralysis. Addresses competitor pain point that Daylio has predefined activities while providing more flexibility. Helps position Nomie as 'simple to start, powerful when needed'.",
+      "priority": "must",
+      "complexity": "low",
+      "impact": "high",
+      "phase_id": "phase-1",
+      "dependencies": [],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "At least 5 template categories available (mood, fitness, health, productivity, habits)",
+        "Templates can be previewed before importing",
+        "Users can customize templates after import",
+        "Templates include appropriate tracker types and board layouts"
+      ],
+      "user_stories": [
+        "As a mood tracker, I want to import a mood tracking setup so that I can start immediately without configuring everything",
+        "As a fitness enthusiast, I want pre-built workout trackers so that I can track my exercises without manual setup"
+      ],
+      "competitor_insight_ids": [
+        "daylio-pain-1",
+        "gap-3"
+      ]
+    },
+    {
+      "id": "feature-3",
+      "title": "One-Tap Quick Log",
+      "description": "A simplified quick-entry interface that allows users to log their most frequent trackers with a single tap from the main screen or a floating action button. No keyboard required for common entries.",
+      "rationale": "Daylio's key strength is quick one-tap tracking. This feature reduces friction for daily tracking and addresses the user goal of 'quick and frictionless daily tracking'. Critical for mobile usage during daily routines.",
+      "priority": "must",
+      "complexity": "medium",
+      "impact": "high",
+      "phase_id": "phase-1",
+      "dependencies": [],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Users can log top 5 trackers without opening keyboard",
+        "Quick log accessible from home screen via FAB or swipe gesture",
+        "Visual confirmation of successful log",
+        "Supports value entry for numeric trackers via simple +/- buttons",
+        "Configurable list of quick-log trackers"
+      ],
+      "user_stories": [
+        "As a busy user, I want to log my mood in under 3 seconds so that tracking doesn't interrupt my day",
+        "As a habit tracker, I want to tap once to mark a habit complete so that I stay consistent with tracking"
+      ],
+      "competitor_insight_ids": [
+        "apple-pain-1",
+        "gap-3"
+      ]
+    },
+    {
+      "id": "feature-4",
+      "title": "Smart Input Suggestions",
+      "description": "Context-aware suggestions in the log input that learn from user patterns. Suggests relevant trackers based on time of day, location, recent activity, and historical patterns.",
+      "rationale": "Makes the natural language input smarter and faster. Addresses the gap between Apple Health's automatic data and manual entry by reducing cognitive load of remembering what to track.",
+      "priority": "should",
+      "complexity": "medium",
+      "impact": "medium",
+      "phase_id": "phase-1",
+      "dependencies": [
+        "feature-3"
+      ],
+      "status": "planned",
+      "acceptance_criteria": [
+        "System learns from user's tracking patterns over 7 days",
+        "Morning entries suggest morning-related trackers",
+        "Suggestions show typical values based on historical data",
+        "Users can disable suggestions if preferred"
+      ],
+      "user_stories": [
+        "As a user, I want Nomie to suggest my morning trackers when I open it at 7am so that I don't forget anything",
+        "As a regular tracker, I want my typical values pre-filled so that logging is faster"
+      ],
+      "competitor_insight_ids": [
+        "apple-pain-1"
+      ],
+      "linked_spec_id": "008-smart-input-suggestions"
+    },
+    {
+      "id": "feature-5",
+      "title": "Enhanced Data Export",
+      "description": "Comprehensive export functionality that includes all notes, attachments, and visualizations. Export formats include CSV (improved), JSON (full backup), and PDF reports with charts.",
+      "rationale": "Addresses competitor pain points about limited data export (Daylio, Bearable, Finch). Full data ownership is a key differentiator - users need complete, usable exports to trust their data is portable.",
+      "priority": "must",
+      "complexity": "medium",
+      "impact": "high",
+      "phase_id": "phase-1",
+      "dependencies": [],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "CSV export includes all log notes and full content",
+        "JSON export creates complete backup that can restore entire account",
+        "PDF report option with date range selector and chart inclusion",
+        "Export progress indicator for large datasets",
+        "Export includes people and context data"
+      ],
+      "user_stories": [
+        "As a data owner, I want to export all my data in a usable format so that I'm never locked in to Nomie",
+        "As an analyst, I want to export my data with notes so that I can do custom analysis in Excel"
+      ],
+      "competitor_insight_ids": [
+        "daylio-pain-3",
+        "bearable-pain-4",
+        "finch-pain-3",
+        "gap-1"
+      ]
+    },
+    {
+      "id": "feature-6",
+      "title": "Privacy Dashboard",
+      "description": "A dedicated settings section showing users exactly where their data is stored, sync status, and data retention. Includes quick actions for backup, export, and data deletion.",
+      "rationale": "Privacy is a core differentiator. Making privacy visible builds trust and addresses competitor pain points about data stored in proprietary clouds (Daylio, Bearable, Exist). Supports market trend of growing privacy awareness.",
+      "priority": "should",
+      "complexity": "low",
+      "impact": "high",
+      "phase_id": "phase-1",
+      "dependencies": [],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Shows storage location (local/cloud) with clear explanation",
+        "Displays last backup date and sync status",
+        "One-tap backup to file",
+        "Clear data deletion option with confirmation",
+        "No third-party tracking or analytics telemetry"
+      ],
+      "user_stories": [
+        "As a privacy-conscious user, I want to see exactly where my data is stored so that I trust the app with sensitive information",
+        "As a self-hoster, I want to verify my data never leaves my server so that I maintain complete control"
+      ],
+      "competitor_insight_ids": [
+        "daylio-pain-5",
+        "bearable-pain-5",
+        "exist-pain-3",
+        "gap-1"
+      ]
+    },
+    {
+      "id": "feature-7",
+      "title": "iOS Native App with App Store Distribution",
+      "description": "A fully functional iOS native app built with Capacitor, distributed through the Apple App Store. Includes all PWA features plus native capabilities like background sync and proper notifications.",
+      "rationale": "Addresses a known gap and is critical for iOS user adoption. Loop Habit Tracker's Android-only limitation is a major pain point. Native app enables HealthKit integration and better notification support.",
+      "priority": "must",
+      "complexity": "high",
+      "impact": "high",
+      "phase_id": "phase-2",
+      "dependencies": [
+        "feature-1"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "App passes Apple App Store review",
+        "All current PWA features work in native app",
+        "Native iOS notifications work reliably",
+        "App runs smoothly on iPhone 12 and newer",
+        "Background sync keeps data current"
+      ],
+      "user_stories": [
+        "As an iOS user, I want to install Nomie from the App Store so that I have a native app experience",
+        "As a mobile user, I want reliable notifications so that I remember to track daily"
+      ],
+      "competitor_insight_ids": [
+        "loop-pain-1",
+        "exist-pain-5",
+        "gap-4"
+      ]
+    },
+    {
+      "id": "feature-8",
+      "title": "Apple HealthKit Integration",
+      "description": "Two-way sync with Apple HealthKit allowing Nomie to read automatic health data (steps, sleep, heart rate) and write custom Nomie metrics to Health. Respects user privacy preferences.",
+      "rationale": "Addresses a documented known gap with design already in progress. Combines automatic data collection (Apple Health strength) with Nomie's flexible manual tracking. Enables correlation between automatic and manual data.",
+      "priority": "should",
+      "complexity": "high",
+      "impact": "high",
+      "phase_id": "phase-2",
+      "dependencies": [
+        "feature-7"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Users can authorize HealthKit access with granular permissions",
+        "Steps, sleep, and heart rate sync automatically to Nomie trackers",
+        "Custom Nomie metrics can optionally write to HealthKit",
+        "Sync works in background with configurable frequency",
+        "Clear UI showing what data is being shared"
+      ],
+      "user_stories": [
+        "As an Apple Watch user, I want my steps and heart rate in Nomie so that I can correlate them with my mood",
+        "As a sleep tracker, I want automatic sleep data from Apple Health so that I don't have to log it manually"
+      ],
+      "competitor_insight_ids": [
+        "apple-pain-3",
+        "apple-pain-4",
+        "exist-pain-2"
+      ]
+    },
+    {
+      "id": "feature-9",
+      "title": "Android Native App with Play Store Distribution",
+      "description": "A fully functional Android native app built with Capacitor, distributed through the Google Play Store. Includes all PWA features plus native capabilities like home screen widgets and proper notifications.",
+      "rationale": "Addresses a known gap. Provides cross-platform parity with iOS app. Android users represent a large portion of potential users currently underserved by the PWA experience.",
+      "priority": "must",
+      "complexity": "high",
+      "impact": "high",
+      "phase_id": "phase-2",
+      "dependencies": [
+        "feature-7"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "App passes Google Play Store review",
+        "All current PWA features work in native app",
+        "Native Android notifications work reliably",
+        "App runs smoothly on Android 10 and newer",
+        "Material Design elements feel native to Android"
+      ],
+      "user_stories": [
+        "As an Android user, I want to install Nomie from the Play Store so that I have a first-class mobile experience",
+        "As a cross-platform user, I want the same features on Android as iOS so that I can switch devices freely"
+      ],
+      "competitor_insight_ids": [
+        "apple-pain-2",
+        "gap-4"
+      ]
+    },
+    {
+      "id": "feature-10",
+      "title": "Home Screen Widgets",
+      "description": "Native home screen widgets for iOS and Android that enable quick logging without opening the app. Widgets include quick-log buttons for favorite trackers, streak displays, and daily summary views.",
+      "rationale": "Addresses a known gap. Loop Habit Tracker has excellent widget support as a key strength. Widgets dramatically reduce friction for daily tracking and keep Nomie visible as a daily habit reminder.",
+      "priority": "should",
+      "complexity": "medium",
+      "impact": "high",
+      "phase_id": "phase-2",
+      "dependencies": [
+        "feature-7",
+        "feature-9"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Quick-log widget allows logging 4 trackers with one tap",
+        "Streak widget shows current streaks for selected trackers",
+        "Summary widget shows today's logged entries",
+        "Widgets available in multiple sizes",
+        "Widget updates reflect immediately in main app"
+      ],
+      "user_stories": [
+        "As a habit tracker, I want to log habits from my home screen so that I never need to open the app",
+        "As a streak maintainer, I want to see my current streaks on my home screen so that I stay motivated"
+      ],
+      "competitor_insight_ids": [
+        "gap-4"
+      ]
+    },
+    {
+      "id": "feature-11",
+      "title": "Smart Reminder System",
+      "description": "Intelligent notification system that reminds users to track at optimal times. Learns from user patterns to suggest best times for reminders. Includes customizable reminder schedules per tracker.",
+      "rationale": "Addresses a known gap. Bearable has medication reminders as a strength. Smart reminders improve tracking consistency and user retention. Critical for habit formation.",
+      "priority": "should",
+      "complexity": "medium",
+      "impact": "high",
+      "phase_id": "phase-2",
+      "dependencies": [
+        "feature-7",
+        "feature-9"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Users can set reminders for specific trackers at specific times",
+        "System suggests optimal reminder times based on tracking patterns",
+        "Reminders are actionable - can log directly from notification",
+        "Quiet hours and do-not-disturb respected",
+        "Weekly digest option summarizing tracking consistency"
+      ],
+      "user_stories": [
+        "As a forgetful user, I want reminders to log my medication so that I never miss a dose",
+        "As a habit builder, I want evening reminders to reflect on my day so that I maintain my journaling habit"
+      ],
+      "competitor_insight_ids": []
+    },
+    {
+      "id": "feature-12",
+      "title": "Enhanced Correlation Analysis with Explanations",
+      "description": "Improved correlation analysis that explains relationships in plain language, includes statistical confidence levels, and suggests actionable insights. Shows both positive and negative correlations with context.",
+      "rationale": "Free correlation analysis is Nomie's key differentiator vs Exist.io ($6/month) and Bearable (premium). This feature needs to be best-in-class to capitalize on this competitive advantage. Addresses user goal of understanding patterns.",
+      "priority": "must",
+      "complexity": "medium",
+      "impact": "high",
+      "phase_id": "phase-3",
+      "dependencies": [],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Correlations explained in plain language (e.g., 'Your mood is 40% higher on days you exercise')",
+        "Statistical confidence level shown for each correlation",
+        "Time lag analysis (e.g., 'Sleep affects mood the next day')",
+        "Minimum data threshold before showing correlations",
+        "Ability to explore correlations between any two trackables"
+      ],
+      "user_stories": [
+        "As a data explorer, I want to understand what affects my mood so that I can make lifestyle changes",
+        "As a health tracker, I want to see correlations between sleep and energy so that I can optimize my routine"
+      ],
+      "competitor_insight_ids": [
+        "daylio-pain-4",
+        "exist-pain-1",
+        "gap-2"
+      ]
+    },
+    {
+      "id": "feature-13",
+      "title": "Automated Insight Discovery",
+      "description": "Proactive system that automatically surfaces interesting patterns, anomalies, and trends in user data without requiring manual exploration. Weekly insights digest highlighting notable discoveries.",
+      "rationale": "Exist.io's strength is automatic correlations - Nomie should offer similar value for free. Reduces effort required to benefit from tracking data. Addresses user goal of understanding patterns in daily life.",
+      "priority": "should",
+      "complexity": "high",
+      "impact": "high",
+      "phase_id": "phase-3",
+      "dependencies": [
+        "feature-12"
+      ],
+      "status": "planned",
+      "acceptance_criteria": [
+        "System identifies significant correlations automatically",
+        "Anomalies flagged (e.g., 'Your sleep was 2 hours less than average this week')",
+        "Trend detection (e.g., 'Your mood has been improving over the past month')",
+        "Weekly insights summary notification/email",
+        "Insights can be dismissed or saved for reference"
+      ],
+      "user_stories": [
+        "As a busy user, I want insights surfaced automatically so that I benefit from tracking without analysis effort",
+        "As a pattern seeker, I want to be notified of interesting trends so that I don't miss important changes"
+      ],
+      "competitor_insight_ids": [
+        "exist-pain-1",
+        "gap-2"
+      ],
+      "linked_spec_id": "009-automated-insight-discovery"
+    },
+    {
+      "id": "feature-14",
+      "title": "Advanced Visualization Options",
+      "description": "Expanded chart types and visualization options including heatmaps, comparison charts, distribution charts, and customizable dashboard layouts. Support for combining multiple trackers in single visualizations.",
+      "rationale": "Addresses known gap of 'improved data visualization options'. Exist.io has beautiful dashboard visualizations. Better visualizations help users understand their data and increase perceived value of tracking.",
+      "priority": "should",
+      "complexity": "medium",
+      "impact": "medium",
+      "phase_id": "phase-3",
+      "dependencies": [],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Heatmap calendar view for any tracker",
+        "Comparison view for multiple trackers over time",
+        "Distribution histogram for numeric trackers",
+        "Day-of-week and time-of-day analysis charts",
+        "Customizable color schemes for accessibility"
+      ],
+      "user_stories": [
+        "As a visual thinker, I want heatmap views so that I can quickly see patterns at a glance",
+        "As an analyst, I want to compare multiple trackers on one chart so that I can see relationships visually"
+      ],
+      "competitor_insight_ids": [
+        "gap-4"
+      ]
+    },
+    {
+      "id": "feature-15",
+      "title": "Shareable Insights and Reports",
+      "description": "Ability to generate and share insights, charts, and reports. Export as images for social media, PDF for doctors/therapists, or shareable links for accountability partners.",
+      "rationale": "Adds social and practical value to tracking data. Health data sharing with doctors is valuable for chronic illness users (Bearable's audience). Shareable insights can drive organic growth.",
+      "priority": "could",
+      "complexity": "medium",
+      "impact": "medium",
+      "phase_id": "phase-3",
+      "dependencies": [
+        "feature-14"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Charts exportable as PNG images",
+        "Monthly/weekly report PDF generation",
+        "Reports include relevant charts and summary statistics",
+        "Sensitive data can be excluded from reports",
+        "Shareable links with optional expiration"
+      ],
+      "user_stories": [
+        "As a patient, I want to share my symptom trends with my doctor so that we can discuss my health data",
+        "As a social user, I want to share my streak achievements so that I can celebrate with friends"
+      ],
+      "competitor_insight_ids": []
+    },
+    {
+      "id": "feature-16",
+      "title": "AI-Powered Data Analysis",
+      "description": "Enhanced Ollama/AI integration that allows natural language queries about user data, generates personalized insights, and helps users explore their data through conversation.",
+      "rationale": "Builds on existing AI query integration with Ollama. Differentiates from competitors by offering local AI analysis without sending data to cloud services. Makes data exploration accessible to non-technical users.",
+      "priority": "could",
+      "complexity": "high",
+      "impact": "high",
+      "phase_id": "phase-3",
+      "dependencies": [
+        "feature-12"
+      ],
+      "status": "planned",
+      "acceptance_criteria": [
+        "Users can ask natural language questions about their data",
+        "AI provides personalized insights based on tracking history",
+        "All processing happens locally via Ollama (no cloud)",
+        "AI can suggest new things to track based on goals",
+        "Clear indication when AI is generating vs showing real data"
+      ],
+      "user_stories": [
+        "As a curious user, I want to ask 'What affects my mood the most?' and get an answer so that I learn without manual analysis",
+        "As a privacy-conscious user, I want AI analysis without sending data to the cloud so that my data stays private"
+      ],
+      "competitor_insight_ids": [
+        "gap-1"
+      ],
+      "linked_spec_id": "010-ai-powered-data-analysis"
+    },
+    {
+      "id": "feature-17",
+      "title": "Stats Module Refactoring",
+      "description": "Consolidate Stats and Stats2 modules into a single, well-architected statistics system. Improve performance for large datasets and add comprehensive test coverage.",
+      "rationale": "Addresses documented technical debt. Stats2 exists alongside original Stats module causing confusion and maintenance burden. Clean architecture enables future analytics enhancements.",
+      "priority": "should",
+      "complexity": "high",
+      "impact": "medium",
+      "phase_id": "phase-4",
+      "dependencies": [],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Single unified stats module replaces Stats and Stats2",
+        "Performance benchmarks show no regression",
+        "90%+ test coverage on stats module",
+        "Clear API for stats operations",
+        "Existing features work identically after refactor"
+      ],
+      "user_stories": [
+        "As a developer, I want a single stats module so that I can maintain and extend it easily",
+        "As a power user, I want fast statistics even with years of data so that analysis doesn't slow me down"
+      ],
+      "competitor_insight_ids": []
+    },
+    {
+      "id": "feature-18",
+      "title": "Improved Test Coverage",
+      "description": "Systematic improvement of test coverage across key modules including LedgerStore, dashboard widgets, and export functionality. Includes integration tests and E2E test expansion.",
+      "rationale": "Addresses documented technical debt about test coverage gaps. Essential for sustainable open-source development and enables confident refactoring. Critical for community contributions.",
+      "priority": "should",
+      "complexity": "high",
+      "impact": "medium",
+      "phase_id": "phase-4",
+      "dependencies": [],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "LedgerStore has 80%+ test coverage",
+        "Dashboard widgets have comprehensive tests",
+        "Export functionality fully tested",
+        "Integration tests cover critical user journeys",
+        "CI runs full test suite on all PRs"
+      ],
+      "user_stories": [
+        "As a contributor, I want good test coverage so that I can make changes confidently",
+        "As a maintainer, I want automated tests so that regressions are caught before release"
+      ],
+      "competitor_insight_ids": []
+    },
+    {
+      "id": "feature-19",
+      "title": "One-Command Self-Hosting Setup",
+      "description": "Simplified self-hosting deployment with Docker Compose that sets up Nomie with CouchDB sync in a single command. Includes web-based configuration wizard for initial setup.",
+      "rationale": "Self-hosting is a key differentiator but currently requires technical knowledge. Simplified setup expands addressable market to less technical privacy-conscious users. Addresses market gap for self-hostable options.",
+      "priority": "should",
+      "complexity": "medium",
+      "impact": "medium",
+      "phase_id": "phase-4",
+      "dependencies": [],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Single docker-compose up command starts complete stack",
+        "Web wizard handles initial configuration",
+        "SSL/HTTPS setup is automated or clearly documented",
+        "Backup and restore procedures documented",
+        "Upgrade path is non-destructive"
+      ],
+      "user_stories": [
+        "As a privacy enthusiast, I want to self-host Nomie easily so that I maintain complete data control",
+        "As a technically inclined user, I want one-command deployment so that setup takes minutes not hours"
+      ],
+      "competitor_insight_ids": [
+        "bearable-pain-5",
+        "exist-pain-3",
+        "gap-1"
+      ]
+    },
+    {
+      "id": "feature-20",
+      "title": "Comprehensive Developer Documentation",
+      "description": "Full developer documentation including architecture overview, contribution guide, API documentation, and extension development guide. Makes the codebase accessible to new contributors.",
+      "rationale": "Essential for open-source sustainability. Good documentation attracts contributors and reduces maintainer burden. Addresses the constraint of limited core maintainer capacity.",
+      "priority": "could",
+      "complexity": "medium",
+      "impact": "medium",
+      "phase_id": "phase-4",
+      "dependencies": [],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Architecture overview documents key modules and data flow",
+        "Contribution guide covers setup, testing, and PR process",
+        "API documentation for key stores and services",
+        "Code comments on complex logic",
+        "Example extension or plugin to demonstrate extensibility"
+      ],
+      "user_stories": [
+        "As a new contributor, I want clear documentation so that I can understand the codebase quickly",
+        "As a developer, I want API docs so that I can build extensions or integrations"
+      ],
+      "competitor_insight_ids": []
+    },
+    {
+      "id": "feature-21",
+      "title": "Enhanced People and Relationship Tracking",
+      "description": "Improved @person tracking with relationship categorization, interaction frequency insights, and social pattern analysis. See who you spend time with and how it affects your well-being.",
+      "rationale": "People tracking is a unique Nomie differentiator that no competitor offers. Enhancing this creates distance from competitors and addresses market gap-6 about relationship tracking.",
+      "priority": "should",
+      "complexity": "medium",
+      "impact": "medium",
+      "phase_id": "phase-5",
+      "dependencies": [
+        "feature-12"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "People can be categorized (family, friends, colleagues)",
+        "Interaction frequency visualization per person/group",
+        "Correlation analysis with mood and activities",
+        "Timeline view of interactions with specific people",
+        "Privacy-respecting - no external data fetching"
+      ],
+      "user_stories": [
+        "As a social person, I want to see how different relationships affect my mood so that I invest time wisely",
+        "As a reflector, I want to track who I spend time with so that I maintain important relationships"
+      ],
+      "competitor_insight_ids": [
+        "gap-6"
+      ]
+    },
+    {
+      "id": "feature-22",
+      "title": "Community Template Marketplace",
+      "description": "Platform for users to share and discover tracker templates, boards, and configurations. Users can publish their setups and import others' templates with one tap.",
+      "rationale": "Creates network effects and community engagement. Reduces friction for new users by providing proven templates. Differentiates from closed-source competitors.",
+      "priority": "could",
+      "complexity": "high",
+      "impact": "medium",
+      "phase_id": "phase-5",
+      "dependencies": [
+        "feature-2"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Users can export their tracker setup as a template",
+        "Templates can be browsed and searched by category",
+        "One-tap import with preview",
+        "Rating and download count for templates",
+        "Templates reviewed for quality/safety before publishing"
+      ],
+      "user_stories": [
+        "As a power user, I want to share my tracking setup so that others can benefit from my configuration",
+        "As a new user, I want to import popular templates so that I start with proven configurations"
+      ],
+      "competitor_insight_ids": []
+    },
+    {
+      "id": "feature-23",
+      "title": "Integration Ecosystem",
+      "description": "API and webhook system allowing Nomie to connect with other services. Includes IFTTT/Zapier-style automations, import from other tracking apps, and export to external dashboards.",
+      "rationale": "Exist.io's strength is integrations with many services. An open API enables community-built integrations without core team effort. Supports data portability and reduces lock-in concerns.",
+      "priority": "could",
+      "complexity": "high",
+      "impact": "medium",
+      "phase_id": "phase-5",
+      "dependencies": [
+        "feature-19"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "REST API for reading and writing log entries",
+        "Webhook notifications for new entries",
+        "Import from Daylio, Bearable, Loop (common formats)",
+        "Export in formats compatible with visualization tools",
+        "API documentation and example integrations"
+      ],
+      "user_stories": [
+        "As an automation user, I want to log entries via API so that other apps can trigger tracking",
+        "As a Daylio migrant, I want to import my history so that I don't lose years of data"
+      ],
+      "competitor_insight_ids": [
+        "exist-pain-2"
+      ]
+    },
+    {
+      "id": "feature-24",
+      "title": "Optional Gamification System",
+      "description": "Opt-in gamification features including achievements, levels, challenges, and rewards. Designed to be mature and motivating without being childish (unlike Finch's pet approach).",
+      "rationale": "Gamification can improve retention and habit formation. Competitor Finch's gamification is too childish for some users - there's an opportunity for mature gamification. Must be optional to avoid alienating serious trackers.",
+      "priority": "could",
+      "complexity": "medium",
+      "impact": "medium",
+      "phase_id": "phase-5",
+      "dependencies": [
+        "feature-3"
+      ],
+      "status": "under_review",
+      "acceptance_criteria": [
+        "Gamification is completely opt-in and can be disabled",
+        "Achievement system for milestones (streaks, totals, consistency)",
+        "Weekly/monthly challenges for engagement",
+        "Progress levels based on tracking consistency",
+        "Design is motivating without being juvenile"
+      ],
+      "user_stories": [
+        "As a motivated tracker, I want achievements for my streaks so that I have extra motivation to continue",
+        "As a serious user, I want to disable gamification so that I have a clean, professional interface"
+      ],
+      "competitor_insight_ids": [
+        "finch-pain-1"
+      ]
+    }
+  ],
+  "metadata": {
+    "created_at": "2026-01-11T12:30:00Z",
+    "updated_at": "2026-01-11T10:37:38.958Z",
+    "generated_by": "roadmap_features agent",
+    "prioritization_framework": "MoSCoW",
+    "competitor_analysis_used": true,
+    "total_features": 24,
+    "features_by_priority": {
+      "must": 7,
+      "should": 11,
+      "could": 6,
+      "wont": 0
+    },
+    "features_addressing_competitor_pain_points": 18,
+    "competitor_pain_points_referenced": 26
+  }
+}

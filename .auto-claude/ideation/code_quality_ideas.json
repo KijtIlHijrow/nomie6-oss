@@ -1,0 +1,162 @@
+{
+  "code_quality": [
+    {
+      "id": "cq-001",
+      "type": "code_quality",
+      "title": "Split massive ai-query-service.ts into focused modules",
+      "description": "The file src/domains/ai-query/ai-query-service.ts has grown to 2,129 lines and handles at least 8 distinct responsibilities: Ollama API communication, intent detection, question parsing, tracker creation, log entry creation, data retrieval, period detection, and fuzzy matching. This severely violates the Single Responsibility Principle.",
+      "rationale": "Files over 500 lines become hard to navigate, test, and maintain. At 2,129 lines, this file requires developers to hold too much context in their heads. Breaking it into focused modules will improve testability, make code reviews easier, and reduce the risk of introducing bugs when making changes.",
+      "category": "large_files",
+      "severity": "critical",
+      "affectedFiles": [
+        "src/domains/ai-query/ai-query-service.ts",
+        "src/domains/ai-query/ai-query-view.svelte"
+      ],
+      "currentState": "Single 2,129-line file containing: queryOllama(), detectPeriods(), parseQuestion(), detectIntent(), handleEntryCreation(), createLogEntry(), answerQuestion(), getRelevantData(), createTracker(), fuzzy matching logic, and more",
+      "proposedChange": "Split into focused modules:\n- src/domains/ai-query/ollama-client.ts (API communication, ~100 lines)\n- src/domains/ai-query/intent-detector.ts (intent detection & parsing, ~300 lines)\n- src/domains/ai-query/tracker-creator.ts (tracker creation logic, ~200 lines)\n- src/domains/ai-query/log-entry-service.ts (log entry creation, ~150 lines)\n- src/domains/ai-query/question-parser.ts (question parsing & fuzzy matching, ~400 lines)\n- src/domains/ai-query/data-retriever.ts (data gathering, ~300 lines)\n- src/domains/ai-query/period-detector.ts (period detection, ~100 lines)\n- src/domains/ai-query/types.ts (shared interfaces)",
+      "codeExample": "// Current (all in one file):\nexport async function queryOllama(...) { ... }\nexport async function handleEntryCreation(...) { ... }\nexport async function answerQuestion(...) { ... }\n\n// Proposed (separate modules):\n// ollama-client.ts\nimport type { OllamaConfig } from './types'\nexport class OllamaClient {\n  async query(prompt: string): Promise<string> { ... }\n}\n\n// intent-detector.ts\nimport type { IntentDetectionResult } from './types'\nexport function detectIntent(message: string, trackers: Tracker[]): IntentDetectionResult { ... }",
+      "bestPractice": "Single Responsibility Principle - each module should have one reason to change. Files should generally be under 300-500 lines for maintainability.",
+      "metrics": {
+        "lineCount": 2129,
+        "complexity": null,
+        "duplicateLines": null,
+        "testCoverage": null
+      },
+      "estimatedEffort": "large",
+      "breakingChange": true,
+      "prerequisites": ["Ensure comprehensive test coverage before refactoring", "Review all imports/exports to maintain API compatibility"]
+    },
+    {
+      "id": "cq-002",
+      "type": "code_quality",
+      "title": "Remove duplicate StatsProcessor implementations",
+      "description": "The files src/domains/stats/statsV5.ts (555 lines) and src/domains/stats/stats-processor.class.ts (551 lines) contain nearly identical implementations of the StatsProcessor class. Both files have the same imports, same class structure, same constructor, same init() method, and same properties. This is a significant code duplication issue.",
+      "rationale": "Duplicate code leads to bugs being fixed in one place but not the other, doubles maintenance effort, and creates confusion about which implementation to use. This duplication likely arose from a refactoring attempt that was never completed.",
+      "category": "duplication",
+      "severity": "major",
+      "affectedFiles": [
+        "src/domains/stats/statsV5.ts",
+        "src/domains/stats/stats-processor.class.ts"
+      ],
+      "currentState": "Two nearly identical files (~1,100 lines total) both implementing StatsProcessor class with same properties: trackable, rows, type, math, avg, sum, chart, dow, tod, min, max, fromDate, toDate, mode, is24Hour, streak, valueMap",
+      "proposedChange": "1. Identify any differences between the two implementations\n2. Consolidate into a single stats-processor.class.ts file\n3. Update all imports to use the consolidated version\n4. Remove the duplicate file\n5. Consider if both files exist due to a failed migration (statsV5 suggests versioning)",
+      "codeExample": "// Current (duplicated in both files):\nclass StatsProcessor implements IStats {\n  trackable: Trackable\n  rows: Array<NLog>\n  // ... identical properties\n  \n  constructor(starter: IStatsConfig) {\n    starter = starter || {}\n    this.rows = starter.rows || []\n    // ... identical logic\n  }\n}\n\n// Proposed (single source of truth):\n// stats-processor.class.ts - consolidated implementation\nexport class StatsProcessor implements IStats { ... }",
+      "bestPractice": "DRY (Don't Repeat Yourself) - eliminate code duplication to reduce maintenance burden and prevent inconsistent behavior",
+      "metrics": {
+        "lineCount": 1106,
+        "complexity": null,
+        "duplicateLines": 550,
+        "testCoverage": null
+      },
+      "estimatedEffort": "small",
+      "breakingChange": false,
+      "prerequisites": ["Run tests to verify which implementation is actually used", "Check git history to understand why duplication exists"]
+    },
+    {
+      "id": "cq-003",
+      "type": "code_quality",
+      "title": "Reduce excessive 'any' type usage for better type safety",
+      "description": "Found 94 occurrences of ': any' across 30+ files in the codebase. While TypeScript is configured with some strict options (noUnusedLocals, noImplicitReturns, allowUnreachableCode: false), the extensive use of 'any' undermines type safety. High-impact files include: trackable-element.ts (9), interact.ts (9), dymoji.ts (9), import.n2.ts (7), remote.ts (5).",
+      "rationale": "Excessive 'any' usage defeats the purpose of TypeScript, allowing runtime errors that could be caught at compile time. Each 'any' is a potential bug hiding spot where the compiler can't help catch mistakes. Proper typing improves IDE autocomplete, refactoring safety, and code documentation.",
+      "category": "types",
+      "severity": "major",
+      "affectedFiles": [
+        "src/modules/trackable-element/trackable-element.ts",
+        "src/store/interact.ts",
+        "src/components/dymoji/dymoji.ts",
+        "src/modules/import/import.n2.ts",
+        "src/modules/remote/remote.ts",
+        "src/store/KVStore.ts",
+        "src/store/ArrayStore.ts",
+        "src/modules/download/download.ts"
+      ],
+      "currentState": "94 occurrences of ': any' across the codebase, disabling type checking for return values, parameters, and variables",
+      "proposedChange": "1. Enable stricter TypeScript options: \"strict\": true or \"noImplicitAny\": true in tsconfig.json\n2. Prioritize fixing 'any' in core modules: trackable-element.ts, interact.ts, stores\n3. Replace 'any' with proper interfaces or union types\n4. Use 'unknown' instead of 'any' when type is truly unknown, then use type guards\n5. Create proper type definitions for external APIs and dynamic data",
+      "codeExample": "// Current:\nconst data: any = fetchData()\nconst result: any = process(data as any)\nfunction handleEvent(event: any) { ... }\n\n// Proposed:\ninterface FetchResponse {\n  items: TrackerItem[]\n  count: number\n}\nconst data: FetchResponse = await fetchData()\n\n// For truly unknown data:\nconst data: unknown = await fetchExternal()\nif (isValidResponse(data)) {\n  // now TypeScript knows the type\n}",
+      "bestPractice": "Use TypeScript's type system to catch errors at compile time. Prefer 'unknown' over 'any' for truly unknown types, and use type guards to narrow types safely.",
+      "metrics": {
+        "lineCount": null,
+        "complexity": null,
+        "duplicateLines": null,
+        "testCoverage": null
+      },
+      "estimatedEffort": "large",
+      "breakingChange": false,
+      "prerequisites": ["Start with a single high-impact module to establish patterns", "Add type definitions incrementally to avoid overwhelming PR sizes"]
+    },
+    {
+      "id": "cq-004",
+      "type": "code_quality",
+      "title": "Consolidate fragmented stats implementations (stats vs stats2)",
+      "description": "The codebase has two separate stats directories: src/domains/stats/ (12 files, ~1,400 lines) and src/domains/stats2/ (6 files, ~500 lines). Both implement statistical calculations with overlapping functionality including Stats2Store.ts, day-of-week calculations, and time formatting. The 'stats2' naming suggests an incomplete migration or parallel development.",
+      "rationale": "Having two stats implementations creates confusion about which to use, leads to inconsistent behavior, and doubles maintenance effort. The naming convention (stats vs stats2) suggests technical debt from an unfinished refactoring effort. New developers won't know which implementation is canonical.",
+      "category": "structure",
+      "severity": "minor",
+      "affectedFiles": [
+        "src/domains/stats/statsV5.ts",
+        "src/domains/stats/stats-processor.class.ts",
+        "src/domains/stats/StatsStore.ts",
+        "src/domains/stats/stats-functions.ts",
+        "src/domains/stats2/Stats2Store.ts",
+        "src/domains/stats2/day-of-week.ts",
+        "src/domains/stats2/stats2-time-formats.ts"
+      ],
+      "currentState": "Two separate stats implementations with unclear boundaries:\n- stats/: StatsProcessor class, StatsStore, stats-functions, time-of-day\n- stats2/: Stats2Store (197 lines), day-of-week, time-formats\nNote: stats/statsV5.ts imports from stats2/day-of-week, showing tight coupling",
+      "proposedChange": "1. Audit both implementations to understand feature differences\n2. Identify which features are used where in the application\n3. Create a unified stats module with clear separation of concerns:\n   - src/domains/stats/processor/ - core calculation logic\n   - src/domains/stats/store/ - state management\n   - src/domains/stats/time/ - time-related utilities (day-of-week, time-of-day)\n4. Deprecate and remove the redundant implementation\n5. Update all imports across the codebase",
+      "codeExample": "// Current (fragmented):\nimport StatsProcessor from '../stats/statsV5'\nimport getDayOfWeek from '../stats2/day-of-week'\nimport { Stats2Store } from '../stats2/Stats2Store'\nimport { StatsStore } from '../stats/StatsStore'\n\n// Proposed (unified):\nimport { StatsProcessor } from '../stats/processor'\nimport { StatsStore } from '../stats/store'\nimport { getDayOfWeek, getTimeOfDay } from '../stats/time-utils'",
+      "bestPractice": "Single Source of Truth - each concept should have exactly one authoritative implementation. Version suffixes (V5, 2) in production code suggest incomplete migrations.",
+      "metrics": {
+        "lineCount": 1900,
+        "complexity": null,
+        "duplicateLines": null,
+        "testCoverage": null
+      },
+      "estimatedEffort": "medium",
+      "breakingChange": true,
+      "prerequisites": ["Complete the duplicate StatsProcessor fix first (cq-002)", "Create comprehensive tests for both implementations before merging"]
+    },
+    {
+      "id": "cq-005",
+      "type": "code_quality",
+      "title": "Address 21+ TODO/FIXME technical debt markers",
+      "description": "Found 21+ TODO, FIXME, and incomplete implementation comments scattered across the codebase indicating known technical debt. Examples include: 'TODO: Make this not sloppy' (score-note.ts), 'TODO: replace this with the util version' (import.ts), 'TODO: Make the pie chart work' (pie.svelte), 'TODO: This is incomplete' (uom-modal.svelte).",
+      "rationale": "TODO comments that remain in production code represent acknowledged technical debt that never got prioritized. Some of these TODOs may reference outdated concerns or indicate incomplete features that users might encounter. Tracking these systematically helps prioritize technical debt payoff.",
+      "category": "dead_code",
+      "severity": "minor",
+      "affectedFiles": [
+        "src/App.svelte",
+        "src/modules/import/import.ts",
+        "src/modules/tracker/TrackerClass.ts",
+        "src/modules/scoring/score-note.ts",
+        "src/domains/map/map.svelte",
+        "src/components/charts/pie.svelte",
+        "src/domains/uom/uom-editor/uom-modal.svelte",
+        "src/domains/board/UniboardStore.ts",
+        "src/domains/tracker/input/TrackerInputStore.ts",
+        "src/domains/stats2/Stats2Store.ts",
+        "src/domains/ledger/LedgerStore.ts"
+      ],
+      "currentState": "21+ TODO/FIXME comments scattered throughout:\n- 'TODO: Migrate these away from the method.function name' (App.svelte)\n- 'TODO: replace this with the util version' (import.ts)\n- 'TODO: make this replace special characters too' (TrackerClass.ts)\n- 'TODO: Make this not sloppy' (score-note.ts)\n- 'TODO: Make the pie chart work' (pie.svelte)\n- 'TODO: This is incomplete' (uom-modal.svelte)\n- 'TODO: Handle Sorting' (UniboardStore.ts)",
+      "proposedChange": "1. Triage all TODOs into categories:\n   - Critical (affects user experience): pie.svelte, uom-modal.svelte\n   - Important (code quality): score-note.ts, TrackerClass.ts\n   - Low priority (cleanup): import.ts, App.svelte\n2. Create GitHub issues for each significant TODO\n3. Remove outdated TODOs that no longer apply\n4. For quick fixes, address inline and remove TODO\n5. Consider adding a pre-commit hook to prevent new TODOs without issue references",
+      "codeExample": "// Current (vague TODOs):\n// TODO: Make this not sloppy\nfunction scoreNote(note: string) { ... }\n\n// Proposed (tracked or fixed):\n// Fixed: Refactored to use proper scoring algorithm\nfunction scoreNote(note: string): Score { ... }\n\n// Or if keeping TODO:\n// TODO(#123): Refactor scoring algorithm to handle edge cases\nfunction scoreNote(note: string) { ... }",
+      "bestPractice": "TODOs should be tracked in an issue tracker, not left indefinitely in code. Each TODO should reference an issue number or be addressed promptly.",
+      "metrics": {
+        "lineCount": null,
+        "complexity": null,
+        "duplicateLines": null,
+        "testCoverage": null
+      },
+      "estimatedEffort": "medium",
+      "breakingChange": false,
+      "prerequisites": null
+    }
+  ],
+  "metadata": {
+    "filesAnalyzed": 336993,
+    "largeFilesFound": 12,
+    "duplicateBlocksFound": 2,
+    "lintingConfigured": true,
+    "testsPresent": true,
+    "generatedAt": "2025-01-11T11:30:00Z"
+  }
+}

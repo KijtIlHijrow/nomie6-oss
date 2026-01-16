@@ -1,0 +1,74 @@
+{
+  "code_improvements": [
+    {
+      "id": "ci-001",
+      "type": "code_improvements",
+      "title": "Extend Keyboard Shortcuts System",
+      "description": "Add more keyboard shortcuts beyond Cmd+P for search. Could add Cmd+N for new entry, Cmd+G for goals, Cmd+D for dashboard, and Cmd+T for timers - all following the existing keydown pattern.",
+      "rationale": "AppKeyCommands.svelte has the keyboard shortcut pattern already established with svelte:window on:keydown. Only Cmd+P (search) is implemented. The pattern is trivial to extend - just add more conditions in the onKeyDown handler.",
+      "builds_upon": ["AppKeyCommands.svelte keyboard handler pattern", "openUnisearch() modal opening pattern"],
+      "estimated_effort": "trivial",
+      "affected_files": ["src/AppKeyCommands.svelte"],
+      "existing_patterns": ["svelte:window on:keydown event binding", "modal opening via stores (openModal, openUnisearch)"],
+      "implementation_approach": "Add additional key checks in the existing onKeyDown function. For each new shortcut, check evt.key and evt.metaKey, then call the appropriate store function (e.g., openCaptureLog for new entry). Similar to how openUnisearch is called for Cmd+P.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "ci-002",
+      "type": "code_improvements",
+      "title": "Add Streak Dashboard Widget Type",
+      "description": "Add a new 'Streak' widget type to the dashboard that displays streak information for a trackable. The streak visualization already exists in streak-modal.svelte - this exposes it as a dashboard widget.",
+      "rationale": "Widget types are defined in widget-types.ts with a clear IWidgetType interface pattern. Streak display logic exists in domains/steak/. Adding a new widget type just requires adding to the widgetTypes array and creating the widget renderer component following the existing widget patterns.",
+      "builds_upon": ["Dashboard widget system", "StreakModalStore and streak calculation logic"],
+      "estimated_effort": "small",
+      "affected_files": ["src/domains/dashboard2/widget/widget-types.ts", "src/domains/dashboard2/widget/"],
+      "existing_patterns": ["IWidgetType interface with requires/optional arrays", "Widget renderer components pattern", "Streak calculation from StreakModalStore"],
+      "implementation_approach": "1. Add new IWidgetType entry for 'streak' in widget-types.ts with requires: ['timeframe', 'token']. 2. Create a streak-widget.svelte component that imports streak calculation logic from steak domain. 3. Add the widget renderer to the widget display system following existing patterns like value-widget or habit-widget.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "ci-003",
+      "type": "code_improvements",
+      "title": "Add CSV Export for Trackable Usage Data",
+      "description": "Add ability to export trackable usage data as CSV in addition to the existing JSON backup. Users could export their tracker history for specific trackers or date ranges to CSV format.",
+      "rationale": "JSON export exists in storage/import-export.ts with progress indicators. CSV download utility exists in modules/download/download.ts (download.csv method). CSV export module exists in modules/export/csv.ts. All infrastructure is in place - just need to wire them together for trackable-specific export.",
+      "builds_upon": ["JSON export in import-export.ts", "download.csv() utility", "CSV module in modules/export/csv.ts"],
+      "estimated_effort": "small",
+      "affected_files": ["src/domains/storage/import-export.ts", "src/domains/trackable/trackable-utils.ts", "src/routes/export.svelte"],
+      "existing_patterns": ["exportStorage() function with Interact.blocker progress", "download.csv() for file download", "TrackableUsage class for usage data"],
+      "implementation_approach": "1. Create exportTrackableToCSV function in import-export.ts following exportStorage pattern. 2. Use TrackableUsage to get usage data for selected trackables. 3. Format as CSV using modules/export/csv.ts utilities. 4. Trigger download using download.csv(). 5. Add UI option in export.svelte or trackable-editor-actions.svelte.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "ci-004",
+      "type": "code_improvements",
+      "title": "Goal Progress Toast Notifications",
+      "description": "Add optional toast notifications for goal progress - notify user when approaching goal target, when goal is achieved, or when goal streak is at risk. Leverages existing toast and goal scoring patterns.",
+      "rationale": "Toast notification system exists in ToastStore.ts with showToast() function. Goal scoring exists in goal-class.ts with calculateScores() method. Award notification pattern in AwardsStore.ts shows how to trigger notifications on achievements. Combining these patterns enables goal progress notifications.",
+      "builds_upon": ["ToastStore.ts notification system", "GoalClass.calculateScores() for goal progress", "AwardsStore pattern for achievement notifications"],
+      "estimated_effort": "medium",
+      "affected_files": ["src/domains/goals/GoalStore.ts", "src/domains/goals/goal-utils.ts", "src/components/toast/ToastStore.ts"],
+      "existing_patterns": ["showToast() for notifications", "GoalScoreType with success/failure/percent", "awardMonitorAppOpened pattern for triggering on app open"],
+      "implementation_approach": "1. Add goalMonitorOnAppOpen function in GoalStore.ts similar to awardMonitorAppOpened. 2. Calculate goal progress using GoalClass.calculateScores(). 3. Check for goals approaching target (e.g., 80%+ complete) or at risk (0 progress today on daily goal). 4. Show toast notifications using showToast() with appropriate messages. 5. Add preference toggle in Preferences.ts to enable/disable notifications.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "ci-005",
+      "type": "code_improvements",
+      "title": "Bulk Log Operations (Delete/Edit Multiple)",
+      "description": "Add ability to select and delete/edit multiple log entries at once. The log list already shows entries - add multi-select mode with bulk actions.",
+      "rationale": "LedgerStore has single log operations (saveLog, deleteLogs). Export uses chunking pattern for bulk operations in import-export.ts. Log list display exists in components/log-list/. Adding multi-select and bulk actions follows existing patterns.",
+      "builds_upon": ["LedgerStore log operations", "Chunking pattern from import-export.ts", "Log list components"],
+      "estimated_effort": "medium",
+      "affected_files": ["src/components/log-list/log-list.svelte", "src/domains/ledger/LedgerStore.ts", "src/domains/nomie-log/LogEditorStore.ts"],
+      "existing_patterns": ["chunk() for batch processing", "Interact.blocker() for progress indication", "LogDisplayStore for log display state"],
+      "implementation_approach": "1. Add multiSelectMode state to log-list.svelte component. 2. Add selectedLogs array to track selected entries. 3. Create bulkDeleteLogs function in LedgerStore.ts using chunk pattern from import-export.ts. 4. Add floating action bar when in multi-select mode with delete/edit actions. 5. Use Interact.blocker() for progress during bulk operations.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    }
+  ]
+}

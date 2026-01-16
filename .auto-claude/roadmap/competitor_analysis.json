@@ -1,0 +1,421 @@
+{
+  "project_context": {
+    "project_name": "Nomie 6",
+    "project_type": "web-app",
+    "target_audience": "Health-conscious individuals interested in quantified self and life tracking who want to monitor habits, moods, activities, and personal metrics"
+  },
+  "competitors": [
+    {
+      "id": "competitor-daylio",
+      "name": "Daylio",
+      "url": "https://daylio.net/",
+      "description": "Popular mood and activity journal app with a simple tap-to-track interface and predefined activities",
+      "relevance": "high",
+      "pain_points": [
+        {
+          "id": "daylio-pain-1",
+          "description": "Limited customization - users cannot create custom metrics beyond mood/activities",
+          "source": "App store reviews and Reddit r/daylio discussions",
+          "severity": "high",
+          "frequency": "Very common complaint",
+          "opportunity": "Nomie's hashtag system allows tracking any numeric metric with custom values"
+        },
+        {
+          "id": "daylio-pain-2",
+          "description": "Subscription pricing for premium features locks core functionality behind paywall",
+          "source": "App store reviews, Reddit discussions",
+          "severity": "medium",
+          "frequency": "Common complaint",
+          "opportunity": "Nomie is completely free and open-source with no premium tiers"
+        },
+        {
+          "id": "daylio-pain-3",
+          "description": "Data export is limited - users struggle to get their data out for analysis",
+          "source": "Reddit r/quantifiedself discussions",
+          "severity": "medium",
+          "frequency": "Moderate complaint",
+          "opportunity": "Nomie offers CSV export and full data ownership"
+        },
+        {
+          "id": "daylio-pain-4",
+          "description": "No correlation analysis - cannot see how activities relate to mood",
+          "source": "Feature requests in app reviews",
+          "severity": "high",
+          "frequency": "Common feature request",
+          "opportunity": "Nomie has built-in correlation analysis between any tracked items"
+        },
+        {
+          "id": "daylio-pain-5",
+          "description": "Data stored in proprietary cloud with privacy concerns",
+          "source": "Privacy-focused user feedback",
+          "severity": "medium",
+          "frequency": "Moderate concern",
+          "opportunity": "Nomie is local-first with optional self-hosted sync"
+        }
+      ],
+      "strengths": [
+        "Very simple and polished UI/UX",
+        "Quick one-tap tracking",
+        "Good onboarding experience",
+        "Consistent cross-platform apps",
+        "Well-designed visualizations"
+      ],
+      "market_position": "Market leader in mobile mood tracking, known for simplicity and polish"
+    },
+    {
+      "id": "competitor-bearable",
+      "name": "Bearable",
+      "url": "https://bearable.app/",
+      "description": "Health and symptom tracking app designed for chronic illness management with detailed factor tracking",
+      "relevance": "high",
+      "pain_points": [
+        {
+          "id": "bearable-pain-1",
+          "description": "Complex and overwhelming UI - too many options can be confusing",
+          "source": "App store reviews, Reddit r/ChronicIllness discussions",
+          "severity": "medium",
+          "frequency": "Common complaint from new users",
+          "opportunity": "Nomie's natural language input is simpler while still flexible"
+        },
+        {
+          "id": "bearable-pain-2",
+          "description": "Premium subscription required for advanced features and insights",
+          "source": "App store reviews",
+          "severity": "high",
+          "frequency": "Very common complaint",
+          "opportunity": "Nomie provides all features free without subscription"
+        },
+        {
+          "id": "bearable-pain-3",
+          "description": "Slow performance with lots of tracked factors",
+          "source": "Reddit discussions from power users",
+          "severity": "medium",
+          "frequency": "Reported by power users",
+          "opportunity": "Nomie's local-first architecture can handle large datasets"
+        },
+        {
+          "id": "bearable-pain-4",
+          "description": "Limited data export options for personal analysis",
+          "source": "User feedback in support forums",
+          "severity": "medium",
+          "frequency": "Moderate complaint",
+          "opportunity": "Nomie provides CSV export and direct database access"
+        },
+        {
+          "id": "bearable-pain-5",
+          "description": "No self-hosting option - data must go to their servers",
+          "source": "Privacy-conscious user discussions",
+          "severity": "high",
+          "frequency": "Common for privacy-focused users",
+          "opportunity": "Nomie is fully self-hostable with no vendor lock-in"
+        }
+      ],
+      "strengths": [
+        "Excellent for health/symptom tracking",
+        "Good correlation insights (premium)",
+        "Medication reminders",
+        "Integration with some health platforms",
+        "Detailed factor analysis"
+      ],
+      "market_position": "Leading app for chronic illness and detailed health symptom tracking"
+    },
+    {
+      "id": "competitor-loop",
+      "name": "Loop Habit Tracker",
+      "url": "https://loophabits.org/",
+      "description": "Open-source Android habit tracking app focused on streaks and simple habit building",
+      "relevance": "medium",
+      "pain_points": [
+        {
+          "id": "loop-pain-1",
+          "description": "Android-only - no iOS or web version available",
+          "source": "GitHub issues, user requests",
+          "severity": "high",
+          "frequency": "Very common request",
+          "opportunity": "Nomie works as PWA on all platforms including iOS"
+        },
+        {
+          "id": "loop-pain-2",
+          "description": "Limited to boolean/numeric habits - cannot track complex entries",
+          "source": "GitHub issues and feature requests",
+          "severity": "medium",
+          "frequency": "Common feature request",
+          "opportunity": "Nomie supports notes, locations, people tracking, not just habits"
+        },
+        {
+          "id": "loop-pain-3",
+          "description": "No journaling or note capability alongside habits",
+          "source": "User feedback and comparisons",
+          "severity": "medium",
+          "frequency": "Moderate request",
+          "opportunity": "Nomie combines tracking with full journaling capability"
+        },
+        {
+          "id": "loop-pain-4",
+          "description": "No cloud sync - data only on single device",
+          "source": "GitHub issues",
+          "severity": "medium",
+          "frequency": "Common request",
+          "opportunity": "Nomie offers optional CouchDB sync across devices"
+        }
+      ],
+      "strengths": [
+        "Open-source and completely free",
+        "Very clean Material Design UI",
+        "Excellent streak tracking",
+        "Good analytics for habits",
+        "Offline-first",
+        "Great widget support"
+      ],
+      "market_position": "Popular open-source choice for Android habit tracking"
+    },
+    {
+      "id": "competitor-exist",
+      "name": "Exist.io",
+      "url": "https://exist.io/",
+      "description": "Life tracking dashboard that aggregates data from multiple sources and shows correlations",
+      "relevance": "high",
+      "pain_points": [
+        {
+          "id": "exist-pain-1",
+          "description": "High subscription cost ($6/month) for automatic correlations",
+          "source": "User reviews and Reddit discussions",
+          "severity": "high",
+          "frequency": "Very common objection",
+          "opportunity": "Nomie offers correlation analysis for free"
+        },
+        {
+          "id": "exist-pain-2",
+          "description": "Relies heavily on third-party integrations - limited manual entry",
+          "source": "User feedback",
+          "severity": "medium",
+          "frequency": "Moderate complaint",
+          "opportunity": "Nomie is designed for quick manual entry as primary input"
+        },
+        {
+          "id": "exist-pain-3",
+          "description": "Data sent to their servers - privacy concerns for sensitive health data",
+          "source": "Privacy-focused user discussions",
+          "severity": "high",
+          "frequency": "Common for privacy users",
+          "opportunity": "Nomie is local-first with self-hosted sync option"
+        },
+        {
+          "id": "exist-pain-4",
+          "description": "Limited customization of what factors to track",
+          "source": "User feature requests",
+          "severity": "medium",
+          "frequency": "Moderate complaint",
+          "opportunity": "Nomie allows tracking any custom metric via hashtags"
+        },
+        {
+          "id": "exist-pain-5",
+          "description": "Web-only interface - no native mobile app",
+          "source": "User feedback",
+          "severity": "medium",
+          "frequency": "Common request",
+          "opportunity": "Nomie is mobile-first PWA with planned native apps"
+        }
+      ],
+      "strengths": [
+        "Excellent automatic data aggregation",
+        "Powerful correlation analysis",
+        "Beautiful dashboard visualizations",
+        "Integrations with many services",
+        "Well-designed insights"
+      ],
+      "market_position": "Premium life tracking dashboard for power users wanting automatic correlations"
+    },
+    {
+      "id": "competitor-finch",
+      "name": "Finch",
+      "url": "https://finchcare.com/",
+      "description": "Gamified self-care app with virtual pet that grows as you complete wellness activities",
+      "relevance": "medium",
+      "pain_points": [
+        {
+          "id": "finch-pain-1",
+          "description": "Gamification feels childish to some users - not for serious trackers",
+          "source": "App store reviews",
+          "severity": "medium",
+          "frequency": "Common feedback",
+          "opportunity": "Nomie offers serious tracking without forced gamification"
+        },
+        {
+          "id": "finch-pain-2",
+          "description": "Limited tracking depth - focus on wellness activities only",
+          "source": "User feedback seeking more customization",
+          "severity": "high",
+          "frequency": "Common for power users",
+          "opportunity": "Nomie allows tracking any custom metrics beyond just wellness"
+        },
+        {
+          "id": "finch-pain-3",
+          "description": "No data export or analysis capabilities",
+          "source": "App store reviews",
+          "severity": "medium",
+          "frequency": "Moderate complaint",
+          "opportunity": "Nomie offers full data export and analytics"
+        },
+        {
+          "id": "finch-pain-4",
+          "description": "Premium subscription required for many features",
+          "source": "App store reviews",
+          "severity": "medium",
+          "frequency": "Common complaint",
+          "opportunity": "Nomie is completely free"
+        }
+      ],
+      "strengths": [
+        "Engaging gamification for motivation",
+        "Good for building initial habits",
+        "Gentle approach to self-care",
+        "Community features",
+        "Well-designed mobile experience"
+      ],
+      "market_position": "Gamified self-care app targeting younger users wanting gentle motivation"
+    },
+    {
+      "id": "competitor-apple-health",
+      "name": "Apple Health",
+      "url": "https://www.apple.com/ios/health/",
+      "description": "Built-in iOS health tracking with automatic data from Apple devices and third-party apps",
+      "relevance": "medium",
+      "pain_points": [
+        {
+          "id": "apple-pain-1",
+          "description": "Difficult to manually input custom data - designed for automatic sensors",
+          "source": "User feedback and app store reviews",
+          "severity": "high",
+          "frequency": "Very common complaint",
+          "opportunity": "Nomie is designed specifically for quick manual entry"
+        },
+        {
+          "id": "apple-pain-2",
+          "description": "iOS-only - no cross-platform support",
+          "source": "User requests",
+          "severity": "high",
+          "frequency": "Blocker for non-iOS users",
+          "opportunity": "Nomie works on all platforms as a PWA"
+        },
+        {
+          "id": "apple-pain-3",
+          "description": "Limited to predefined health metrics - cannot track custom items",
+          "source": "User feedback",
+          "severity": "high",
+          "frequency": "Common limitation",
+          "opportunity": "Nomie allows tracking anything via hashtag system"
+        },
+        {
+          "id": "apple-pain-4",
+          "description": "No correlation or pattern analysis built-in",
+          "source": "User feedback seeking insights",
+          "severity": "medium",
+          "frequency": "Common request",
+          "opportunity": "Nomie has built-in correlation analysis"
+        }
+      ],
+      "strengths": [
+        "Automatic data collection from Apple devices",
+        "Seamless integration with iOS ecosystem",
+        "Medical ID and emergency features",
+        "Trusted by health institutions",
+        "Free and built-in to iOS"
+      ],
+      "market_position": "Default health data hub for iOS users, focused on automatic device data"
+    }
+  ],
+  "market_gaps": [
+    {
+      "id": "gap-1",
+      "description": "No major player offers privacy-respecting life tracking with local-first data and self-hosting option",
+      "affected_competitors": ["competitor-daylio", "competitor-bearable", "competitor-exist", "competitor-finch"],
+      "opportunity_size": "high",
+      "suggested_feature": "Emphasize local-first architecture and self-hosted sync as key differentiator in marketing and onboarding"
+    },
+    {
+      "id": "gap-2",
+      "description": "Most apps require subscription for correlation analysis - free alternative is underserved",
+      "affected_competitors": ["competitor-bearable", "competitor-exist"],
+      "opportunity_size": "high",
+      "suggested_feature": "Promote free correlation analysis as major differentiator; improve and highlight this feature"
+    },
+    {
+      "id": "gap-3",
+      "description": "Gap between simple trackers (Daylio) and complex apps (Bearable) - flexible middle ground needed",
+      "affected_competitors": ["competitor-daylio", "competitor-bearable"],
+      "opportunity_size": "high",
+      "suggested_feature": "Position Nomie's hashtag system as 'simple to start, powerful when needed'"
+    },
+    {
+      "id": "gap-4",
+      "description": "No strong cross-platform open-source option that rivals commercial apps in polish",
+      "affected_competitors": ["competitor-loop", "competitor-apple-health"],
+      "opportunity_size": "medium",
+      "suggested_feature": "Invest in UX polish and native app experience to compete with commercial apps"
+    },
+    {
+      "id": "gap-5",
+      "description": "Manual tracking combined with journaling capability is rare - most apps do one or the other",
+      "affected_competitors": ["competitor-daylio", "competitor-loop", "competitor-apple-health"],
+      "opportunity_size": "medium",
+      "suggested_feature": "Highlight the combination of structured tracking with free-form journaling"
+    },
+    {
+      "id": "gap-6",
+      "description": "Tracking relationships/people alongside activities is not offered by competitors",
+      "affected_competitors": ["competitor-daylio", "competitor-bearable", "competitor-exist"],
+      "opportunity_size": "medium",
+      "suggested_feature": "Emphasize unique @person tracking for social wellness correlation"
+    }
+  ],
+  "insights_summary": {
+    "top_pain_points": [
+      "Subscription pricing for premium features across all major competitors",
+      "Privacy concerns with data stored in proprietary clouds",
+      "Limited customization - users cannot track their specific metrics",
+      "Poor data export limiting users' ability to own and analyze their data",
+      "Lack of correlation analysis in free tiers",
+      "Platform lock-in (iOS-only, Android-only, or web-only)"
+    ],
+    "differentiator_opportunities": [
+      "Position as the privacy-first, self-hostable life tracker",
+      "Emphasize free correlation analysis vs paid competitor features",
+      "Highlight hashtag-based flexibility vs rigid competitor forms",
+      "Promote full data ownership with easy export",
+      "Market cross-platform PWA as 'works everywhere'",
+      "Unique people/relationship tracking capability"
+    ],
+    "market_trends": [
+      "Growing privacy awareness driving demand for local-first apps",
+      "Subscription fatigue making users seek free/open-source alternatives",
+      "Quantified self community seeking more flexible tracking tools",
+      "Interest in correlating different life factors (mood, sleep, exercise, etc.)",
+      "Demand for interoperability and data portability"
+    ]
+  },
+  "research_metadata": {
+    "search_queries_used": [
+      "Daylio app reviews complaints problems",
+      "Bearable health tracker app complaints issues reddit",
+      "Loop Habit Tracker app issues alternatives",
+      "Exist.io tracking app problems reviews",
+      "life tracking apps comparison 2024",
+      "quantified self app alternatives"
+    ],
+    "sources_consulted": [
+      "roadmap_discovery.json competitive context",
+      "App Store and Play Store review patterns (general knowledge)",
+      "Reddit communities: r/quantifiedself, r/daylio, r/ChronicIllness (general knowledge)",
+      "GitHub issues for open-source competitors (general knowledge)",
+      "AlternativeTo.net competitor comparisons (general knowledge)"
+    ],
+    "limitations": [
+      "WebSearch and WebFetch tools were unavailable - research based on existing discovery data and documented industry knowledge",
+      "Could not access real-time reviews or current user discussions",
+      "Pain points derived from commonly documented issues in training data, not live research",
+      "Recommend follow-up research with web access for current sentiment analysis"
+    ]
+  },
+  "created_at": "2026-01-11T12:00:00Z"
+}

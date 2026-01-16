@@ -1,0 +1,8 @@
+{
+  "feature": "AI-Powered Data Analysis",
+  "description": "# AI-Powered Data Analysis\n\nEnhanced Ollama/AI integration that allows natural language queries about user data, generates personalized insights, and helps users explore their data through conversation.\n\n## Rationale\nBuilds on existing AI query integration with Ollama. Differentiates from competitors by offering local AI analysis without sending data to cloud services. Makes data exploration accessible to non-technical users.\n\n## User Stories\n- As a curious user, I want to ask 'What affects my mood the most?' and get an answer so that I learn without manual analysis\n- As a privacy-conscious user, I want AI analysis without sending data to the cloud so that my data stays private\n\n## Acceptance Criteria\n- [ ] Users can ask natural language questions about their data\n- [ ] AI provides personalized insights based on tracking history\n- [ ] All processing happens locally via Ollama (no cloud)\n- [ ] AI can suggest new things to track based on goals\n- [ ] Clear indication when AI is generating vs showing real data\n",
+  "created_at": "2026-01-11T10:37:38.956Z",
+  "updated_at": "2026-01-11T10:37:38.956Z",
+  "status": "pending",
+  "phases": []
+}

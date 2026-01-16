@@ -1,0 +1,88 @@
+{
+  "documentation_gaps": [
+    {
+      "id": "doc-001",
+      "type": "documentation_gaps",
+      "title": "Create CONTRIBUTING.md with development setup and guidelines",
+      "description": "The project lacks a CONTRIBUTING.md file which is essential for open-source projects. New contributors have no guidance on development workflow, coding standards, commit conventions, testing requirements, or how to submit pull requests.",
+      "rationale": "As an open-source project (nomie6-oss), clear contribution guidelines are critical for community engagement. The README mentions coding rules but doesn't provide practical setup steps. The project uses commitizen/commitlint for commits but this isn't documented anywhere for new contributors.",
+      "category": "readme",
+      "targetAudience": "contributors",
+      "affectedAreas": ["CONTRIBUTING.md", "README.md"],
+      "currentDocumentation": "README has brief 'Coding Rules' section but no development workflow, testing instructions, or PR guidelines",
+      "proposedContent": "Create CONTRIBUTING.md covering: 1) Development environment setup (Node 16+, npm install, npm run dev), 2) Testing (npm test, npm run vtest, npm run cypress), 3) Commit conventions using commitizen (npm run commit), 4) Code style (ESLint, Prettier, TypeScript), 5) PR process and review expectations, 6) Issue reporting guidelines",
+      "priority": "high",
+      "estimatedEffort": "small"
+    },
+    {
+      "id": "doc-002",
+      "type": "documentation_gaps",
+      "title": "Add architecture overview documentation for core domains",
+      "description": "The src/domains/ directory contains 45+ domain modules (ledger, trackable, storage, usage, etc.) with no documentation explaining the architecture, module responsibilities, or data flow between them. Developers must read source code to understand system design.",
+      "rationale": "Understanding how Nomie's domain-driven architecture works is essential for making changes. The relationship between core modules (Ledger stores logs, TrackableStore manages trackables, Storage abstracts persistence) is not documented. This creates a steep learning curve for new developers.",
+      "category": "architecture",
+      "targetAudience": "developers",
+      "affectedAreas": ["docs/architecture/", "src/domains/README.md"],
+      "currentDocumentation": "Only src/domains/uom/README.md exists (for unit of measurement). No other domain has documentation.",
+      "proposedContent": "Create docs/architecture/ with: 1) System overview diagram showing main domains and their relationships, 2) Core concepts (Log, Trackable, Tracker, Person, Context, Board), 3) Data flow from user input to storage, 4) Storage engine abstraction (LocalForage, PouchDB), 5) State management pattern (Svelte stores)",
+      "priority": "high",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "doc-003",
+      "type": "documentation_gaps",
+      "title": "Document the Storage module API and engine configuration",
+      "description": "The storage system (src/domains/storage/) supports multiple backends (LocalForage, PouchDB/CouchDB) but lacks API documentation. The IStorage interface exports 10+ methods with no JSDoc. Configuration options for CouchDB sync are unclear.",
+      "rationale": "Storage is critical infrastructure that determines how user data is persisted and synced. The storage.ts file has a brief 5-line header comment but no function documentation. Users wanting to set up CouchDB sync must figure it out from docker-compose.yml and source code.",
+      "category": "api_docs",
+      "targetAudience": "developers",
+      "affectedAreas": ["src/domains/storage/storage.ts", "src/domains/storage/engines/", "docs/configuration/storage.md"],
+      "currentDocumentation": "Minimal: 5-line comment in storage.ts, no docs for StorageEngines or engine configuration",
+      "proposedContent": "Add comprehensive JSDoc to storage.ts (IStorage interface, get/put/delete/list methods, engine switching). Create docs/configuration/storage.md explaining: 1) Available storage engines, 2) LocalForage for local-only mode, 3) CouchDB setup and configuration, 4) Data migration between engines",
+      "priority": "medium",
+      "estimatedEffort": "medium"
+    },
+    {
+      "id": "doc-004",
+      "type": "documentation_gaps",
+      "title": "Add testing documentation and examples",
+      "description": "The project has testing infrastructure (Jest, Vitest, Cypress) with 41 test files, but no documentation on how to run tests, write new tests, or understand test organization. The README mentions no testing commands.",
+      "rationale": "Testing is essential for maintaining code quality. Package.json has 6 test-related scripts (test, test-coverage, cypress, vtest, vtest:coverage) but none are documented. New contributors don't know how to verify their changes don't break existing functionality.",
+      "category": "readme",
+      "targetAudience": "contributors",
+      "affectedAreas": ["README.md", "docs/testing/README.md", "CONTRIBUTING.md"],
+      "currentDocumentation": "Only iOS-specific testing docs exist in docs/testing/. No general testing documentation.",
+      "proposedContent": "Add Testing section to README covering: 1) Unit tests with Vitest (npm run vtest), 2) Jest tests (npm test), 3) E2E tests with Cypress (npm run cypress), 4) Test file conventions (*.spec.ts), 5) Coverage reports. Create docs/testing/README.md with examples of writing tests for stores and components.",
+      "priority": "medium",
+      "estimatedEffort": "small"
+    },
+    {
+      "id": "doc-005",
+      "type": "documentation_gaps",
+      "title": "Document the TrackableStore and Trackable class APIs",
+      "description": "TrackableStore.ts and Trackable.class.ts are core modules that manage all trackable entities (trackers, people, context, pointers). They export 14+ functions but only have 5 JSDoc comments. Key functions like saveTrackable, deleteTrackableFromNomie, and InitTrackableStore lack documentation.",
+      "rationale": "The Trackable system is fundamental to Nomie - it's the abstraction layer for all things users can track. Developers building plugins or extending functionality need to understand how to work with trackables. The LedgerStore has better documentation (30 JSDoc comments) and should serve as the model.",
+      "category": "api_docs",
+      "targetAudience": "developers",
+      "affectedAreas": ["src/domains/trackable/TrackableStore.ts", "src/domains/trackable/Trackable.class.ts", "src/domains/trackable/trackable-utils.ts"],
+      "currentDocumentation": "Partial: Some functions have brief comments, but parameters, return types, and usage examples are missing",
+      "proposedContent": "Add complete JSDoc documentation to: 1) TrackableStore exports (InitTrackableStore, saveTrackable, deleteTrackableFromNomie, etc.), 2) Trackable class methods and properties, 3) Derived stores (AllTrackables, AllTrackerTrackables, etc.), 4) Type definitions (ITrackables, SaveTrackableProps). Include code examples for common operations.",
+      "priority": "medium",
+      "estimatedEffort": "medium"
+    }
+  ],
+  "metadata": {
+    "filesAnalyzed": 816,
+    "typescriptFiles": 324,
+    "svelteFiles": 492,
+    "documentedFilesWithJSDoc": 88,
+    "totalJSDocComments": 408,
+    "markdownFilesInProject": 11,
+    "domainModulesWithReadme": 1,
+    "domainModulesTotal": 45,
+    "existingDocsFiles": ["README.md", "AI_QUERY_SETUP.md", "RELEASENOTES.md", "20230801_update.md", "docs/testing/MANUAL-TEST-INSTRUCTIONS.md", "docs/testing/capacitor-baseline-test.md", "src/domains/uom/README.md"],
+    "missingCriticalDocs": ["CONTRIBUTING.md", "docs/architecture/", "API documentation coverage"],
+    "readmeLastUpdated": "2024-01-09",
+    "generatedAt": "2026-01-11T11:20:00Z"
+  }
+}

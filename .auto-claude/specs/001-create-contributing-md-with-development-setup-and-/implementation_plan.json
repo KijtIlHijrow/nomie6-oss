@@ -1,0 +1,13 @@
+{
+  "feature": "Create CONTRIBUTING.md with development setup and guidelines",
+  "description": "The project lacks a CONTRIBUTING.md file which is essential for open-source projects. New contributors have no guidance on development workflow, coding standards, commit conventions, testing requirements, or how to submit pull requests.",
+  "created_at": "2026-01-11T10:21:24.691Z",
+  "updated_at": "2026-01-11T10:21:24.692Z",
+  "status": "backlog",
+  "planStatus": "pending",
+  "phases": [],
+  "workflow_type": "development",
+  "services_involved": [],
+  "final_acceptance": [],
+  "spec_file": "spec.md"
+}

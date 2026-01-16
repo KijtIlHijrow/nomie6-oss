@@ -1,0 +1,738 @@
+{
+  "id": "ideation-20260111-111741",
+  "project_id": "/Users/keith.ruggier/nomie6-oss",
+  "config": {
+    "enabled_types": [
+      "code_improvements",
+      "ui_ux_improvements",
+      "security_hardening",
+      "documentation_gaps",
+      "performance_optimizations",
+      "code_quality"
+    ],
+    "include_roadmap_context": true,
+    "include_kanban_context": true,
+    "max_ideas_per_type": 5
+  },
+  "ideas": [
+    {
+      "id": "ci-001",
+      "type": "code_improvements",
+      "title": "Extend Keyboard Shortcuts System",
+      "description": "Add more keyboard shortcuts beyond Cmd+P for search. Could add Cmd+N for new entry, Cmd+G for goals, Cmd+D for dashboard, and Cmd+T for timers - all following the existing keydown pattern.",
+      "rationale": "AppKeyCommands.svelte has the keyboard shortcut pattern already established with svelte:window on:keydown. Only Cmd+P (search) is implemented. The pattern is trivial to extend - just add more conditions in the onKeyDown handler.",
+      "builds_upon": [
+        "AppKeyCommands.svelte keyboard handler pattern",
+        "openUnisearch() modal opening pattern"
+      ],
+      "estimated_effort": "trivial",
+      "affected_files": [
+        "src/AppKeyCommands.svelte"
+      ],
+      "existing_patterns": [
+        "svelte:window on:keydown event binding",
+        "modal opening via stores (openModal, openUnisearch)"
+      ],
+      "implementation_approach": "Add additional key checks in the existing onKeyDown function. For each new shortcut, check evt.key and evt.metaKey, then call the appropriate store function (e.g., openCaptureLog for new entry). Similar to how openUnisearch is called for Cmd+P.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "ci-002",
+      "type": "code_improvements",
+      "title": "Add Streak Dashboard Widget Type",
+      "description": "Add a new 'Streak' widget type to the dashboard that displays streak information for a trackable. The streak visualization already exists in streak-modal.svelte - this exposes it as a dashboard widget.",
+      "rationale": "Widget types are defined in widget-types.ts with a clear IWidgetType interface pattern. Streak display logic exists in domains/steak/. Adding a new widget type just requires adding to the widgetTypes array and creating the widget renderer component following the existing widget patterns.",
+      "builds_upon": [
+        "Dashboard widget system",
+        "StreakModalStore and streak calculation logic"
+      ],
+      "estimated_effort": "small",
+      "affected_files": [
+        "src/domains/dashboard2/widget/widget-types.ts",
+        "src/domains/dashboard2/widget/"
+      ],
+      "existing_patterns": [
+        "IWidgetType interface with requires/optional arrays",
+        "Widget renderer components pattern",
+        "Streak calculation from StreakModalStore"
+      ],
+      "implementation_approach": "1. Add new IWidgetType entry for 'streak' in widget-types.ts with requires: ['timeframe', 'token']. 2. Create a streak-widget.svelte component that imports streak calculation logic from steak domain. 3. Add the widget renderer to the widget display system following existing patterns like value-widget or habit-widget.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "ci-003",
+      "type": "code_improvements",
+      "title": "Add CSV Export for Trackable Usage Data",
+      "description": "Add ability to export trackable usage data as CSV in addition to the existing JSON backup. Users could export their tracker history for specific trackers or date ranges to CSV format.",
+      "rationale": "JSON export exists in storage/import-export.ts with progress indicators. CSV download utility exists in modules/download/download.ts (download.csv method). CSV export module exists in modules/export/csv.ts. All infrastructure is in place - just need to wire them together for trackable-specific export.",
+      "builds_upon": [
+        "JSON export in import-export.ts",
+        "download.csv() utility",
+        "CSV module in modules/export/csv.ts"
+      ],
+      "estimated_effort": "small",
+      "affected_files": [
+        "src/domains/storage/import-export.ts",
+        "src/domains/trackable/trackable-utils.ts",
+        "src/routes/export.svelte"
+      ],
+      "existing_patterns": [
+        "exportStorage() function with Interact.blocker progress",
+        "download.csv() for file download",
+        "TrackableUsage class for usage data"
+      ],
+      "implementation_approach": "1. Create exportTrackableToCSV function in import-export.ts following exportStorage pattern. 2. Use TrackableUsage to get usage data for selected trackables. 3. Format as CSV using modules/export/csv.ts utilities. 4. Trigger download using download.csv(). 5. Add UI option in export.svelte or trackable-editor-actions.svelte.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "ci-004",
+      "type": "code_improvements",
+      "title": "Goal Progress Toast Notifications",
+      "description": "Add optional toast notifications for goal progress - notify user when approaching goal target, when goal is achieved, or when goal streak is at risk. Leverages existing toast and goal scoring patterns.",
+      "rationale": "Toast notification system exists in ToastStore.ts with showToast() function. Goal scoring exists in goal-class.ts with calculateScores() method. Award notification pattern in AwardsStore.ts shows how to trigger notifications on achievements. Combining these patterns enables goal progress notifications.",
+      "builds_upon": [
+        "ToastStore.ts notification system",
+        "GoalClass.calculateScores() for goal progress",
+        "AwardsStore pattern for achievement notifications"
+      ],
+      "estimated_effort": "medium",
+      "affected_files": [
+        "src/domains/goals/GoalStore.ts",
+        "src/domains/goals/goal-utils.ts",
+        "src/components/toast/ToastStore.ts"
+      ],
+      "existing_patterns": [
+        "showToast() for notifications",
+        "GoalScoreType with success/failure/percent",
+        "awardMonitorAppOpened pattern for triggering on app open"
+      ],
+      "implementation_approach": "1. Add goalMonitorOnAppOpen function in GoalStore.ts similar to awardMonitorAppOpened. 2. Calculate goal progress using GoalClass.calculateScores(). 3. Check for goals approaching target (e.g., 80%+ complete) or at risk (0 progress today on daily goal). 4. Show toast notifications using showToast() with appropriate messages. 5. Add preference toggle in Preferences.ts to enable/disable notifications.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "ci-005",
+      "type": "code_improvements",
+      "title": "Bulk Log Operations (Delete/Edit Multiple)",
+      "description": "Add ability to select and delete/edit multiple log entries at once. The log list already shows entries - add multi-select mode with bulk actions.",
+      "rationale": "LedgerStore has single log operations (saveLog, deleteLogs). Export uses chunking pattern for bulk operations in import-export.ts. Log list display exists in components/log-list/. Adding multi-select and bulk actions follows existing patterns.",
+      "builds_upon": [
+        "LedgerStore log operations",
+        "Chunking pattern from import-export.ts",
+        "Log list components"
+      ],
+      "estimated_effort": "medium",
+      "affected_files": [
+        "src/components/log-list/log-list.svelte",
+        "src/domains/ledger/LedgerStore.ts",
+        "src/domains/nomie-log/LogEditorStore.ts"
+      ],
+      "existing_patterns": [
+        "chunk() for batch processing",
+        "Interact.blocker() for progress indication",
+        "LogDisplayStore for log display state"
+      ],
+      "implementation_approach": "1. Add multiSelectMode state to log-list.svelte component. 2. Add selectedLogs array to track selected entries. 3. Create bulkDeleteLogs function in LedgerStore.ts using chunk pattern from import-export.ts. 4. Add floating action bar when in multi-select mode with delete/edit actions. 5. Use Interact.blocker() for progress during bulk operations.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "uiux-001",
+      "type": "ui_ux_improvements",
+      "title": "Add Hover States to Interactive List Items",
+      "description": "Add consistent hover state feedback to clickable list items throughout the application to improve perceived interactivity",
+      "rationale": "Analysis shows only 28 hover state occurrences across 6 files in the entire codebase. Interactive elements like ListItem components with clickable=true lack visual hover feedback, making it unclear what's clickable. This is a fundamental UX pattern that's currently missing.",
+      "category": "interaction",
+      "affected_components": [
+        "src/components/list-item/list-item.svelte",
+        "src/components/list-item/list-item.css"
+      ],
+      "screenshots": [],
+      "current_state": "ListItem components with clickable prop only have :active state feedback via .hit-mark overlay. There is no hover state styling, making it unclear to desktop users which items are interactive before clicking.",
+      "proposed_change": "Add hover styles to the n-item class in list-item.css: .n-item.clickable:hover { @apply bg-gray-100 dark:bg-gray-800; } and transition smoothly with @apply transition-colors duration-150. This provides immediate visual feedback that an item is interactive.",
+      "user_benefit": "Users on desktop/mouse devices immediately understand which items are clickable, reducing hesitation and improving confidence in the interface. Creates a more polished, professional feel.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "uiux-002",
+      "type": "ui_ux_improvements",
+      "title": "Add ARIA Live Regions to Toast Notifications",
+      "description": "Add aria-live='polite' to toast notifications so screen reader users are notified of transient messages",
+      "rationale": "Toast component (toast.svelte) has role='dialog' but lacks aria-live attribute. Screen reader users won't be notified of success/failure toasts which are critical for feedback. Accessibility audit shows only 50 ARIA attribute usages across 26 files indicating accessibility gaps.",
+      "category": "accessibility",
+      "affected_components": [
+        "src/components/toast/toast.svelte",
+        "src/components/toast/toasts.svelte"
+      ],
+      "screenshots": [],
+      "current_state": "Toast notifications appear visually but are not announced to screen readers. The toast.svelte has role='dialog' but toasts are better suited for aria-live regions since they don't require focus and are transient announcements.",
+      "proposed_change": "In toasts.svelte container, add aria-live='polite' and aria-atomic='true' to the wrapper div. Change individual toast role from 'dialog' to 'status' for informational toasts and 'alert' for error/warning toasts. Add aria-label describing the notification type.",
+      "user_benefit": "Screen reader users will be notified of success messages, errors, and system feedback without interrupting their current focus. Makes the app accessible to visually impaired users who depend on screen readers.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "uiux-003",
+      "type": "ui_ux_improvements",
+      "title": "Implement Skeleton Loading Pattern for Data Lists",
+      "description": "Add skeleton/shimmer loading states instead of simple spinners for data-heavy views like history, timeline, and stats",
+      "rationale": "Currently the app uses spinner.svelte for loading states (15+ files reference isLoading). While spinners are fine for brief loads, skeleton screens reduce perceived loading time by showing the structure of content before it loads. No skeleton pattern exists despite 52 files using placeholders.",
+      "category": "performance",
+      "affected_components": [
+        "src/components/spinner/spinner.svelte",
+        "src/routes/history.svelte",
+        "src/domains/timeline/timeline-loader.svelte",
+        "src/domains/stats2/stats2-modal.svelte"
+      ],
+      "screenshots": [],
+      "current_state": "Loading states show a centered spinner (Circle3.svelte) while fetching data. This provides minimal information about what will appear and can feel slow for longer loads. Users see an empty screen with a spinning indicator.",
+      "proposed_change": "Create a new skeleton.svelte component with animated pulse effect using Tailwind's animate-pulse. Create specific skeleton variants: SkeletonListItem, SkeletonCard, SkeletonChart. Replace spinner usage in history.svelte and timeline-loader.svelte with appropriate skeletons that mirror the actual content layout.",
+      "user_benefit": "Users perceive faster loading as they see the page structure immediately. Skeleton screens reduce anxiety about whether the app is working and set expectations for the content that will appear. Research shows this can reduce perceived wait time by up to 30%.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "uiux-004",
+      "type": "ui_ux_improvements",
+      "title": "Standardize Focus Ring Styling Across Components",
+      "description": "Create consistent focus indicator styling across all interactive elements for keyboard navigation accessibility",
+      "rationale": "Analysis shows 42 occurrences of focus:ring across 28 files with inconsistent implementation. Some use ring-primary-500, others ring-yellow-500, and many interactive elements lack focus indicators entirely. This creates an inconsistent and inaccessible keyboard navigation experience.",
+      "category": "accessibility",
+      "affected_components": [
+        "src/components/button/button.css",
+        "src/components/input/input.svelte",
+        "src/components/list-item/list-item.svelte",
+        "src/style/main.css"
+      ],
+      "screenshots": [],
+      "current_state": "Focus styling is inconsistent: buttons use ring-primary-500, header buttons use ring-yellow-500, some inputs use focus:ring-2, and many components have focus:outline-none without alternative focus indicators. Non-button clickables like list items lack focus styles entirely.",
+      "proposed_change": "Add a focus utility class in main.css: .focus-visible-ring { @apply focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:outline-none; }. Apply this consistently to all interactive elements. Use focus-visible instead of focus to only show ring for keyboard navigation (not mouse clicks). Add tabindex='0' and focus styles to clickable list items.",
+      "user_benefit": "Keyboard users can easily navigate the entire application with clear visibility of where they are. Creates an inclusive experience for users who cannot use a mouse due to motor disabilities. Also helps power users who prefer keyboard shortcuts.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "uiux-005",
+      "type": "ui_ux_improvements",
+      "title": "Add Confirmation Animation to Confirm Button Pattern",
+      "description": "Improve the visual feedback for the button confirm pattern with clearer animation and instructional text",
+      "rationale": "The button.svelte has a clever confirm pattern (click once to prime, click again to confirm) but the current UX is confusing. The button just turns red with animate-pulse, providing no instruction that a second click is needed.",
+      "category": "usability",
+      "affected_components": [
+        "src/components/button/button.svelte",
+        "src/components/button/button.css"
+      ],
+      "screenshots": [],
+      "current_state": "When confirm=true on a button, clicking once sets confirming=true which applies bg-red-500 and animate-pulse classes. The original button text remains, and there's no indication to the user that they need to click again. After 3 seconds it resets silently.",
+      "proposed_change": "Replace the confirmation animation with: 1) Show 'Tap again to confirm' text or original text with confirmation icon overlay, 2) Add a countdown indicator (subtle progress bar or timer animation) showing the 3-second window, 3) Use transform and scale animation rather than just color pulse for more obvious state change. Update the empty div in line 94-98 to actually render confirmation UI.",
+      "user_benefit": "Users understand immediately that an action requires confirmation and how to complete or cancel it. Reduces accidental destructive actions while making intentional confirmations faster. Eliminates confusion about why the button changed color.",
+      "status": "draft",
+      "created_at": "2026-01-11T11:20:00.000Z"
+    },
+    {
+      "id": "sec-001",
+      "type": "security_hardening",
+      "title": "Remove hardcoded CouchDB credentials from docker-compose.yml",
+      "description": "The docker-compose.yml file contains hardcoded database credentials (COUCHDB_USER=admin, COUCHDB_PASSWORD=nomie123). These weak default credentials are committed to version control and pose a significant security risk if the application is deployed without changing them.",
+      "rationale": "Hardcoded credentials in version control can be discovered by attackers through public repositories, exposed in CI/CD logs, or used by malicious insiders. The weak password 'nomie123' is easily guessable and provides administrative access to the CouchDB database containing all user data.",
+      "category": "secrets_management",
+      "severity": "critical",
+      "affectedFiles": [
+        "docker-compose.yml"
+      ],
+      "vulnerability": "CWE-798: Use of Hard-coded Credentials",
+      "currentRisk": "Attacker can gain full administrative access to CouchDB database using default credentials, potentially compromising all stored user data including personal tracking information",
+      "remediation": "1) Use environment variables loaded from a .env file (not committed to git) for credentials. 2) Add .env to .gitignore. 3) Create a .env.example with placeholder values. 4) Use Docker secrets or a secrets manager (e.g., HashiCorp Vault) for production deployments. 5) Enforce strong password requirements.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/798.html",
+        "https://owasp.org/www-community/vulnerabilities/Use_of_hard-coded_password"
+      ],
+      "compliance": [
+        "SOC2",
+        "PCI-DSS",
+        "GDPR"
+      ]
+    },
+    {
+      "id": "sec-002",
+      "type": "security_hardening",
+      "title": "Strengthen encryption implementation with proper IV and authenticated encryption",
+      "description": "The encryption module (src/utils/encrypt/encrypt.ts) uses CryptoJS.AES without specifying an Initialization Vector (IV) and without authenticated encryption. The password is used directly as the encryption key without a proper key derivation function (KDF).",
+      "rationale": "Without a random IV, identical plaintexts will produce identical ciphertexts, enabling pattern analysis attacks. Without authenticated encryption (like AES-GCM), the ciphertext can be tampered with without detection. Using a password directly as a key (without PBKDF2/scrypt) makes the encryption vulnerable to brute-force attacks.",
+      "category": "data_protection",
+      "severity": "high",
+      "affectedFiles": [
+        "src/utils/encrypt/encrypt.ts"
+      ],
+      "vulnerability": "CWE-327: Use of a Broken or Risky Cryptographic Algorithm",
+      "currentRisk": "Encrypted user data may be vulnerable to pattern analysis, tampering attacks, and brute-force key recovery. Sensitive personal tracking data could be compromised.",
+      "remediation": "1) Generate a random IV for each encryption operation and prepend it to the ciphertext. 2) Use AES-GCM for authenticated encryption. 3) Implement a key derivation function (PBKDF2 with 100,000+ iterations or scrypt) to derive the encryption key from the user's password. 4) Consider using the Web Crypto API (SubtleCrypto) instead of CryptoJS for better security and performance.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/327.html",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html"
+      ],
+      "compliance": [
+        "SOC2",
+        "HIPAA",
+        "GDPR"
+      ]
+    },
+    {
+      "id": "sec-003",
+      "type": "security_hardening",
+      "title": "Secure storage of CouchDB remote credentials",
+      "description": "The PouchDB engine (src/domains/storage/engines/pouchdb/engine.pouchdb.ts) stores CouchDB remote sync credentials (username, password) in localStorage in plaintext via Storage.local.put('pouchdb-remote', remote). This data persists and is accessible to any JavaScript running on the page.",
+      "rationale": "Storing credentials in localStorage makes them accessible through XSS attacks, browser extensions, and physical access to the device. An XSS vulnerability anywhere in the application could lead to credential theft and unauthorized access to the user's remote CouchDB instance.",
+      "category": "secrets_management",
+      "severity": "high",
+      "affectedFiles": [
+        "src/domains/storage/engines/pouchdb/engine.pouchdb.ts",
+        "src/domains/storage/storage.ts"
+      ],
+      "vulnerability": "CWE-922: Insecure Storage of Sensitive Information",
+      "currentRisk": "Remote database credentials could be stolen through XSS, malicious browser extensions, or physical device access, allowing attackers to access or modify all synced user data",
+      "remediation": "1) Encrypt credentials before storing in localStorage using a key derived from user authentication. 2) Consider using the browser's Credential Management API for credential storage. 3) Implement session-based authentication with short-lived tokens instead of storing raw passwords. 4) Use IndexedDB with encryption for more secure local storage. 5) Clear credentials on logout.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/922.html",
+        "https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#local-storage"
+      ],
+      "compliance": [
+        "SOC2",
+        "GDPR"
+      ]
+    },
+    {
+      "id": "sec-004",
+      "type": "security_hardening",
+      "title": "Implement Content Security Policy (CSP) header",
+      "description": "The nginx.conf includes basic security headers (X-Frame-Options, X-Content-Type-Options, X-XSS-Protection) but lacks a Content Security Policy (CSP) header. The development environment (Vite dev server) has no security headers configured. CSP is the primary defense against XSS attacks.",
+      "rationale": "Without CSP, the application is more vulnerable to XSS attacks, inline script injection, and data exfiltration. CSP provides defense-in-depth by restricting the sources from which scripts, styles, and other resources can be loaded, significantly reducing the attack surface.",
+      "category": "configuration",
+      "severity": "medium",
+      "affectedFiles": [
+        "nginx.conf",
+        "vite.config.mjs"
+      ],
+      "vulnerability": "CWE-1021: Improper Restriction of Rendered UI Layers or Frames",
+      "currentRisk": "XSS attacks could execute arbitrary JavaScript, steal user data, or perform actions on behalf of the user. The application tracks sensitive personal data making XSS particularly dangerous.",
+      "remediation": "1) Add a strict CSP header to nginx.conf: Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://localhost:11434 https://*.couchdb.com; 2) Configure Vite to add security headers in development. 3) Use nonces or hashes for any inline scripts. 4) Remove 'unsafe-inline' from script-src if possible. 5) Set up CSP reporting to monitor violations.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/1021.html",
+        "https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP",
+        "https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html"
+      ],
+      "compliance": [
+        "SOC2",
+        "PCI-DSS"
+      ]
+    },
+    {
+      "id": "sec-005",
+      "type": "security_hardening",
+      "title": "Remove global window object exposures for sensitive modules",
+      "description": "Multiple sensitive modules are exposed on the global window object: window['NStorage'] (storage engine), window['interact'] (interaction methods), and window['Feature'] (feature flags). These expose internal application APIs that could be abused through browser console or XSS attacks.",
+      "rationale": "Exposing internal APIs on the global window object allows attackers who gain JavaScript execution (through XSS, browser console, or malicious extensions) to directly manipulate application state, access stored data, or bypass intended user flows. This violates the principle of least privilege.",
+      "category": "authorization",
+      "severity": "medium",
+      "affectedFiles": [
+        "src/domains/storage/storage.ts",
+        "src/store/interact.ts",
+        "src/App.svelte"
+      ],
+      "vulnerability": "CWE-749: Exposed Dangerous Method or Function",
+      "currentRisk": "An attacker with JavaScript execution capability could directly access the storage layer to read/modify user data, trigger UI interactions, or access feature flags without going through proper application flows",
+      "remediation": "1) Remove window object assignments in production builds using environment-based conditionals. 2) Keep debug assignments only in development mode: if (import.meta.env.DEV) { window['NStorage'] = Storage }. 3) Consider using proper debugging tools instead of global exposure. 4) Implement access controls on sensitive storage operations.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/749.html",
+        "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/12-Testing_Browser_Storage"
+      ],
+      "compliance": [
+        "SOC2"
+      ]
+    },
+    {
+      "id": "doc-001",
+      "type": "documentation_gaps",
+      "title": "Create CONTRIBUTING.md with development setup and guidelines",
+      "description": "The project lacks a CONTRIBUTING.md file which is essential for open-source projects. New contributors have no guidance on development workflow, coding standards, commit conventions, testing requirements, or how to submit pull requests.",
+      "rationale": "As an open-source project (nomie6-oss), clear contribution guidelines are critical for community engagement. The README mentions coding rules but doesn't provide practical setup steps. The project uses commitizen/commitlint for commits but this isn't documented anywhere for new contributors.",
+      "category": "readme",
+      "targetAudience": "contributors",
+      "affectedAreas": [
+        "CONTRIBUTING.md",
+        "README.md"
+      ],
+      "currentDocumentation": "README has brief 'Coding Rules' section but no development workflow, testing instructions, or PR guidelines",
+      "proposedContent": "Create CONTRIBUTING.md covering: 1) Development environment setup (Node 16+, npm install, npm run dev), 2) Testing (npm test, npm run vtest, npm run cypress), 3) Commit conventions using commitizen (npm run commit), 4) Code style (ESLint, Prettier, TypeScript), 5) PR process and review expectations, 6) Issue reporting guidelines",
+      "priority": "high",
+      "estimatedEffort": "small",
+      "status": "archived",
+      "linked_task_id": "001-create-contributing-md-with-development-setup-and-"
+    },
+    {
+      "id": "doc-002",
+      "type": "documentation_gaps",
+      "title": "Add architecture overview documentation for core domains",
+      "description": "The src/domains/ directory contains 45+ domain modules (ledger, trackable, storage, usage, etc.) with no documentation explaining the architecture, module responsibilities, or data flow between them. Developers must read source code to understand system design.",
+      "rationale": "Understanding how Nomie's domain-driven architecture works is essential for making changes. The relationship between core modules (Ledger stores logs, TrackableStore manages trackables, Storage abstracts persistence) is not documented. This creates a steep learning curve for new developers.",
+      "category": "architecture",
+      "targetAudience": "developers",
+      "affectedAreas": [
+        "docs/architecture/",
+        "src/domains/README.md"
+      ],
+      "currentDocumentation": "Only src/domains/uom/README.md exists (for unit of measurement). No other domain has documentation.",
+      "proposedContent": "Create docs/architecture/ with: 1) System overview diagram showing main domains and their relationships, 2) Core concepts (Log, Trackable, Tracker, Person, Context, Board), 3) Data flow from user input to storage, 4) Storage engine abstraction (LocalForage, PouchDB), 5) State management pattern (Svelte stores)",
+      "priority": "high",
+      "estimatedEffort": "medium",
+      "status": "archived",
+      "linked_task_id": "002-add-architecture-overview-documentation-for-core-d"
+    },
+    {
+      "id": "doc-003",
+      "type": "documentation_gaps",
+      "title": "Document the Storage module API and engine configuration",
+      "description": "The storage system (src/domains/storage/) supports multiple backends (LocalForage, PouchDB/CouchDB) but lacks API documentation. The IStorage interface exports 10+ methods with no JSDoc. Configuration options for CouchDB sync are unclear.",
+      "rationale": "Storage is critical infrastructure that determines how user data is persisted and synced. The storage.ts file has a brief 5-line header comment but no function documentation. Users wanting to set up CouchDB sync must figure it out from docker-compose.yml and source code.",
+      "category": "api_docs",
+      "targetAudience": "developers",
+      "affectedAreas": [
+        "src/domains/storage/storage.ts",
+        "src/domains/storage/engines/",
+        "docs/configuration/storage.md"
+      ],
+      "currentDocumentation": "Minimal: 5-line comment in storage.ts, no docs for StorageEngines or engine configuration",
+      "proposedContent": "Add comprehensive JSDoc to storage.ts (IStorage interface, get/put/delete/list methods, engine switching). Create docs/configuration/storage.md explaining: 1) Available storage engines, 2) LocalForage for local-only mode, 3) CouchDB setup and configuration, 4) Data migration between engines",
+      "priority": "medium",
+      "estimatedEffort": "medium",
+      "status": "archived",
+      "linked_task_id": "003-document-the-storage-module-api-and-engine-configu"
+    },
+    {
+      "id": "doc-004",
+      "type": "documentation_gaps",
+      "title": "Add testing documentation and examples",
+      "description": "The project has testing infrastructure (Jest, Vitest, Cypress) with 41 test files, but no documentation on how to run tests, write new tests, or understand test organization. The README mentions no testing commands.",
+      "rationale": "Testing is essential for maintaining code quality. Package.json has 6 test-related scripts (test, test-coverage, cypress, vtest, vtest:coverage) but none are documented. New contributors don't know how to verify their changes don't break existing functionality.",
+      "category": "readme",
+      "targetAudience": "contributors",
+      "affectedAreas": [
+        "README.md",
+        "docs/testing/README.md",
+        "CONTRIBUTING.md"
+      ],
+      "currentDocumentation": "Only iOS-specific testing docs exist in docs/testing/. No general testing documentation.",
+      "proposedContent": "Add Testing section to README covering: 1) Unit tests with Vitest (npm run vtest), 2) Jest tests (npm test), 3) E2E tests with Cypress (npm run cypress), 4) Test file conventions (*.spec.ts), 5) Coverage reports. Create docs/testing/README.md with examples of writing tests for stores and components.",
+      "priority": "medium",
+      "estimatedEffort": "small"
+    },
+    {
+      "id": "doc-005",
+      "type": "documentation_gaps",
+      "title": "Document the TrackableStore and Trackable class APIs",
+      "description": "TrackableStore.ts and Trackable.class.ts are core modules that manage all trackable entities (trackers, people, context, pointers). They export 14+ functions but only have 5 JSDoc comments. Key functions like saveTrackable, deleteTrackableFromNomie, and InitTrackableStore lack documentation.",
+      "rationale": "The Trackable system is fundamental to Nomie - it's the abstraction layer for all things users can track. Developers building plugins or extending functionality need to understand how to work with trackables. The LedgerStore has better documentation (30 JSDoc comments) and should serve as the model.",
+      "category": "api_docs",
+      "targetAudience": "developers",
+      "affectedAreas": [
+        "src/domains/trackable/TrackableStore.ts",
+        "src/domains/trackable/Trackable.class.ts",
+        "src/domains/trackable/trackable-utils.ts"
+      ],
+      "currentDocumentation": "Partial: Some functions have brief comments, but parameters, return types, and usage examples are missing",
+      "proposedContent": "Add complete JSDoc documentation to: 1) TrackableStore exports (InitTrackableStore, saveTrackable, deleteTrackableFromNomie, etc.), 2) Trackable class methods and properties, 3) Derived stores (AllTrackables, AllTrackerTrackables, etc.), 4) Type definitions (ITrackables, SaveTrackableProps). Include code examples for common operations.",
+      "priority": "medium",
+      "estimatedEffort": "medium",
+      "status": "archived",
+      "linked_task_id": "004-document-the-trackablestore-and-trackable-class-ap"
+    },
+    {
+      "id": "perf-001",
+      "type": "performance_optimizations",
+      "title": "Lazy load Plotly.js to reduce initial bundle size by ~3MB",
+      "description": "The analytics view imports plotly.js-dist-min (~3MB minified) at the top level via `import Plotly from 'plotly.js-dist-min'`. This massive library is loaded for all users even if they never use the analytics/pivot table feature. Plotly should be dynamically imported only when the analytics view is accessed.",
+      "rationale": "Plotly.js is one of the largest charting libraries available. Loading it synchronously on app start dramatically increases Time to Interactive and First Contentful Paint. The analytics feature is an advanced feature that many users may never access, making this an excellent candidate for code splitting.",
+      "category": "bundle_size",
+      "impact": "high",
+      "affectedAreas": [
+        "src/domains/analytics/analytics-view.svelte",
+        "src/domains/analytics/Pivot-table/PlotlyRenderers.js",
+        "src/domains/analytics/Pivot-table/PlotlyRenderer.svelte",
+        "src/domains/analytics/Pivot-table/ScatterRenderer.svelte"
+      ],
+      "currentMetric": "~3MB added to initial bundle from plotly.js-dist-min",
+      "expectedImprovement": "~3MB reduction in initial bundle, 40-60% faster initial page load on slower connections",
+      "implementation": "1. Convert Plotly import to dynamic import: `const Plotly = await import('plotly.js-dist-min')`\n2. Show loading spinner while Plotly loads\n3. Update PlotlyRenderers.js to accept Plotly as a parameter\n4. Consider preloading Plotly when user hovers over analytics nav item",
+      "tradeoffs": "Slight delay when first accessing analytics view (~1-2s on slower connections)",
+      "estimatedEffort": "small",
+      "status": "archived",
+      "linked_task_id": "005-lazy-load-plotly-js-to-reduce-initial-bundle-size-"
+    },
+    {
+      "id": "perf-002",
+      "type": "performance_optimizations",
+      "title": "Replace full Lodash imports with individual function imports",
+      "description": "Two files import the entire Lodash library using `import _ from 'lodash'`: src/domains/usage/usage-stats.ts (uses only _.mean, _.compact) and src/domains/usage/usage-chart.svelte (uses only _.findIndex). This defeats tree-shaking and includes the entire ~70KB library. Most other files correctly use individual imports like `import debounce from 'lodash/debounce'`.",
+      "rationale": "Lodash is approximately 70KB minified. The usage-stats.ts file only uses 2 functions (mean, compact) and usage-chart.svelte uses only 1 function (findIndex). Using individual imports would reduce the included code to ~2-3KB total for these functions.",
+      "category": "bundle_size",
+      "impact": "medium",
+      "affectedAreas": [
+        "src/domains/usage/usage-stats.ts",
+        "src/domains/usage/usage-chart.svelte"
+      ],
+      "currentMetric": "~70KB included from full Lodash import",
+      "expectedImprovement": "~65KB reduction in bundle size",
+      "implementation": "1. In usage-stats.ts: Replace `import _ from 'lodash'` with `import mean from 'lodash/mean'` and `import compact from 'lodash/compact'`\n2. In usage-chart.svelte: Replace `import _ from 'lodash'` with `import findIndex from 'lodash/findIndex'`\n3. Update function calls: `_.mean()` -> `mean()`, `_.compact()` -> `compact()`, `_.findIndex()` -> `findIndex()`",
+      "tradeoffs": "None - purely mechanical refactor with same functionality",
+      "estimatedEffort": "trivial"
+    },
+    {
+      "id": "perf-003",
+      "type": "performance_optimizations",
+      "title": "Fix O(n²) log merging algorithm in timeline-loader",
+      "description": "In timeline-loader.svelte line 112, logs are merged using a pattern that creates O(n²) time complexity: `logs.filter((l) => !queryLogs.find((lg) => lg._id === l._id))`. For each existing log, it searches through all query logs, which becomes very slow with large log collections (thousands of entries).",
+      "rationale": "Users with extensive tracking history may have thousands of log entries. With the current O(n²) algorithm, merging 1000 existing logs with 100 new logs requires 100,000 comparisons. Using a Set or Map lookup reduces this to O(n) with only 1,100 operations - a 90x improvement.",
+      "category": "runtime",
+      "impact": "medium",
+      "affectedAreas": [
+        "src/domains/timeline/timeline-loader.svelte"
+      ],
+      "currentMetric": "O(n²) complexity for log merging - ~100,000 comparisons for 1000 logs",
+      "expectedImprovement": "O(n) complexity - 90x faster for large log collections, noticeable scroll performance improvement",
+      "implementation": "1. Create a Set of query log IDs: `const queryLogIds = new Set(queryLogs.map(lg => lg._id))`\n2. Replace filter+find with Set lookup: `logs.filter(l => !queryLogIds.has(l._id))`\n3. Merge and sort as before",
+      "tradeoffs": "Minor additional memory for the Set (~8 bytes per log ID)",
+      "estimatedEffort": "trivial"
+    },
+    {
+      "id": "perf-004",
+      "type": "performance_optimizations",
+      "title": "Add virtualization to log-list component for large lists",
+      "description": "The log-list.svelte component renders all logs using `{#each internalLogs as log}` without virtualization, while the project already has VirtualList (@sveltejs/svelte-virtual-list) and a custom NvirtualList wrapper. Timeline views use virtualization, but regular log lists (used in search results, history views) don't, causing slow rendering for large result sets.",
+      "rationale": "Rendering hundreds of log entries creates hundreds of DOM nodes, consuming memory and causing layout thrashing. The timeline uses virtualization for exactly this reason. Log lists in search results and other views should follow the same pattern to maintain smooth scrolling and reduce memory usage.",
+      "category": "rendering",
+      "impact": "medium",
+      "affectedAreas": [
+        "src/components/log-list/log-list.svelte",
+        "src/components/log-list/log-list-loader.svelte"
+      ],
+      "currentMetric": "Renders all log entries regardless of list size, ~100ms+ for 100+ items",
+      "expectedImprovement": "Only render visible items (~10-15), 80% reduction in DOM nodes, smoother scrolling",
+      "implementation": "1. Import NvirtualList from '../../components/nvirtual-list/nvirtual-list.svelte'\n2. Wrap the log items in NvirtualList instead of plain {#each}\n3. Add height prop for virtual list container\n4. Handle scroll events for infinite loading if needed",
+      "tradeoffs": "Requires fixed height container for virtualization to work properly",
+      "estimatedEffort": "small"
+    },
+    {
+      "id": "perf-005",
+      "type": "performance_optimizations",
+      "title": "Consolidate charting libraries - remove Plotly.js or Chart.js",
+      "description": "The project includes both Chart.js (~200KB) and Plotly.js (~3MB) for charting. Chart.js is used for general usage charts (usage-chart.svelte, chartjs.svelte), while Plotly.js is used only for the pivot table analytics feature. Consider whether both libraries are necessary, or if one could serve all charting needs.",
+      "rationale": "Maintaining two charting libraries increases bundle size by ~3.2MB, creates inconsistent chart styling, and doubles the learning curve for contributors. If the pivot table feature's advanced charts could be simplified or replaced with Chart.js, significant bundle savings would result.",
+      "category": "bundle_size",
+      "impact": "high",
+      "affectedAreas": [
+        "src/domains/analytics/analytics-view.svelte",
+        "src/domains/analytics/Pivot-table/",
+        "src/components/charts/chartjs.svelte",
+        "src/domains/usage/usage-chart.svelte",
+        "package.json"
+      ],
+      "currentMetric": "~3.2MB total for both Chart.js (200KB) and Plotly.js (3MB)",
+      "expectedImprovement": "If Plotly removed: ~3MB reduction; If Chart.js removed: ~200KB reduction + consistent APIs",
+      "implementation": "Option A (Remove Plotly): 1. Evaluate if pivot table charts can use Chart.js plugins (chartjs-plugin-annotation already used)\n2. Rebuild pivot renderers using Chart.js\n3. Remove plotly.js dependencies\n\nOption B (Keep both, lazy load): See perf-001 for lazy loading Plotly",
+      "tradeoffs": "Plotly offers more advanced visualization options (3D charts, heatmaps). Removing it may limit analytics capabilities. Chart.js is more lightweight but less feature-rich.",
+      "estimatedEffort": "large"
+    },
+    {
+      "id": "cq-001",
+      "type": "code_quality",
+      "title": "Split massive ai-query-service.ts into focused modules",
+      "description": "The file src/domains/ai-query/ai-query-service.ts has grown to 2,129 lines and handles at least 8 distinct responsibilities: Ollama API communication, intent detection, question parsing, tracker creation, log entry creation, data retrieval, period detection, and fuzzy matching. This severely violates the Single Responsibility Principle.",
+      "rationale": "Files over 500 lines become hard to navigate, test, and maintain. At 2,129 lines, this file requires developers to hold too much context in their heads. Breaking it into focused modules will improve testability, make code reviews easier, and reduce the risk of introducing bugs when making changes.",
+      "category": "large_files",
+      "severity": "critical",
+      "affectedFiles": [
+        "src/domains/ai-query/ai-query-service.ts",
+        "src/domains/ai-query/ai-query-view.svelte"
+      ],
+      "currentState": "Single 2,129-line file containing: queryOllama(), detectPeriods(), parseQuestion(), detectIntent(), handleEntryCreation(), createLogEntry(), answerQuestion(), getRelevantData(), createTracker(), fuzzy matching logic, and more",
+      "proposedChange": "Split into focused modules:\n- src/domains/ai-query/ollama-client.ts (API communication, ~100 lines)\n- src/domains/ai-query/intent-detector.ts (intent detection & parsing, ~300 lines)\n- src/domains/ai-query/tracker-creator.ts (tracker creation logic, ~200 lines)\n- src/domains/ai-query/log-entry-service.ts (log entry creation, ~150 lines)\n- src/domains/ai-query/question-parser.ts (question parsing & fuzzy matching, ~400 lines)\n- src/domains/ai-query/data-retriever.ts (data gathering, ~300 lines)\n- src/domains/ai-query/period-detector.ts (period detection, ~100 lines)\n- src/domains/ai-query/types.ts (shared interfaces)",
+      "codeExample": "// Current (all in one file):\nexport async function queryOllama(...) { ... }\nexport async function handleEntryCreation(...) { ... }\nexport async function answerQuestion(...) { ... }\n\n// Proposed (separate modules):\n// ollama-client.ts\nimport type { OllamaConfig } from './types'\nexport class OllamaClient {\n  async query(prompt: string): Promise<string> { ... }\n}\n\n// intent-detector.ts\nimport type { IntentDetectionResult } from './types'\nexport function detectIntent(message: string, trackers: Tracker[]): IntentDetectionResult { ... }",
+      "bestPractice": "Single Responsibility Principle - each module should have one reason to change. Files should generally be under 300-500 lines for maintainability.",
+      "metrics": {
+        "lineCount": 2129,
+        "complexity": null,
+        "duplicateLines": null,
+        "testCoverage": null
+      },
+      "estimatedEffort": "large",
+      "breakingChange": true,
+      "prerequisites": [
+        "Ensure comprehensive test coverage before refactoring",
+        "Review all imports/exports to maintain API compatibility"
+      ],
+      "status": "archived",
+      "linked_task_id": "006-split-massive-ai-query-service-ts-into-focused-mod"
+    },
+    {
+      "id": "cq-002",
+      "type": "code_quality",
+      "title": "Remove duplicate StatsProcessor implementations",
+      "description": "The files src/domains/stats/statsV5.ts (555 lines) and src/domains/stats/stats-processor.class.ts (551 lines) contain nearly identical implementations of the StatsProcessor class. Both files have the same imports, same class structure, same constructor, same init() method, and same properties. This is a significant code duplication issue.",
+      "rationale": "Duplicate code leads to bugs being fixed in one place but not the other, doubles maintenance effort, and creates confusion about which implementation to use. This duplication likely arose from a refactoring attempt that was never completed.",
+      "category": "duplication",
+      "severity": "major",
+      "affectedFiles": [
+        "src/domains/stats/statsV5.ts",
+        "src/domains/stats/stats-processor.class.ts"
+      ],
+      "currentState": "Two nearly identical files (~1,100 lines total) both implementing StatsProcessor class with same properties: trackable, rows, type, math, avg, sum, chart, dow, tod, min, max, fromDate, toDate, mode, is24Hour, streak, valueMap",
+      "proposedChange": "1. Identify any differences between the two implementations\n2. Consolidate into a single stats-processor.class.ts file\n3. Update all imports to use the consolidated version\n4. Remove the duplicate file\n5. Consider if both files exist due to a failed migration (statsV5 suggests versioning)",
+      "codeExample": "// Current (duplicated in both files):\nclass StatsProcessor implements IStats {\n  trackable: Trackable\n  rows: Array<NLog>\n  // ... identical properties\n  \n  constructor(starter: IStatsConfig) {\n    starter = starter || {}\n    this.rows = starter.rows || []\n    // ... identical logic\n  }\n}\n\n// Proposed (single source of truth):\n// stats-processor.class.ts - consolidated implementation\nexport class StatsProcessor implements IStats { ... }",
+      "bestPractice": "DRY (Don't Repeat Yourself) - eliminate code duplication to reduce maintenance burden and prevent inconsistent behavior",
+      "metrics": {
+        "lineCount": 1106,
+        "complexity": null,
+        "duplicateLines": 550,
+        "testCoverage": null
+      },
+      "estimatedEffort": "small",
+      "breakingChange": false,
+      "prerequisites": [
+        "Run tests to verify which implementation is actually used",
+        "Check git history to understand why duplication exists"
+      ]
+    },
+    {
+      "id": "cq-003",
+      "type": "code_quality",
+      "title": "Reduce excessive 'any' type usage for better type safety",
+      "description": "Found 94 occurrences of ': any' across 30+ files in the codebase. While TypeScript is configured with some strict options (noUnusedLocals, noImplicitReturns, allowUnreachableCode: false), the extensive use of 'any' undermines type safety. High-impact files include: trackable-element.ts (9), interact.ts (9), dymoji.ts (9), import.n2.ts (7), remote.ts (5).",
+      "rationale": "Excessive 'any' usage defeats the purpose of TypeScript, allowing runtime errors that could be caught at compile time. Each 'any' is a potential bug hiding spot where the compiler can't help catch mistakes. Proper typing improves IDE autocomplete, refactoring safety, and code documentation.",
+      "category": "types",
+      "severity": "major",
+      "affectedFiles": [
+        "src/modules/trackable-element/trackable-element.ts",
+        "src/store/interact.ts",
+        "src/components/dymoji/dymoji.ts",
+        "src/modules/import/import.n2.ts",
+        "src/modules/remote/remote.ts",
+        "src/store/KVStore.ts",
+        "src/store/ArrayStore.ts",
+        "src/modules/download/download.ts"
+      ],
+      "currentState": "94 occurrences of ': any' across the codebase, disabling type checking for return values, parameters, and variables",
+      "proposedChange": "1. Enable stricter TypeScript options: \"strict\": true or \"noImplicitAny\": true in tsconfig.json\n2. Prioritize fixing 'any' in core modules: trackable-element.ts, interact.ts, stores\n3. Replace 'any' with proper interfaces or union types\n4. Use 'unknown' instead of 'any' when type is truly unknown, then use type guards\n5. Create proper type definitions for external APIs and dynamic data",
+      "codeExample": "// Current:\nconst data: any = fetchData()\nconst result: any = process(data as any)\nfunction handleEvent(event: any) { ... }\n\n// Proposed:\ninterface FetchResponse {\n  items: TrackerItem[]\n  count: number\n}\nconst data: FetchResponse = await fetchData()\n\n// For truly unknown data:\nconst data: unknown = await fetchExternal()\nif (isValidResponse(data)) {\n  // now TypeScript knows the type\n}",
+      "bestPractice": "Use TypeScript's type system to catch errors at compile time. Prefer 'unknown' over 'any' for truly unknown types, and use type guards to narrow types safely.",
+      "metrics": {
+        "lineCount": null,
+        "complexity": null,
+        "duplicateLines": null,
+        "testCoverage": null
+      },
+      "estimatedEffort": "large",
+      "breakingChange": false,
+      "prerequisites": [
+        "Start with a single high-impact module to establish patterns",
+        "Add type definitions incrementally to avoid overwhelming PR sizes"
+      ]
+    },
+    {
+      "id": "cq-004",
+      "type": "code_quality",
+      "title": "Consolidate fragmented stats implementations (stats vs stats2)",
+      "description": "The codebase has two separate stats directories: src/domains/stats/ (12 files, ~1,400 lines) and src/domains/stats2/ (6 files, ~500 lines). Both implement statistical calculations with overlapping functionality including Stats2Store.ts, day-of-week calculations, and time formatting. The 'stats2' naming suggests an incomplete migration or parallel development.",
+      "rationale": "Having two stats implementations creates confusion about which to use, leads to inconsistent behavior, and doubles maintenance effort. The naming convention (stats vs stats2) suggests technical debt from an unfinished refactoring effort. New developers won't know which implementation is canonical.",
+      "category": "structure",
+      "severity": "minor",
+      "affectedFiles": [
+        "src/domains/stats/statsV5.ts",
+        "src/domains/stats/stats-processor.class.ts",
+        "src/domains/stats/StatsStore.ts",
+        "src/domains/stats/stats-functions.ts",
+        "src/domains/stats2/Stats2Store.ts",
+        "src/domains/stats2/day-of-week.ts",
+        "src/domains/stats2/stats2-time-formats.ts"
+      ],
+      "currentState": "Two separate stats implementations with unclear boundaries:\n- stats/: StatsProcessor class, StatsStore, stats-functions, time-of-day\n- stats2/: Stats2Store (197 lines), day-of-week, time-formats\nNote: stats/statsV5.ts imports from stats2/day-of-week, showing tight coupling",
+      "proposedChange": "1. Audit both implementations to understand feature differences\n2. Identify which features are used where in the application\n3. Create a unified stats module with clear separation of concerns:\n   - src/domains/stats/processor/ - core calculation logic\n   - src/domains/stats/store/ - state management\n   - src/domains/stats/time/ - time-related utilities (day-of-week, time-of-day)\n4. Deprecate and remove the redundant implementation\n5. Update all imports across the codebase",
+      "codeExample": "// Current (fragmented):\nimport StatsProcessor from '../stats/statsV5'\nimport getDayOfWeek from '../stats2/day-of-week'\nimport { Stats2Store } from '../stats2/Stats2Store'\nimport { StatsStore } from '../stats/StatsStore'\n\n// Proposed (unified):\nimport { StatsProcessor } from '../stats/processor'\nimport { StatsStore } from '../stats/store'\nimport { getDayOfWeek, getTimeOfDay } from '../stats/time-utils'",
+      "bestPractice": "Single Source of Truth - each concept should have exactly one authoritative implementation. Version suffixes (V5, 2) in production code suggest incomplete migrations.",
+      "metrics": {
+        "lineCount": 1900,
+        "complexity": null,
+        "duplicateLines": null,
+        "testCoverage": null
+      },
+      "estimatedEffort": "medium",
+      "breakingChange": true,
+      "prerequisites": [
+        "Complete the duplicate StatsProcessor fix first (cq-002)",
+        "Create comprehensive tests for both implementations before merging"
+      ]
+    },
+    {
+      "id": "cq-005",
+      "type": "code_quality",
+      "title": "Address 21+ TODO/FIXME technical debt markers",
+      "description": "Found 21+ TODO, FIXME, and incomplete implementation comments scattered across the codebase indicating known technical debt. Examples include: 'TODO: Make this not sloppy' (score-note.ts), 'TODO: replace this with the util version' (import.ts), 'TODO: Make the pie chart work' (pie.svelte), 'TODO: This is incomplete' (uom-modal.svelte).",
+      "rationale": "TODO comments that remain in production code represent acknowledged technical debt that never got prioritized. Some of these TODOs may reference outdated concerns or indicate incomplete features that users might encounter. Tracking these systematically helps prioritize technical debt payoff.",
+      "category": "dead_code",
+      "severity": "minor",
+      "affectedFiles": [
+        "src/App.svelte",
+        "src/modules/import/import.ts",
+        "src/modules/tracker/TrackerClass.ts",
+        "src/modules/scoring/score-note.ts",
+        "src/domains/map/map.svelte",
+        "src/components/charts/pie.svelte",
+        "src/domains/uom/uom-editor/uom-modal.svelte",
+        "src/domains/board/UniboardStore.ts",
+        "src/domains/tracker/input/TrackerInputStore.ts",
+        "src/domains/stats2/Stats2Store.ts",
+        "src/domains/ledger/LedgerStore.ts"
+      ],
+      "currentState": "21+ TODO/FIXME comments scattered throughout:\n- 'TODO: Migrate these away from the method.function name' (App.svelte)\n- 'TODO: replace this with the util version' (import.ts)\n- 'TODO: make this replace special characters too' (TrackerClass.ts)\n- 'TODO: Make this not sloppy' (score-note.ts)\n- 'TODO: Make the pie chart work' (pie.svelte)\n- 'TODO: This is incomplete' (uom-modal.svelte)\n- 'TODO: Handle Sorting' (UniboardStore.ts)",
+      "proposedChange": "1. Triage all TODOs into categories:\n   - Critical (affects user experience): pie.svelte, uom-modal.svelte\n   - Important (code quality): score-note.ts, TrackerClass.ts\n   - Low priority (cleanup): import.ts, App.svelte\n2. Create GitHub issues for each significant TODO\n3. Remove outdated TODOs that no longer apply\n4. For quick fixes, address inline and remove TODO\n5. Consider adding a pre-commit hook to prevent new TODOs without issue references",
+      "codeExample": "// Current (vague TODOs):\n// TODO: Make this not sloppy\nfunction scoreNote(note: string) { ... }\n\n// Proposed (tracked or fixed):\n// Fixed: Refactored to use proper scoring algorithm\nfunction scoreNote(note: string): Score { ... }\n\n// Or if keeping TODO:\n// TODO(#123): Refactor scoring algorithm to handle edge cases\nfunction scoreNote(note: string) { ... }",
+      "bestPractice": "TODOs should be tracked in an issue tracker, not left indefinitely in code. Each TODO should reference an issue number or be addressed promptly.",
+      "metrics": {
+        "lineCount": null,
+        "complexity": null,
+        "duplicateLines": null,
+        "testCoverage": null
+      },
+      "estimatedEffort": "medium",
+      "breakingChange": false,
+      "prerequisites": null,
+      "status": "archived",
+      "linked_task_id": "007-address-21-todo-fixme-technical-debt-markers"
+    }
+  ],
+  "project_context": {
+    "existing_features": [],
+    "tech_stack": [],
+    "target_audience": null,
+    "planned_features": []
+  },
+  "summary": {
+    "total_ideas": 30,
+    "by_type": {
+      "code_improvements": 5,
+      "ui_ux_improvements": 5,
+      "security_hardening": 5,
+      "documentation_gaps": 5,
+      "performance_optimizations": 5,
+      "code_quality": 5
+    },
+    "by_status": {
+      "draft": 30
+    }
+  },
+  "generated_at": "2026-01-11T11:17:41.981334",
+  "updated_at": "2026-01-11T10:22:47.179Z"
+}

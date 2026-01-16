@@ -1,0 +1,8 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "documentation_gaps",
+  "ideaId": "doc-003",
+  "rationale": "Storage is critical infrastructure that determines how user data is persisted and synced. The storage.ts file has a brief 5-line header comment but no function documentation. Users wanting to set up CouchDB sync must figure it out from docker-compose.yml and source code.",
+  "category": "documentation",
+  "priority": "medium"
+}

@@ -1,0 +1,8 @@
+{
+  "sourceType": "ideation",
+  "ideationType": "documentation_gaps",
+  "ideaId": "doc-002",
+  "rationale": "Understanding how Nomie's domain-driven architecture works is essential for making changes. The relationship between core modules (Ledger stores logs, TrackableStore manages trackables, Storage abstracts persistence) is not documented. This creates a steep learning curve for new developers.",
+  "category": "documentation",
+  "priority": "high"
+}

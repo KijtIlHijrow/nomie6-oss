@@ -1,0 +1,15 @@
+{
+  "id": "session-1768247127529",
+  "projectId": "3b44f181-bdae-4785-b09e-84183915a4cf",
+  "title": "how can i add functionality to my ai so i can just...",
+  "messages": [
+    {
+      "id": "msg-1768247127532",
+      "role": "user",
+      "content": "how can i add functionality to my ai so i can just add a barcode of an item and it adds my macros, and each ingredient maybe similar to what myfitnesspal does?",
+      "timestamp": "2026-01-12T19:45:27.532Z"
+    }
+  ],
+  "createdAt": "2026-01-12T19:45:27.529Z",
+  "updatedAt": "2026-01-12T19:45:27.532Z"
+}

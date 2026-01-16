@@ -1,0 +1,149 @@
+{
+  "project_name": "Nomie 6",
+  "project_type": "web-app",
+  "tech_stack": {
+    "primary_language": "TypeScript",
+    "frameworks": ["Svelte", "Vite", "Tailwind CSS", "Capacitor"],
+    "key_dependencies": [
+      "pouchdb",
+      "localforage",
+      "chart.js",
+      "dayjs",
+      "leaflet",
+      "i18next",
+      "capacitor",
+      "plotly.js",
+      "pocketbase"
+    ]
+  },
+  "target_audience": {
+    "primary_persona": "Health-conscious individuals interested in quantified self and life tracking who want to monitor habits, moods, activities, and personal metrics",
+    "secondary_personas": [
+      "People managing mental health through mood tracking",
+      "Fitness enthusiasts tracking workouts and physical metrics",
+      "Privacy-focused users who want local-first data ownership",
+      "Journaling enthusiasts who prefer structured data capture",
+      "Developers and tech-savvy users comfortable with self-hosting"
+    ],
+    "pain_points": [
+      "Existing tracking apps don't allow custom metrics",
+      "Commercial apps collect and monetize personal health data",
+      "Unable to correlate different aspects of life (mood, sleep, exercise)",
+      "Tracking apps are too complex or too simple for personal needs",
+      "Want to track people/relationships alongside activities",
+      "Need flexible note-taking with structured data extraction"
+    ],
+    "goals": [
+      "Understand patterns in their daily life and habits",
+      "Improve health and well-being through data-driven insights",
+      "Track streaks and maintain habit consistency",
+      "Correlate different life factors to find what affects their mood/health",
+      "Keep private data under their own control",
+      "Quick and frictionless daily tracking"
+    ],
+    "usage_context": "Daily use on mobile (primary) and desktop for quick tracking throughout the day, with periodic review of analytics and trends. Used during morning/evening routines or spontaneously when tracking events occur."
+  },
+  "product_vision": {
+    "one_liner": "An open-source life tracker and data journal that lets you track anything using natural language with hashtags",
+    "problem_statement": "People want to track various aspects of their life (mood, habits, activities, health) but existing solutions are either too rigid, too complex, or compromise privacy by storing data in proprietary clouds. Users need a flexible, privacy-respecting way to capture and analyze personal data.",
+    "value_proposition": "Nomie offers complete tracking flexibility through its hashtag-based system (#mood(8) #walked(4)), local-first data storage with optional sync, and the ability to track anything from simple counters to complex timed activities. Unlike commercial alternatives, users own their data completely.",
+    "success_metrics": [
+      "Active daily users maintaining tracking habits",
+      "User retention over 30/60/90 day periods",
+      "Number of custom trackers created per user",
+      "Streak maintenance rates",
+      "Data export/backup frequency",
+      "Community contributions and forks"
+    ]
+  },
+  "current_state": {
+    "maturity": "growth",
+    "existing_features": [
+      "Hashtag-based trackers (#tracker(value))",
+      "People tracking (@username)",
+      "Context tracking (+context)",
+      "Customizable tracker boards",
+      "Dashboard with widgets",
+      "Statistics and analytics",
+      "Streak tracking",
+      "Goals system with targets",
+      "Awards and achievements",
+      "Timeline view",
+      "Calendar view",
+      "Location tracking with maps",
+      "Data import/export (CSV)",
+      "Cloud sync via CouchDB",
+      "AI query integration (Ollama)",
+      "Writing prompts",
+      "Pin lock security",
+      "Multi-language support (i18n)",
+      "PWA with offline support",
+      "Dark mode support",
+      "Correlation analysis between trackers"
+    ],
+    "known_gaps": [
+      "iOS native app distribution (in progress via Capacitor)",
+      "HealthKit integration for iOS (designed, not implemented)",
+      "Android native app",
+      "Widget for home screen quick logging",
+      "Better onboarding for new users",
+      "Improved data visualization options",
+      "Notification/reminder system for tracking"
+    ],
+    "technical_debt": [
+      "Stats module refactoring needed (Stats2 exists alongside original)",
+      "LedgerStore is complex and needs modularization",
+      "TrackerClass special character handling incomplete",
+      "Some test coverage gaps in key modules",
+      "Dashboard widget testing incomplete",
+      "Export functionality needs improvements for notes",
+      "Multiple TODO comments throughout codebase (~20 documented)"
+    ]
+  },
+  "competitive_context": {
+    "alternatives": [
+      "Daylio - mood/activity journal",
+      "Bearable - health/symptom tracker",
+      "Loop Habit Tracker - habit tracking",
+      "Exist.io - life tracking with correlations",
+      "Apple Health - health metrics",
+      "Notion/spreadsheets - custom tracking",
+      "Finch - gamified self-care"
+    ],
+    "differentiators": [
+      "Hashtag-based natural language tracking is more flexible than fixed forms",
+      "Open-source with full data ownership and privacy",
+      "Self-hostable with optional cloud sync",
+      "Track anything: metrics, people, contexts, locations",
+      "No subscription or data monetization",
+      "Correlation analysis between any tracked items",
+      "Works offline as a PWA"
+    ],
+    "market_position": "Positioned for privacy-conscious quantified-self enthusiasts who want complete flexibility and data ownership. Fills the gap between rigid commercial trackers and complex spreadsheet solutions. Appeals to the self-hosting and open-source community.",
+    "competitor_pain_points": [],
+    "competitor_analysis_available": false
+  },
+  "constraints": {
+    "technical": [
+      "PWA limitations on iOS (notification restrictions, background sync limits)",
+      "Local storage limits for browsers",
+      "HealthKit only available on iOS native apps",
+      "Cross-device sync requires CouchDB server setup",
+      "Svelte 4 framework (not yet migrated to Svelte 5)"
+    ],
+    "resources": [
+      "Community-driven open-source project",
+      "Small core maintainer team (2-3 active contributors)",
+      "No dedicated design resources",
+      "Limited QA/testing capacity"
+    ],
+    "dependencies": [
+      "CouchDB for cloud sync functionality",
+      "Ollama for AI features",
+      "Leaflet/OpenStreetMap for location features",
+      "Apple Developer Program for iOS App Store distribution",
+      "Netlify for deployment"
+    ]
+  },
+  "created_at": "2026-01-11T11:30:00Z"
+}
