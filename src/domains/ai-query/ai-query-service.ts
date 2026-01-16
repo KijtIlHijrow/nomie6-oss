@@ -424,6 +424,7 @@ function extractProductName(message: string, searchKeywords: string[]): string {
  */
 async function detectIntent(message: string, availableTrackers: Array<{ tag: string; label: string }>): Promise<IntentDetectionResult> {
   const lowerMessage = message.toLowerCase().trim()
+  console.log('[DEBUG] detectIntent called with message:', message)
 
   // Keywords that indicate entry creation intent - use word boundaries to avoid false matches
   const addKeywords = ['add', 'track', 'log', 'record', 'enter', 'create entry', 'new entry']
@@ -613,8 +614,10 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
   })
 
   if (hasSearchKeyword) {
+    console.log('[DEBUG] Product search keyword detected in message:', message)
     // Extract product name - everything after the search keyword
     const productName = extractProductName(lowerMessage, searchKeywords)
+    console.log('[DEBUG] Extracted product name:', productName)
 
     // Only proceed if we have a valid product name
     if (productName && productName.length > 0) {
@@ -625,11 +628,14 @@ async function detectIntent(message: string, availableTrackers: Array<{ tag: str
         quantity = parseFloat(quantityMatch[1])
       }
 
+      console.log('[DEBUG] Returning search_product intent with:', { productName, quantity })
       return {
         type: 'search_product',
         productName,
         quantity,
       }
+    } else {
+      console.log('[DEBUG] Product name is empty, not triggering search')
     }
   }
 
@@ -2483,6 +2489,7 @@ export async function answerQuestion(
 
     // Check intent first
     const intent = await detectIntent(question, data.trackers)
+    console.log('[DEBUG] Intent detected:', intent)
 
     // If it's an entry deletion intent, handle it
     if (intent.type === 'delete_entry') {
@@ -2523,6 +2530,7 @@ export async function answerQuestion(
 
     // If it's a product search intent, return action for UI to handle
     if (intent.type === 'search_product') {
+      console.log('[DEBUG] Returning search_product action for UI with productName:', intent.productName)
       return {
         answer: `Searching for "${intent.productName}"...`,
         action: 'search_product',
