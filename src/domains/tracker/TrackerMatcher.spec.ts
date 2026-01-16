@@ -61,3 +61,21 @@ describe('TrackerMatcher - Find Similar Trackers', () => {
     expect(matches.length).toBe(0)
   })
 })
+
+describe('TrackerMatcher - Edge Cases', () => {
+  it('should handle empty strings gracefully', () => {
+    const result = calculateConfidence('', 'carbs')
+    expect(result.confidence).toBe(0)
+  })
+
+  it('should handle trackers with no label', () => {
+    const trackers = [new TrackerClass({ tag: 'carbs' })]
+    const matches = findSimilarTrackers('carbs', trackers)
+    expect(matches.length).toBe(1)
+  })
+
+  it('should handle special characters', () => {
+    const result = calculateConfidence('fat/protein', 'fat_protein')
+    expect(result.confidence).toBeGreaterThan(0.5)
+  })
+})

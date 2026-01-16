@@ -37,6 +37,8 @@ export function calculateStringDistance(str1: string, str2: string): number {
 
 /**
  * Common nutrition/tracker abbreviations
+ * NOTE: This is a starter set. User-confirmed alias mappings in TrackerAliasStore
+ * provide dynamic abbreviations learned over time.
  */
 const ABBREVIATION_PATTERNS: Record<string, string[]> = {
   'carbohydrates': ['carbs', 'carb'],
@@ -75,7 +77,17 @@ function isPluralVariation(str1: string, str2: string): boolean {
   const s1 = str1.toLowerCase()
   const s2 = str2.toLowerCase()
 
-  return (s1 + 's' === s2) || (s2 + 's' === s1)
+  // Simple +s
+  if ((s1 + 's' === s2) || (s2 + 's' === s1)) return true
+
+  // +es (glass→glasses, box→boxes)
+  if ((s1 + 'es' === s2) || (s2 + 'es' === s1)) return true
+
+  // y→ies (activity→activities, berry→berries)
+  if (s1.endsWith('y') && s1.slice(0, -1) + 'ies' === s2) return true
+  if (s2.endsWith('y') && s2.slice(0, -1) + 'ies' === s1) return true
+
+  return false
 }
 
 export interface MatchReason {
