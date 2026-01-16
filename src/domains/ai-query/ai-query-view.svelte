@@ -1789,6 +1789,49 @@ View your entry in the timeline to see all tracked nutrients.`
       </div>
       {/each}
     </div>
+
+    <!-- Product Search Results -->
+    {#if isSearching}
+      <div class="search-loading">
+        <div class="spinner"></div>
+        <p>Searching for products...</p>
+      </div>
+    {/if}
+
+    {#if searchError && searchResults.length === 0}
+      <div class="search-error">
+        <p>{searchError}</p>
+        <button
+          class="btn btn-sm"
+          on:click={() => {
+            searchError = null
+          }}
+        >
+          Dismiss
+        </button>
+      </div>
+    {/if}
+
+    {#if searchResults.length > 0}
+      <div class="search-results">
+        <h4>Select Product:</h4>
+        {#each searchResults as result}
+          <button
+            class="product-result-item"
+            on:click={() => handleProductSelect(result)}
+          >
+            <div class="product-info">
+              <div class="product-name">{result.productName}</div>
+              {#if result.brand}
+                <div class="product-brand">{result.brand}</div>
+              {/if}
+              <div class="product-serving">{result.servingSize}</div>
+            </div>
+            <div class="product-source-badge">{result.source}</div>
+          </button>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <!-- Input Area - Fixed above tabs (portaled to body) -->
@@ -1933,6 +1976,86 @@ View your entry in the timeline to see all tracked nutrients.`
     -moz-user-select: text !important;
     -ms-user-select: text !important;
     cursor: text;
+  }
+
+  /* Product Search Styles */
+  .search-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    gap: 0.5rem;
+  }
+
+  .search-error {
+    padding: 1rem;
+    background: var(--color-red-faded);
+    border-radius: 8px;
+    margin: 0.5rem 0;
+  }
+
+  .search-error p {
+    margin: 0 0 0.5rem 0;
+    color: var(--color-red);
+  }
+
+  .search-results {
+    margin: 1rem 0;
+  }
+
+  .search-results h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.9rem;
+    opacity: 0.7;
+  }
+
+  .product-result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background: var(--color-solid-2);
+    border: 1px solid var(--color-solid-3);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+  }
+
+  .product-result-item:hover {
+    background: var(--color-solid-3);
+    transform: translateX(2px);
+  }
+
+  .product-info {
+    flex: 1;
+  }
+
+  .product-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  .product-brand {
+    font-size: 0.85rem;
+    opacity: 0.7;
+    margin-bottom: 0.25rem;
+  }
+
+  .product-serving {
+    font-size: 0.8rem;
+    opacity: 0.6;
+  }
+
+  .product-source-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--color-primary-faded);
+    color: var(--color-primary);
+    border-radius: 4px;
+    text-transform: uppercase;
   }
 </style>
 
