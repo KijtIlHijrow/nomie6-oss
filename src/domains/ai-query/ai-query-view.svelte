@@ -18,6 +18,10 @@
   import { saveLog } from '../ledger/LedgerStore'
   import type { NutritionData } from '../nutrition/nutrition-types'
   import SvelteMarkdown from 'svelte-markdown'
+  import TrackerMatchModal from '../tracker/TrackerMatchModal.svelte'
+  import { getOrCreate, type GetOrCreateResult } from '../tracker/TrackerStore'
+  import { createMapping } from '../tracker/TrackerAliasStore'
+  import type { MatchResult } from '../tracker/TrackerMatcher'
 
   // AI Message format for conversation history
   interface AIMessage {
@@ -131,6 +135,15 @@
 
   // Conversation state for pending value requests
   let pendingValueRequest: { trackerTag: string; trackerType: string; messageId: string } | null = null
+
+  // Tracker matching state
+  let showTrackerMatchModal: boolean = false
+  let pendingTrackerCreation: {
+    name: string
+    config: any
+    matches: MatchResult[]
+    productData?: NutritionData
+  } | null = null
 
   /**
    * Wraps a promise with a timeout
@@ -278,19 +291,6 @@
       // Create tracker tag from product name
       const trackerTag = toTag(selectedProduct.productName)
 
-      // Check if tracker already exists
-      const currentTrackers = $TrackerStore
-      if (currentTrackers[trackerTag]) {
-        messages = [...messages, {
-          id: generateMessageId('assistant'),
-          role: 'assistant',
-          content: `ℹ️ Tracker #${trackerTag} already exists. You can tap it to log this product.`,
-          timestamp: new Date(),
-        }]
-        loading = false
-        return
-      }
-
       // Calculate nutrition per serving
       const nutrients = {
         calories: Math.round(selectedProduct.nutrients.calories),
@@ -309,26 +309,48 @@
         `#sodium(${nutrients.sodium})`,
       ].join(' ')
 
-      // Create product tracker
-      const productTracker = new TrackerClass({
-        tag: trackerTag,
+      // Build tracker configuration
+      const trackerConfig = {
         label: productLabel,
-        type: 'value',
+        type: 'value' as const,
         emoji: '🍽️',
         uom: mapServingUnitToUOM(selectedProduct.servingUnit),
         default: parseFloat(selectedProduct.servingSize) || 1,
         color: '#FF6B6B',
         include: includeString,
-        math: 'sum',
-      })
+        math: 'sum' as const,
+      }
 
-      const trackable = new Trackable({ type: 'tracker', tracker: productTracker })
-      await saveTrackersToStorage([trackable])
-      await InitTrackableStore()
+      // Use getOrCreate to check for similar trackers
+      const result: GetOrCreateResult = await getOrCreate(trackerTag, trackerConfig)
+
+      if (result.requiresConfirmation && result.matches) {
+        // Show modal for user to choose
+        pendingTrackerCreation = {
+          name: trackerTag,
+          config: trackerConfig,
+          matches: result.matches,
+          productData: selectedProduct
+        }
+        showTrackerMatchModal = true
+        loading = false
+        return // Wait for user decision
+      }
+
+      // Use existing or new tracker
+      const productTracker = result.usedExisting
+        ? result.tracker
+        : await TrackerStore.upsert(result.tracker).then(() => result.tracker)
+
+      // If new tracker was created, initialize trackable store
+      if (!result.usedExisting) {
+        await InitTrackableStore()
+      }
 
       // Display success message
       const productInfo = `${productLabel}${selectedProduct.brand ? ` (${toTitleCase(selectedProduct.brand)})` : ''}`
-      const nutritionDisplay = `✅ **Tracker Created!**
+      const actionText = result.usedExisting ? '**Using Existing Tracker!**' : '**Tracker Created!**'
+      const nutritionDisplay = `✅ ${actionText}
 
 📦 **Product:** ${productInfo}
 📏 **Serving:** ${selectedProduct.servingSize}${selectedProduct.servingUnit}
@@ -340,7 +362,7 @@
 🥑 Fat: ${nutrients.fat}g
 🧂 Sodium: ${nutrients.sodium}mg
 
-Tap #${trackerTag} to log a serving anytime!`
+Tap #${productTracker.tag} to log a serving anytime!`
 
       messages = [...messages, {
         id: generateMessageId('assistant'),
@@ -362,6 +384,124 @@ Tap #${trackerTag} to log a serving anytime!`
     } finally {
       loading = false
     }
+  }
+
+  /**
+   * Handle user choosing to use an existing tracker from the match modal
+   */
+  async function handleUseExistingTracker(event: CustomEvent) {
+    const { tracker } = event.detail
+
+    if (!pendingTrackerCreation) return
+
+    loading = true
+
+    try {
+      // Create alias mapping for future use
+      await createMapping(
+        `#${tracker.tag}`,
+        pendingTrackerCreation.name,
+        0.95,
+        true
+      )
+
+      // Continue with the selected tracker and product data
+      if (pendingTrackerCreation.productData) {
+        await createTrackerEntry(tracker, pendingTrackerCreation.productData)
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      messages = [...messages, {
+        id: generateMessageId('error'),
+        role: 'error',
+        content: `❌ Error using existing tracker: ${errorMessage}`,
+        timestamp: new Date(),
+      }]
+    } finally {
+      // Clean up
+      pendingTrackerCreation = null
+      showTrackerMatchModal = false
+      loading = false
+    }
+  }
+
+  /**
+   * Handle user choosing to create a new tracker from the match modal
+   */
+  async function handleCreateNewTracker() {
+    if (!pendingTrackerCreation) return
+
+    loading = true
+
+    try {
+      // Create new tracker with original config
+      const tracker = new TrackerClass({
+        tag: pendingTrackerCreation.name,
+        ...pendingTrackerCreation.config
+      })
+      await TrackerStore.upsert(tracker)
+      await InitTrackableStore()
+
+      // Continue with new tracker and product data
+      if (pendingTrackerCreation.productData) {
+        await createTrackerEntry(tracker, pendingTrackerCreation.productData)
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      messages = [...messages, {
+        id: generateMessageId('error'),
+        role: 'error',
+        content: `❌ Error creating new tracker: ${errorMessage}`,
+        timestamp: new Date(),
+      }]
+    } finally {
+      // Clean up
+      pendingTrackerCreation = null
+      showTrackerMatchModal = false
+      loading = false
+    }
+  }
+
+  /**
+   * Helper function to create a tracker entry for a nutrition product
+   */
+  async function createTrackerEntry(tracker: TrackerClass, product: NutritionData) {
+    // Convert product name to title case
+    const productLabel = toTitleCase(product.productName)
+
+    // Calculate nutrition per serving
+    const nutrients = {
+      calories: Math.round(product.nutrients.calories),
+      protein: Math.round(product.nutrients.protein_g),
+      carbs: Math.round(product.nutrients.carbs_g),
+      fat: Math.round(product.nutrients.fat_g),
+      sodium: Math.round(product.nutrients.sodium_mg),
+    }
+
+    // Display success message
+    const productInfo = `${productLabel}${product.brand ? ` (${toTitleCase(product.brand)})` : ''}`
+    const nutritionDisplay = `✅ **Using Existing Tracker!**
+
+📦 **Product:** ${productInfo}
+📏 **Serving:** ${product.servingSize}${product.servingUnit}
+
+**Nutrition per serving:**
+🔥 Calories: ${nutrients.calories} cal
+💪 Protein: ${nutrients.protein}g
+🍞 Carbs: ${nutrients.carbs}g
+🥑 Fat: ${nutrients.fat}g
+🧂 Sodium: ${nutrients.sodium}mg
+
+Tap #${tracker.tag} to log a serving anytime!`
+
+    messages = [...messages, {
+      id: generateMessageId('assistant'),
+      role: 'assistant',
+      content: nutritionDisplay,
+      timestamp: new Date(),
+    }]
+
+    scrollToBottom()
   }
 
   // Stable function reference for event listener to prevent memory leaks
@@ -2029,6 +2169,15 @@ View your entry in the timeline to see all tracked nutrients.`
     onCancel={handleScannerCancel}
   />
 {/if}
+
+<!-- Tracker Match Modal -->
+<TrackerMatchModal
+  bind:visible={showTrackerMatchModal}
+  inputName={pendingTrackerCreation?.name || ''}
+  matches={pendingTrackerCreation?.matches || []}
+  on:useExisting={handleUseExistingTracker}
+  on:createNew={handleCreateNewTracker}
+/>
 
 <style>
   .ai-chat-wrapper {
