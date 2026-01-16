@@ -2008,8 +2008,9 @@ View your entry in the timeline to see all tracked nutrients.`
 
   .search-results {
     margin: 1rem 0;
-    max-height: 400px;
+    max-height: 70vh;
     overflow-y: auto;
+    padding-bottom: 12rem; /* Ensure product items aren't hidden behind fixed input (input ~140px + buffer) */
   }
 
   .search-results h4 {
