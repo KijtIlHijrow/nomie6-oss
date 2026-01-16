@@ -2,14 +2,14 @@ import { InitTrackableStore } from '../trackable/TrackableStore'
 import type { KVStoreState } from '../../store/KVStore'
 import NPaths from '../../paths'
 import TrackerClass from '../../modules/tracker/TrackerClass'
+import type { ITracker } from '../../modules/tracker/TrackerClass'
 import { createKVStore } from '../../store/KVStore'
 import { derived } from 'svelte/store'
 import type { UniboardType } from '../board/UniboardStore'
+import { findMappingByAlias, incrementUsage } from './TrackerAliasStore'
+import { findSimilarTrackers } from './TrackerMatcher'
 
-/**
- * Create the Tracker KV Store
- */
-export const TrackerStore = createKVStore(NPaths.storage.trackers(), {
+const baseStore = createKVStore(NPaths.storage.trackers(), {
   label: 'Trackers',
   key: 'tag',
   itemSerializer: (item: TrackerClass) => {
@@ -19,6 +19,24 @@ export const TrackerStore = createKVStore(NPaths.storage.trackers(), {
     return new TrackerClass(item)
   },
 })
+
+/**
+ * Create the Tracker KV Store with clear method
+ */
+export const TrackerStore = {
+  ...baseStore,
+  clear: async (): Promise<void> => {
+    // Clear by setting to empty object, which will write empty state to storage
+    baseStore.set({})
+    // Import Storage dynamically to avoid circular dependency issues in tests
+    const { default: Storage } = await import('../storage/storage')
+    await Storage.delete(NPaths.storage.trackers())
+  },
+  state: async (): Promise<KVStoreState> => {
+    await baseStore.init()
+    return baseStore.rawState()
+  }
+}
 
 /**
  * Stop and Start a Timer
@@ -166,4 +184,69 @@ export const updateAllTrackerColors = async (referenceTag: string = 'brush_teeth
   InitTrackableStore()
 
   return updatedCount
+}
+
+export interface GetOrCreateResult {
+  tracker: TrackerClass
+  usedExisting: boolean
+  matches?: Array<{ tracker: TrackerClass; confidence: number; reason: any }>
+  requiresConfirmation?: boolean
+}
+
+/**
+ * Get existing tracker or prepare to create new one
+ * Checks alias mappings first, then fuzzy matches
+ * Returns requiresConfirmation=true if user needs to choose
+ */
+export const getOrCreate = async (
+  tag: string,
+  config?: Partial<ITracker>
+): Promise<GetOrCreateResult> => {
+  await TrackerStore.init()
+  const normalizedTag = tag.toLowerCase().trim()
+
+  // 1. Check if tracker already exists with exact tag
+  const state = await TrackerStore.state()
+  if (state[normalizedTag]) {
+    return {
+      tracker: state[normalizedTag],
+      usedExisting: true,
+      requiresConfirmation: false
+    }
+  }
+
+  // 2. Check alias mappings
+  const mapping = await findMappingByAlias(normalizedTag)
+  if (mapping) {
+    const canonicalTag = mapping.canonical.replace('#', '')
+    if (state[canonicalTag]) {
+      await incrementUsage(mapping.id)
+      return {
+        tracker: state[canonicalTag],
+        usedExisting: true,
+        requiresConfirmation: false
+      }
+    }
+  }
+
+  // 3. Find similar trackers via fuzzy matching
+  const allTrackers = Object.values(state) as TrackerClass[]
+  const matches = findSimilarTrackers(normalizedTag, allTrackers, 0.6)
+
+  if (matches.length > 0) {
+    // Return matches for user confirmation
+    return {
+      tracker: new TrackerClass({ tag: normalizedTag, ...config }),
+      usedExisting: false,
+      matches,
+      requiresConfirmation: true
+    }
+  }
+
+  // 4. No matches - create new tracker
+  return {
+    tracker: new TrackerClass({ tag: normalizedTag, ...config }),
+    usedExisting: false,
+    requiresConfirmation: false
+  }
 }
