@@ -98,6 +98,9 @@ const NPaths = {
     uom() {
       return 'uoms.json'
     },
+    trackerAliases() {
+      return 'tracker-aliases.json'
+    },
   },
   local: {
     storage(path: string) {

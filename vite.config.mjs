@@ -11,6 +11,10 @@ import rollupPluginsSvelte from 'rollup-plugin-svelte-svg'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    globals: true,
+  },
   optimizeDeps: {
     allowNodeBuiltins: ['pouchdb-browser', 'pouchdb-utils'],
     exclude: ['canvas-confetti', 'tributejs', 'svelte-navigator'],
