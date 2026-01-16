@@ -70,11 +70,23 @@ export class OpenFoodFactsProvider implements NutritionProvider {
       const json = await response.json()
       const products = json.products || []
 
-      return products
+      const normalized = products
         .map((product: any) =>
           this.normalizeResponse(product.code || '', { status: 1, product })
         )
         .filter((data: NutritionData | null) => data !== null) as NutritionData[]
+
+      // Score and filter by relevance (minimum score of 0.3)
+      const scored = normalized
+        .map(product => ({
+          product,
+          score: this.calculateRelevanceScore(query, product)
+        }))
+        .filter(item => item.score >= 0.3)
+        .sort((a, b) => b.score - a.score)
+        .map(item => item.product)
+
+      return scored
     } catch (error) {
       console.error('OpenFoodFacts search failed:', error)
       return []
@@ -90,6 +102,54 @@ export class OpenFoodFactsProvider implements NutritionProvider {
     // TODO: Implement in Phase 7
     // Will require user authentication and proper form submission
     return false
+  }
+
+  /**
+   * Calculate relevance score for search results (0-1)
+   * Higher score = more relevant to search query
+   */
+  private calculateRelevanceScore(query: string, product: NutritionData): number {
+    const normalizedQuery = query.toLowerCase().trim()
+    const normalizedName = product.productName.toLowerCase().trim()
+    const normalizedBrand = (product.brand || '').toLowerCase().trim()
+
+    let score = 0
+
+    // Exact match in name (very high score)
+    if (normalizedName === normalizedQuery) {
+      score += 1.0
+    }
+    // Name starts with query (high score)
+    else if (normalizedName.startsWith(normalizedQuery)) {
+      score += 0.8
+    }
+    // Query is contained in name (medium score)
+    else if (normalizedName.includes(normalizedQuery)) {
+      score += 0.6
+    }
+    // Check individual words
+    else {
+      const queryWords = normalizedQuery.split(/\s+/)
+      const nameWords = normalizedName.split(/\s+/)
+      const matchedWords = queryWords.filter(qw =>
+        nameWords.some(nw => nw.includes(qw) || qw.includes(nw))
+      )
+      score += (matchedWords.length / queryWords.length) * 0.5
+    }
+
+    // Brand match bonus
+    if (normalizedBrand) {
+      const queryWords = normalizedQuery.split(/\s+/)
+      if (queryWords.some(word => normalizedBrand.includes(word))) {
+        score += 0.2
+      }
+    }
+
+    // Nutrient completeness bonus (up to 0.1)
+    const nutrientCount = Object.values(product.nutrients).filter(v => v !== undefined).length
+    score += Math.min(nutrientCount / 100, 0.1)
+
+    return Math.min(score, 1.0)
   }
 
   /**

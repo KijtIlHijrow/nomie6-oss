@@ -9,7 +9,6 @@
   import AutoComplete from '../../components/auto-complete/auto-complete.svelte'
   import { barcodeScanner } from '../nutrition/barcode-scanner'
   import { nutritionService } from '../nutrition/nutrition-service'
-  import { nutritionixProvider } from '$domains/nutrition/providers/nutritionix-provider'
   import { usdaProvider } from '$domains/nutrition/providers/usda-provider'
   import { BarcodeScannerModal, ManualBarcodeEntry, CameraPermissionPrompt, ManualNutritionForm } from '../nutrition/components'
   import { Capacitor } from '@capacitor/core'
@@ -199,20 +198,7 @@
         console.warn('OpenFoodFacts search failed:', error)
       }
 
-      // If <3 results, try Nutritionix
-      if (allResults.length < 3) {
-        try {
-          const nixResults = await withTimeout(
-            nutritionixProvider.search(productName),
-            10000
-          )
-          allResults.push(...nixResults)
-        } catch (error) {
-          console.warn('Nutritionix search failed:', error)
-        }
-      }
-
-      // If still <3, try USDA
+      // If <3 results, try USDA
       if (allResults.length < 3) {
         try {
           const usdaResults = await withTimeout(
