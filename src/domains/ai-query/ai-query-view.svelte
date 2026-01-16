@@ -236,6 +236,28 @@
   }
 
   /**
+   * Map nutrition servingUnit abbreviations to Nomie UOM keys
+   */
+  function mapServingUnitToUOM(servingUnit: string): string {
+    const unitMap: Record<string, string> = {
+      'ml': 'milliliter',
+      'mlt': 'milliliter',
+      'g': 'gram',
+      'oz': 'fluidounce',
+      'l': 'liter',
+      'kg': 'kg',
+      'mg': 'mg',
+      'cup': 'cup',
+      'serving': 'num',
+      'can': 'num',
+      'bottle': 'bottles',
+      'bar': 'num',
+    }
+    const normalized = servingUnit.toLowerCase().trim()
+    return unitMap[normalized] || 'num'
+  }
+
+  /**
    * Handle user selecting a product from search results
    * Creates a tracker for the product with nutrition data auto-included
    */
@@ -291,11 +313,13 @@
       const productTracker = new TrackerClass({
         tag: trackerTag,
         label: productLabel,
-        type: 'tick',
+        type: 'value',
         emoji: '🍽️',
+        uom: mapServingUnitToUOM(selectedProduct.servingUnit),
+        default: parseFloat(selectedProduct.servingSize) || 1,
         color: '#FF6B6B',
         include: includeString,
-        one_tap: true,
+        math: 'sum',
       })
 
       const trackable = new Trackable({ type: 'tracker', tracker: productTracker })
