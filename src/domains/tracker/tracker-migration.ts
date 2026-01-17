@@ -69,9 +69,17 @@ export async function migrateNutritionTrackerReferences(): Promise<void> {
             math: 'sum' as const,
           })
 
-          resolvedTags[nutritionTag] = result.tracker.tag
-
-          console.log(`🔄 [MIGRATION]   ${nutritionTag} → ${result.tracker.tag}${result.usedExisting ? ' (existing)' : ' (new)'}`)
+          // If fuzzy matching found similar trackers, auto-select the best match
+          if (result.requiresConfirmation && result.matches && result.matches.length > 0) {
+            // Pick the highest confidence match (first one, already sorted)
+            const bestMatch = result.matches[0]
+            resolvedTags[nutritionTag] = bestMatch.tracker.tag
+            console.log(`🔄 [MIGRATION]   ${nutritionTag} → ${bestMatch.tracker.tag} (matched ${Math.round(bestMatch.confidence * 100)}%)`)
+          } else {
+            // Use the returned tracker (either exact match or newly created)
+            resolvedTags[nutritionTag] = result.tracker.tag
+            console.log(`🔄 [MIGRATION]   ${nutritionTag} → ${result.tracker.tag}${result.usedExisting ? ' (existing)' : ' (new)'}`)
+          }
         }
       }
 
