@@ -43,6 +43,10 @@
   import { Device } from '../../../store/device-store'
   import CopyOutline from '../../../n-icons/CopyOutline.svelte'
   import { openTrackableEditor } from './TrackableEditorStore'
+  import TrackerMatchModal from '../../tracker/TrackerMatchModal.svelte'
+  import { getOrCreate } from '../../tracker/TrackerStore'
+  import { createMapping } from '../../tracker/TrackerAliasStore'
+  import type { MatchResult } from '../../tracker/TrackerMatcher'
 
   export let trackable: Trackable
   export let id: string
@@ -57,6 +61,14 @@
   let tagExists: boolean = false
 
   let saving: boolean = false
+
+  // Tracker matching modal state
+  let showTrackerMatchModal: boolean = false
+  let pendingTrackerCreation: {
+    tag: string
+    config: any
+    matches: MatchResult[]
+  } | null = null
 
   $: if (trackable && !workingTrackable) {
     workingTrackable = new Trackable(trackable)
@@ -100,6 +112,30 @@
       workingTrackable.tag = workingTag
     }
 
+    // For new trackers, check for similar existing trackers
+    if (workingTrackable.type === 'tracker' && !ogTag) {
+      const result = await getOrCreate(workingTag, workingTrackable.tracker)
+
+      if (result.requiresConfirmation && result.matches && result.matches.length > 0) {
+        // Show confirmation modal for similar trackers
+        pendingTrackerCreation = {
+          tag: workingTag,
+          config: workingTrackable.tracker,
+          matches: result.matches,
+        }
+        showTrackerMatchModal = true
+        return
+      }
+
+      if (result.usedExisting) {
+        // Update workingTrackable with existing tracker
+        workingTrackable.tracker = result.tracker
+        workingTrackable.tag = result.tracker.tag
+        workingTag = result.tracker.tag
+        ogTag = result.tracker.tag
+      }
+    }
+
     saving = true
     if (saveByPass) {
       saveByPass(workingTrackable)
@@ -125,6 +161,79 @@
         })
       }
     } // end Save By Pass Check
+  }
+
+  /**
+   * Handle using an existing tracker from the match modal
+   */
+  const handleUseExistingTracker = async (event: CustomEvent) => {
+    const selectedTracker = event.detail.tracker
+    showTrackerMatchModal = false
+
+    if (pendingTrackerCreation) {
+      // Create alias mapping for learning
+      await createMapping(
+        `#${selectedTracker.tag}`,
+        pendingTrackerCreation.tag,
+        event.detail.confidence,
+        true
+      )
+
+      // Update workingTrackable with selected tracker
+      workingTrackable.tracker = selectedTracker
+      workingTrackable.tag = selectedTracker.tag
+      workingTag = selectedTracker.tag
+      ogTag = selectedTracker.tag
+
+      pendingTrackerCreation = null
+
+      // Proceed with save
+      saving = true
+      let saved = await saveTrackable({
+        trackable: workingTrackable,
+        known: $TrackableStore.trackables,
+      })
+
+      close()
+      InitTrackableStore()
+
+      saving = false
+      if (saved) {
+        showToast({ message: `Using existing tracker: ${workingTrackable.label}` })
+      }
+    }
+  }
+
+  /**
+   * Handle creating a new tracker despite similar matches
+   */
+  const handleCreateNewTracker = async () => {
+    showTrackerMatchModal = false
+
+    if (pendingTrackerCreation) {
+      // Proceed with creating new tracker
+      pendingTrackerCreation = null
+
+      // Continue with normal save flow
+      saving = true
+      if (saveByPass) {
+        saveByPass(workingTrackable)
+        close()
+      } else {
+        let saved = await saveTrackable({
+          trackable: workingTrackable,
+          known: $TrackableStore.trackables,
+        })
+
+        close()
+        InitTrackableStore()
+
+        saving = false
+        if (saved) {
+          showToast({ message: `${workingTrackable.label} created` })
+        }
+      }
+    }
   }
 
   /**
@@ -321,3 +430,12 @@
     </ListItem>
   </section>
 </BackdropModal>
+
+{#if showTrackerMatchModal && pendingTrackerCreation}
+  <TrackerMatchModal
+    matches={pendingTrackerCreation.matches}
+    searchTerm={pendingTrackerCreation.tag}
+    on:useExisting={handleUseExistingTracker}
+    on:createNew={handleCreateNewTracker}
+  />
+{/if}
