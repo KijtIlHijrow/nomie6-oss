@@ -11,7 +11,7 @@ import Storage from './domains/storage/storage'
 import { UsageStore } from './domains/usage/UsageStore'
 import { closeModal } from './components/backdrop/BackdropStore2'
 import { initAwardStore } from './domains/awards/AwardsStore'
-
+import { migrateNutritionTrackerReferences } from './domains/tracker/tracker-migration'
 
 import { initUniboardStore } from './domains/board/UniboardStore'
 import { loadToday } from './domains/usage/today/TodayStore'
@@ -87,8 +87,15 @@ export const bootNomie = async ($Prefs: PreferencesStateType) => {
         await LedgerStore.init()
         const trackables = await InitTrackableStore()
 
+        // Run one-time migrations
+        try {
+          await migrateNutritionTrackerReferences()
+        } catch (error) {
+          console.error('Migration failed, but continuing boot:', error)
+        }
+
         bootCoreComponents(trackables)
-        // If not ready, we don't have an account firing 
+        // If not ready, we don't have an account firing
         // the ready state - we will manually do it here.
 
         resolve(true)
