@@ -283,7 +283,9 @@
 
     try {
       // Create/resolve nutrition trackers (checks for similar existing trackers)
+      console.log('🔍 [PRODUCT] handleProductSelect() starting')
       const resolvedTags = await ensureNutritionTrackers()
+      console.log('🔍 [PRODUCT] Resolved tags:', resolvedTags)
 
       // Convert product name to title case
       const productLabel = toTitleCase(selectedProduct.productName)
@@ -308,6 +310,8 @@
         `#${resolvedTags.fat}(${nutrients.fat})`,
         `#${resolvedTags.sodium}(${nutrients.sodium})`,
       ].join(' ')
+
+      console.log('🔍 [PRODUCT] Built include string:', includeString)
 
       // Build tracker configuration
       const trackerConfig = {
@@ -1108,6 +1112,8 @@ Tap #${tracker.tag} to log a serving anytime!`
    * Returns mapping of intended tag to resolved tag (for alias matching)
    */
   async function ensureNutritionTrackers(): Promise<Record<string, string>> {
+    console.log('🔍 [NUTRITION] Starting ensureNutritionTrackers()')
+
     const nutritionTrackers = [
       { tag: 'calories', label: 'Calories', emoji: '🔥', uom: 'cal' },
       { tag: 'protein', label: 'Protein', emoji: '💪', uom: 'g' },
@@ -1119,6 +1125,8 @@ Tap #${tracker.tag} to log a serving anytime!`
     const resolvedTags: Record<string, string> = {}
 
     for (const nutrient of nutritionTrackers) {
+      console.log(`🔍 [NUTRITION] Processing ${nutrient.tag}...`)
+
       // Use getOrCreate to check for similar trackers (e.g., "carbs" → "carbohydrates")
       const result = await getOrCreate(nutrient.tag, {
         label: nutrient.label,
@@ -1128,18 +1136,22 @@ Tap #${tracker.tag} to log a serving anytime!`
         math: 'sum' as const,
       })
 
+      console.log(`🔍 [NUTRITION] ${nutrient.tag} → ${result.tracker.tag} (usedExisting: ${result.usedExisting}, requiresConfirmation: ${result.requiresConfirmation})`)
+
       // Store the resolved tag (might be an existing similar tracker)
       resolvedTags[nutrient.tag] = result.tracker.tag
 
       // If new tracker was created, upsert it
       if (!result.usedExisting) {
         await TrackerStore.upsert(result.tracker)
+        console.log(`🔍 [NUTRITION] Created new tracker: ${result.tracker.tag}`)
       }
     }
 
     // Refresh trackable store if any new trackers were created
     await InitTrackableStore()
 
+    console.log('🔍 [NUTRITION] Final resolved tags:', resolvedTags)
     return resolvedTags
   }
 
@@ -1185,7 +1197,9 @@ Tap #${tracker.tag} to log a serving anytime!`
       )
       scrollToBottom()
 
+      console.log('🔍 [BARCODE] processScannedBarcode() resolving nutrition trackers')
       const resolvedTags = await ensureNutritionTrackers()
+      console.log('🔍 [BARCODE] Resolved tags:', resolvedTags)
 
       // Step 3: Preparing entry
       messages = messages.map(m =>
@@ -1212,6 +1226,8 @@ Tap #${tracker.tag} to log a serving anytime!`
         `#${resolvedTags.fat}(${nutrients.fat})`,
         `#${resolvedTags.sodium}(${nutrients.sodium})`,
       ].join(' ')
+
+      console.log('🔍 [BARCODE] Built note values:', noteValues)
 
       // Add product information
       const productInfo = `${nutritionData.productName}${nutritionData.brand ? ` (${nutritionData.brand})` : ''}`
