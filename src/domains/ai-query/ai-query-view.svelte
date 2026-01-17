@@ -282,8 +282,8 @@
     loading = true
 
     try {
-      // Create nutrition trackers if needed
-      await ensureNutritionTrackers()
+      // Create/resolve nutrition trackers (checks for similar existing trackers)
+      const resolvedTags = await ensureNutritionTrackers()
 
       // Convert product name to title case
       const productLabel = toTitleCase(selectedProduct.productName)
@@ -300,13 +300,13 @@
         sodium: Math.round(selectedProduct.nutrients.sodium_mg),
       }
 
-      // Build include string with nutrition trackers
+      // Build include string with resolved nutrition trackers
       const includeString = [
-        `#calories(${nutrients.calories})`,
-        `#protein(${nutrients.protein})`,
-        `#carbs(${nutrients.carbs})`,
-        `#fat(${nutrients.fat})`,
-        `#sodium(${nutrients.sodium})`,
+        `#${resolvedTags.calories}(${nutrients.calories})`,
+        `#${resolvedTags.protein}(${nutrients.protein})`,
+        `#${resolvedTags.carbs}(${nutrients.carbs})`,
+        `#${resolvedTags.fat}(${nutrients.fat})`,
+        `#${resolvedTags.sodium}(${nutrients.sodium})`,
       ].join(' ')
 
       // Build tracker configuration
@@ -1105,9 +1105,9 @@ Tap #${tracker.tag} to log a serving anytime!`
 
   /**
    * Ensure nutrition trackers exist, create if missing
-   * Returns count of newly created trackers
+   * Returns mapping of intended tag to resolved tag (for alias matching)
    */
-  async function ensureNutritionTrackers(): Promise<number> {
+  async function ensureNutritionTrackers(): Promise<Record<string, string>> {
     const nutritionTrackers = [
       { tag: 'calories', label: 'Calories', emoji: '🔥', uom: 'cal' },
       { tag: 'protein', label: 'Protein', emoji: '💪', uom: 'g' },
@@ -1116,43 +1116,31 @@ Tap #${tracker.tag} to log a serving anytime!`
       { tag: 'sodium', label: 'Sodium', emoji: '🧂', uom: 'mg' },
     ]
 
-    // Get current trackers
-    const currentTrackers = $TrackerStore
-    const existingTags: Record<string, boolean> = {}
-
-    // Track which trackers need to be created
-    const trackersToCreate: TrackerClass[] = []
+    const resolvedTags: Record<string, string> = {}
 
     for (const nutrient of nutritionTrackers) {
-      if (currentTrackers[nutrient.tag]) {
-        existingTags[nutrient.tag] = true
-      } else {
-        // Create new tracker
-        const tracker = new TrackerClass({
-          tag: nutrient.tag,
-          label: nutrient.label,
-          type: 'value',
-          emoji: nutrient.emoji,
-          uom: nutrient.uom,
-          math: 'sum',
-          color: '#4CAF50', // Green for nutrition
-          default: 0,
-        })
-        trackersToCreate.push(tracker)
-        existingTags[nutrient.tag] = false
+      // Use getOrCreate to check for similar trackers (e.g., "carbs" → "carbohydrates")
+      const result = await getOrCreate(nutrient.tag, {
+        label: nutrient.label,
+        type: 'value' as const,
+        emoji: nutrient.emoji,
+        uom: nutrient.uom,
+        math: 'sum' as const,
+      })
+
+      // Store the resolved tag (might be an existing similar tracker)
+      resolvedTags[nutrient.tag] = result.tracker.tag
+
+      // If new tracker was created, upsert it
+      if (!result.usedExisting) {
+        await TrackerStore.upsert(result.tracker)
       }
     }
 
-    // Create missing trackers
-    if (trackersToCreate.length > 0) {
-      const trackables = trackersToCreate.map(tracker =>
-        new Trackable({ type: 'tracker', tracker })
-      )
-      await saveTrackersToStorage(trackables)
-      await InitTrackableStore()
-    }
+    // Refresh trackable store if any new trackers were created
+    await InitTrackableStore()
 
-    return trackersToCreate.length
+    return resolvedTags
   }
 
   async function processScannedBarcode(barcode: string, quantity: number, originalMessage: string) {
@@ -1197,15 +1185,12 @@ Tap #${tracker.tag} to log a serving anytime!`
       )
       scrollToBottom()
 
-      const newTrackersCount = await ensureNutritionTrackers()
-      const trackerStatus = newTrackersCount > 0
-        ? `✓ Created ${newTrackersCount} new nutrition trackers`
-        : `✓ Trackers ready`
+      const resolvedTags = await ensureNutritionTrackers()
 
       // Step 3: Preparing entry
       messages = messages.map(m =>
         m.id === loadingMessageId
-          ? { ...m, content: `✓ Found: ${nutritionData.productName}\n${trackerStatus}\n\n💾 Creating entry...` }
+          ? { ...m, content: `✓ Found: ${nutritionData.productName}\n✓ Trackers ready\n\n💾 Creating entry...` }
           : m
       )
       scrollToBottom()
@@ -1219,13 +1204,13 @@ Tap #${tracker.tag} to log a serving anytime!`
         sodium: Math.round(nutritionData.nutrients.sodium_mg * quantity),
       }
 
-      // Build note string with all nutrients
+      // Build note string with resolved nutrition trackers
       const noteValues = [
-        `#calories(${nutrients.calories})`,
-        `#protein(${nutrients.protein})`,
-        `#carbs(${nutrients.carbs})`,
-        `#fat(${nutrients.fat})`,
-        `#sodium(${nutrients.sodium})`,
+        `#${resolvedTags.calories}(${nutrients.calories})`,
+        `#${resolvedTags.protein}(${nutrients.protein})`,
+        `#${resolvedTags.carbs}(${nutrients.carbs})`,
+        `#${resolvedTags.fat}(${nutrients.fat})`,
+        `#${resolvedTags.sodium}(${nutrients.sodium})`,
       ].join(' ')
 
       // Add product information
