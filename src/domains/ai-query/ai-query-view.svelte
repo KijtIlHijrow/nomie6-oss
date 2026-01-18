@@ -2448,7 +2448,8 @@ View your entry in the timeline to see all tracked nutrients.`
 
   .search-error {
     padding: 1rem;
-    background: var(--color-red-faded);
+    background: var(--color-solid-2);
+    border: 1px solid var(--color-solid-3);
     border-radius: 8px;
     margin: 0.5rem 0;
   }
@@ -2456,6 +2457,15 @@ View your entry in the timeline to see all tracked nutrients.`
   .search-error p {
     margin: 0 0 0.5rem 0;
     color: var(--color-red);
+    font-weight: 500;
+  }
+
+  .search-error button {
+    opacity: 0.8;
+  }
+
+  .search-error button:hover {
+    opacity: 1;
   }
 
   .search-results {
