@@ -6,7 +6,9 @@ import nid from '../nid/nid'
 import ScoreTracker from '../scoring/score-tracker'
 import type { ICondition } from '../scoring/score-tracker'
 import type { Token } from '../tokenizer/lite'
+import { tokenizeLite } from '../tokenizer/lite'
 import type { IFocusUnit } from '../../domains/focus/focus-utils'
+import type { ITrackables } from '../../domains/trackable/trackable-utils'
 
 export type ITrackerType = 'tick' | 'habit' | 'value' | 'range' | 'picker' | 'note' | 'timer'
 export type ITrackerMath = 'sum' | 'mean'
@@ -201,6 +203,55 @@ export default class TrackerClass {
     } else {
       includedStr = includedStr.replace(/\*/, value || '')
     }
+    return includedStr.trim()
+  }
+
+  getIncludedRecursive(value, trackables: ITrackables, visited: Set<string> = new Set()): string {
+    // Prevent infinite loops
+    if (visited.has(this.tag)) {
+      return ''
+    }
+    visited.add(this.tag)
+
+    let includedStr = this.include || ''
+    if (!includedStr) {
+      return ''
+    }
+
+    // Substitute {value} or * with the actual value
+    if (includedStr.search('{value}') > -1) {
+      includedStr = includedStr.replace(/\{value\}/gi, value || '')
+    } else {
+      includedStr = includedStr.replace(/\*/, value || '')
+    }
+
+    // Parse the included string to find tracker tokens
+    const tokens = tokenizeLite(includedStr)
+    const nestedExpansions: string[] = []
+
+    tokens.forEach((token) => {
+      if (token.type === 'tracker' && token.id) {
+        const nestedTrackable = trackables[token.id]
+        if (nestedTrackable?.tracker?.include) {
+          // Recursively expand this tracker's "Also Include"
+          const tokenValue = token.value || 1
+          const expanded = nestedTrackable.tracker.getIncludedRecursive(
+            tokenValue,
+            trackables,
+            new Set(visited)
+          )
+          if (expanded) {
+            nestedExpansions.push(expanded)
+          }
+        }
+      }
+    })
+
+    // Combine the base include with nested expansions
+    if (nestedExpansions.length > 0) {
+      return `${includedStr} ${nestedExpansions.join(' ')}`.trim()
+    }
+
     return includedStr.trim()
   }
 

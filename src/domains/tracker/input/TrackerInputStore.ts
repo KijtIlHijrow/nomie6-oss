@@ -297,9 +297,9 @@ export const getTrackerInputAsString = async (props: TrackerInputProps): Promise
       }
 
       // If Tracker has an include prop - and its expanded
-      // Push the included to the note
+      // Push the included to the note (recursively expand nested "Also Include")
       if (props.tracker.include && props.expandNote) {
-        note.push(props.tracker.getIncluded(response.value))
+        note.push(props.tracker.getIncludedRecursive(response.value, props.trackables))
       }
 
       resolve({
