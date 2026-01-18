@@ -1278,6 +1278,9 @@ Tap #${tracker.tag} to log a serving anytime!`
       { tag: 'carbs', label: 'Carbs', emoji: '🍞', uom: 'g' },
       { tag: 'fat', label: 'Fat', emoji: '🥑', uom: 'g' },
       { tag: 'sodium', label: 'Sodium', emoji: '🧂', uom: 'mg' },
+      { tag: 'satfat', label: 'Saturated Fats', emoji: '🥩', uom: 'g' },
+      { tag: 'sugars', label: 'Sugars', emoji: '🍬', uom: 'g' },
+      { tag: 'fibre', label: 'Fibre', emoji: '🌾', uom: 'g' },
     ]
 
     const resolvedTags: Record<string, string> = {}
