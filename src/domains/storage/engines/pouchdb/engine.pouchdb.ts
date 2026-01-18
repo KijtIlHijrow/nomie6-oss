@@ -192,9 +192,12 @@ export const PouchDBEngine: IStorage = {
     let doc = null
     try {
       doc = await this.db.get(path)
-    } catch (e) { 
-      console.log("getFullDoc error found: ",e)
-     if (e.toString().includes("Failed to execute 'transaction' on 'IDBDatabase'"))
+    } catch (e) {
+      // Only log non-404 errors (404 is expected for files that don't exist yet)
+      if (e.status !== 404) {
+        console.log("getFullDoc error found: ",e)
+      }
+      if (e.toString().includes("Failed to execute 'transaction' on 'IDBDatabase'"))
         {console.log("Reload DB action triggered",e)
           this.db = new PouchDB(dbKey, {
           auto_compaction: true,

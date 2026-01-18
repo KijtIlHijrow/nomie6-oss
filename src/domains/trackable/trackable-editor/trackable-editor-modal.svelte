@@ -73,7 +73,7 @@
   $: if (trackable && !workingTrackable) {
     workingTrackable = new Trackable(trackable)
     workingTag = workingTrackable.tag || strToTagSafe(workingTrackable.label)
-    ogTag = workingTag
+    ogTag = workingTrackable.tag  // Only set if trackable already has a tag
 
     if (!ogTag && !workingTrackable.emoji) {
       workingTrackable.emoji = randomEmoji()
@@ -107,60 +107,66 @@
    * Save the Working Trackable
    */
   const save = async () => {
-    if (!workingTrackable.id) workingTrackable.id = `${workingTrackable.prefix}${workingTag}`
-    if (!ogTag) {
-      workingTrackable.tag = workingTag
-    }
-
-    // For new trackers, check for similar existing trackers
-    if (workingTrackable.type === 'tracker' && !ogTag) {
-      const result = await getOrCreate(workingTag, workingTrackable.tracker)
-
-      if (result.requiresConfirmation && result.matches && result.matches.length > 0) {
-        // Show confirmation modal for similar trackers
-        pendingTrackerCreation = {
-          tag: workingTag,
-          config: workingTrackable.tracker,
-          matches: result.matches,
-        }
-        showTrackerMatchModal = true
-        return
+    try {
+      if (!workingTrackable.id) workingTrackable.id = `${workingTrackable.prefix}${workingTag}`
+      if (!ogTag) {
+        workingTrackable.tag = workingTag
       }
 
-      if (result.usedExisting) {
-        // Update workingTrackable with existing tracker
-        workingTrackable.tracker = result.tracker
-        workingTrackable.tag = result.tracker.tag
-        workingTag = result.tracker.tag
-        ogTag = result.tracker.tag
-      }
-    }
+      // For new trackers, check for similar existing trackers
+      if (workingTrackable.type === 'tracker' && !ogTag) {
+        const result = await getOrCreate(workingTag, workingTrackable.tracker)
 
-    saving = true
-    if (saveByPass) {
-      saveByPass(workingTrackable)
-      close()
-    } else {
-      let saved = await saveTrackable({
-        trackable: workingTrackable,
-        known: $TrackableStore.trackables,
-      })
-      // Toast the Place!
-      close()
-      InitTrackableStore()
-
-      saving = false
-      if (saved) {
-        showToast({ message: `${workingTrackable.label} saved` })
-        setTimeout(async () => {
-          let awards = getAwardChain()
-          if (awards && !awards.getById('award-creator')) {
-            await wait(600)
-            giveAward('award-creator')
+        if (result.requiresConfirmation && result.matches && result.matches.length > 0) {
+          // Show confirmation modal for similar trackers
+          pendingTrackerCreation = {
+            tag: workingTag,
+            config: workingTrackable.tracker,
+            matches: result.matches,
           }
-        })
+          showTrackerMatchModal = true
+          return
+        }
+
+        if (result.usedExisting) {
+          // Update workingTrackable with existing tracker
+          workingTrackable.tracker = result.tracker
+          workingTrackable.tag = result.tracker.tag
+          workingTag = result.tracker.tag
+          ogTag = result.tracker.tag
+        }
       }
-    } // end Save By Pass Check
+
+      saving = true
+      if (saveByPass) {
+        saveByPass(workingTrackable)
+        close()
+      } else {
+        let saved = await saveTrackable({
+          trackable: workingTrackable,
+          known: $TrackableStore.trackables,
+        })
+        // Toast the Place!
+        close()
+        InitTrackableStore()
+
+        saving = false
+        if (saved) {
+          showToast({ message: `${workingTrackable.label} saved` })
+          setTimeout(async () => {
+            let awards = getAwardChain()
+            if (awards && !awards.getById('award-creator')) {
+              await wait(600)
+              giveAward('award-creator')
+            }
+          })
+        }
+      }
+    } catch (e) {
+      saving = false
+      console.error('Error saving trackable:', e)
+      Interact.error(`Failed to save: ${e.message}`)
+    }
   }
 
   /**
