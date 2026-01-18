@@ -355,6 +355,9 @@
             if (!ogTag) {
               workingTag = `${strToTagSafe(workingTrackable.label)}`
               workingTrackable.tag = workingTag
+              if (workingTrackable.type === 'tracker') {
+                workingTrackable.tracker.tag = workingTag
+              }
             }
           }}
           placeholder={label}
