@@ -352,6 +352,9 @@
           value={workingTrackable.label}
           on:input={(evt) => {
             workingTrackable.label = evt.detail
+            if (workingTrackable.type === 'tracker') {
+              workingTrackable.tracker.label = evt.detail
+            }
             if (!ogTag) {
               workingTag = `${strToTagSafe(workingTrackable.label)}`
               workingTrackable.tag = workingTag
