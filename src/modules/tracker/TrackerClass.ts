@@ -15,7 +15,7 @@ export type ITrackerMath = 'sum' | 'mean'
 
 export function toTag(str: string) {
   return (str || '')
-    .replace(/('|"|\?|-|\)|\(|\*|\&|\||\$|\@|\+|\#)/gi, '')
+    .replace(/('|"|\?|-|\)|\(|\*|\&|\||\$|\@|\+|\#|,)/gi, '')
     .trim()
     .replace(/( )/g, '_')
     .toLowerCase()
