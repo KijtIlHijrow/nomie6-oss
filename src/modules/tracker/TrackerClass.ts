@@ -231,7 +231,8 @@ export default class TrackerClass {
 
     tokens.forEach((token) => {
       if (token.type === 'tracker' && token.id) {
-        const nestedTrackable = trackables[token.id]
+        // Try with # prefix first, then without
+        const nestedTrackable = trackables[`#${token.id}`] || trackables[token.id]
         if (nestedTrackable?.tracker?.include) {
           // Recursively expand this tracker's "Also Include"
           const tokenValue = token.value || 1
