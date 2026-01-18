@@ -1367,15 +1367,14 @@ Tap #${tracker.tag} to log a serving anytime!`
       const trackerTag = toTag(nutritionData.productName)
 
       // Build comprehensive nutrition includes with value-based scaling
-      // Use serving size as the base unit
+      // Nutrition data from OpenFoodFacts is per 100g, so we calculate per-gram factors
       const n = nutritionData.nutrients
-      const servingSize = nutritionData.servingSize || 1
       const includes: string[] = []
 
       // Helper to add include if nutrient exists
       const addInclude = (tag: string, value: number | undefined, precision: number = 4) => {
         if (value !== undefined && value !== 0) {
-          const factor = (value / servingSize).toFixed(precision)
+          const factor = (value / 100).toFixed(precision)
           includes.push(`#${tag}({value}*${factor})`)
         }
       }
@@ -1385,24 +1384,30 @@ Tap #${tracker.tag} to log a serving anytime!`
       addInclude(resolvedTags.protein, n.protein_g, 4)
       addInclude(resolvedTags.carbs, n.carbs_g, 4)
       addInclude(resolvedTags.fat, n.fat_g, 4)
-      addInclude(resolvedTags.sodium, n.sodium_mg, 4)
 
       // Extended nutrients if available
       if (n.sugar_g !== undefined) addInclude('sugars', n.sugar_g, 4)
       if (n.fiber_g !== undefined) addInclude('fibre', n.fiber_g, 4)
       if (n.saturated_fat_g !== undefined) addInclude('satfat', n.saturated_fat_g, 5)
+      if (n.monounsaturated_fat_g !== undefined) addInclude('monofat', n.monounsaturated_fat_g, 5)
+      if (n.polyunsaturated_fat_g !== undefined) addInclude('polyfat', n.polyunsaturated_fat_g, 5)
+
+      // Other nutrients
+      if (n.cholesterol_mg !== undefined) addInclude('cholesterol', n.cholesterol_mg / 1000, 5) // Convert mg to g
+      if (n.alcohol_g !== undefined) addInclude('alcohol', n.alcohol_g, 4)
+      if (n.sodium_mg !== undefined) addInclude(resolvedTags.sodium, n.sodium_mg / 1000, 5) // Convert mg to g
 
       const includeString = includes.join(' ')
 
       console.log('🔍 [BARCODE] Built include string:', includeString)
 
-      // Build tracker configuration
+      // Build tracker configuration with gram-based UOM for value scaling
       const trackerConfig = {
         label: productLabel,
         type: 'value' as const,
         emoji: '📦',
-        uom: nutritionData.servingUnit || 'serving',
-        default: servingSize,
+        uom: 'gram', // Use gram for per-gram factor calculations
+        default: 100, // Default to 100g serving
         color: '#FF6B6B',
         include: includeString,
         math: 'sum' as const,
@@ -1429,14 +1434,16 @@ Tap #${tracker.tag} to log a serving anytime!`
       )
       scrollToBottom()
 
-      // Calculate serving quantity (quantity parameter represents number of servings)
-      const servingQuantity = quantity * servingSize
+      // Extract numeric grams from serving size string (e.g., "1 bar (60g)" -> 60)
+      const gramsMatch = nutritionData.servingSize.match(/(\d+)\s*g/)
+      const gramsPerServing = gramsMatch ? parseInt(gramsMatch[1]) : 100
+      const totalGrams = quantity * gramsPerServing
 
       // Create log entry using the new tracker
       const productInfo = `${nutritionData.productName}${nutritionData.brand ? ` (${nutritionData.brand})` : ''}`
       const servingInfo = quantity > 1 ? ` - ${quantity}x ${nutritionData.servingSize}${nutritionData.servingUnit}` : ` - ${nutritionData.servingSize}${nutritionData.servingUnit}`
 
-      const fullNote = `#${productTracker.tag}(${servingQuantity})\n\n${productInfo}${servingInfo}`
+      const fullNote = `#${productTracker.tag}(${totalGrams})\n\n${productInfo}${servingInfo}`
 
       const log = new NLog({
         note: fullNote,
@@ -1449,13 +1456,14 @@ Tap #${tracker.tag} to log a serving anytime!`
       // Remove loading message
       messages = messages.filter(m => m.id !== loadingMessageId)
 
-      // Calculate actual nutrients for display
+      // Calculate actual nutrients for display (nutrition data is per 100g)
+      const gramFactor = totalGrams / 100
       const nutrients = {
-        calories: Math.round(n.calories * quantity),
-        protein: Math.round(n.protein_g * quantity),
-        carbs: Math.round(n.carbs_g * quantity),
-        fat: Math.round(n.fat_g * quantity),
-        sodium: Math.round(n.sodium_mg * quantity),
+        calories: Math.round(n.calories * gramFactor),
+        protein: Math.round(n.protein_g * gramFactor),
+        carbs: Math.round(n.carbs_g * gramFactor),
+        fat: Math.round(n.fat_g * gramFactor),
+        sodium: Math.round(n.sodium_mg * gramFactor),
       }
 
       // Display enhanced success message
@@ -1463,7 +1471,7 @@ Tap #${tracker.tag} to log a serving anytime!`
       const nutritionDisplay = `✅ ${actionText}
 
 📦 **Product:** ${productInfo}
-📏 **Serving:** ${quantity > 1 ? `${quantity}x ` : ''}${nutritionData.servingSize}${nutritionData.servingUnit}
+📏 **Logged:** ${totalGrams}g (${quantity > 1 ? `${quantity}x ` : ''}${nutritionData.servingSize}${nutritionData.servingUnit})
 
 **Nutrition Logged:**
 🔥 Calories: ${nutrients.calories} cal
@@ -1473,7 +1481,7 @@ Tap #${tracker.tag} to log a serving anytime!`
 🧂 Sodium: ${nutrients.sodium}mg
 
 **🎯 Reusable tracker #${productTracker.tag} created!**
-Tap it anytime to log this product quickly.`
+Tap it to log by grams anytime.`
 
       messages = [...messages, {
         id: generateMessageId('assistant'),
