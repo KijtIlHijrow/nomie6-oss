@@ -29,8 +29,9 @@ export async function migrateSatfatToSaturatedFat(): Promise<{
   console.log('🔄 [MIGRATION] Starting satfat → Saturated Fat migration...')
 
   try {
-    // Step 1: Find the target tracker
-    const trackers = get(TrackerStore)
+    // Step 1: Get trackers from Storage (PouchDB: trackers.json)
+    const trackersData = await Storage.get('trackers.json')
+    const trackers = trackersData?.data || trackersData || {}
     console.log('🔄 [MIGRATION] Loaded trackers:', Object.keys(trackers).length)
 
     // Look for "Saturated Fat" tracker (case-insensitive search)
@@ -58,10 +59,11 @@ export async function migrateSatfatToSaturatedFat(): Promise<{
       return { success: false, logsUpdated: 0, booksUpdated: 0, error }
     }
 
-    // Step 2: Get all book IDs
-    const bookPattern = /^book\//
+    // Step 2: Get all book document IDs (PouchDB: data/books/*)
     const allKeys = await Storage.list()
-    const bookKeys = allKeys.filter((key: string) => bookPattern.test(key))
+    const bookKeys = allKeys.filter((key: string) =>
+      key.startsWith('data/books/') && !key.endsWith('_last')
+    )
 
     console.log(`🔄 [MIGRATION] Found ${bookKeys.length} books to scan`)
 
@@ -70,9 +72,9 @@ export async function migrateSatfatToSaturatedFat(): Promise<{
 
     // Step 3: Process each book
     for (const bookKey of bookKeys) {
-      const bookData = await Storage.get(bookKey)
+      const bookDoc = await Storage.get(bookKey)
 
-      if (!bookData || !Array.isArray(bookData)) {
+      if (!bookDoc || !bookDoc.data || !Array.isArray(bookDoc.data)) {
         console.log(`🔄 [MIGRATION] Skipping ${bookKey} (invalid format)`)
         continue
       }
@@ -80,7 +82,7 @@ export async function migrateSatfatToSaturatedFat(): Promise<{
       let bookModified = false
 
       // Check each log in the book
-      for (const log of bookData) {
+      for (const log of bookDoc.data) {
         if (log.note && log.note.includes('#satfat')) {
           const oldNote = log.note
           log.note = log.note.replace(/#satfat\b/g, `#${targetTag}`)
@@ -96,7 +98,7 @@ export async function migrateSatfatToSaturatedFat(): Promise<{
 
       // Save the book if it was modified
       if (bookModified) {
-        await Storage.put(bookKey, bookData)
+        await Storage.put(bookKey, bookDoc)
         booksUpdated++
         console.log(`🔄 [MIGRATION] ✓ Saved ${bookKey}`)
       }
