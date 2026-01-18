@@ -17,6 +17,7 @@
   export let scroller = false
   export let className = ''
   export let style = ''
+  export let expandNote = true // Whether to expand "also include" items
 
   let state = {
     partialTag: null,
@@ -56,9 +57,9 @@
       const inputResponse = await getTrackerInputAsString({
         trackables: $TrackableStore.trackables,
         tracker: trackable.tracker,
-        expandNote: true
+        expandNote: expandNote
       })
-      
+
       dismissTrackerInputModal()
       // note = trackable.tracker.toNoteString(inputResponse.value)
       note = inputResponse.raw;

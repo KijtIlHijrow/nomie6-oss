@@ -1974,6 +1974,7 @@ View your entry in the timeline to see all tracked nutrients.`
                       <AutoComplete
                         input={includeInputValues[includeInputKey] || ''}
                         scroller
+                        expandNote={false}
                         on:select={async (evt) => {
                           includeInputValues[includeInputKey] = evt.detail.note + ''
                         }}

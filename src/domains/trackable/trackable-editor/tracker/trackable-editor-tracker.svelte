@@ -89,6 +89,76 @@
     advanced = true
   }
 
+  /**
+   * Parse the include string to identify trackers and their nested "also include" items
+   * Returns an array of items with label and includes array
+   */
+  function parseIncludeItems(includeStr: string) {
+    if (!includeStr) return []
+
+    const items = []
+    const tokens = includeStr.split(/\s+/).filter(t => t.trim())
+
+    for (const token of tokens) {
+      // Match tracker tags like #chicken_breast(150) or #calories
+      const match = token.match(/^#([a-zA-Z0-9_-]+)(\([^)]*\))?/)
+      if (match) {
+        const tag = match[1]
+        const value = match[2] ? match[2].slice(1, -1) : null
+
+        // Look up the tracker in the TrackableStore
+        const trackable = $TrackableStore.trackables[`#${tag}`]
+
+        if (trackable && trackable.type === 'tracker') {
+          const trackerObj = trackable.tracker
+          const label = value ? `${trackerObj.label} (${value})` : trackerObj.label
+
+          // Check if this tracker has "also include" items
+          const includes = []
+          if (trackerObj.include) {
+            // Parse the nested includes
+            const nestedTokens = trackerObj.include.split(/\s+/).filter(t => t.trim())
+            for (const nestedToken of nestedTokens) {
+              const nestedMatch = nestedToken.match(/^#([a-zA-Z0-9_-]+)(\([^)]*\))?/)
+              if (nestedMatch) {
+                const nestedTag = nestedMatch[1]
+                const nestedTrackable = $TrackableStore.trackables[`#${nestedTag}`]
+                if (nestedTrackable && nestedTrackable.type === 'tracker') {
+                  // Calculate the value if it's a formula
+                  const nestedValue = nestedMatch[2] ? nestedMatch[2].slice(1, -1) : null
+                  let displayValue = ''
+                  if (nestedValue && value) {
+                    // Try to evaluate formulas like {value}*0.5 or 150*3.5600
+                    try {
+                      let formula = nestedValue.replace(/\{value\}/gi, value)
+                      // Simple formula parser for multiplication (e.g., "150*3.5600")
+                      if (formula.includes('*')) {
+                        const parts = formula.split('*').map(p => parseFloat(p.trim()))
+                        if (parts.every(p => !isNaN(p))) {
+                          const result = parts.reduce((a, b) => a * b, 1)
+                          displayValue = `: ${Math.round(result * 100) / 100}`
+                        }
+                      } else {
+                        displayValue = nestedValue ? `: ${nestedValue}` : ''
+                      }
+                    } catch (e) {
+                      displayValue = nestedValue ? `: ${nestedValue}` : ''
+                    }
+                  }
+                  includes.push(`${nestedTrackable.tracker.label}${displayValue}`)
+                }
+              }
+            }
+          }
+
+          items.push({ label, includes })
+        }
+      }
+    }
+
+    return items
+  }
+
   //Catch if the UPM is timer and not a timer tracker
   $: if (tracker.type === 'timer') {
     tracker.uom = 'timer'
@@ -529,10 +599,25 @@
           <AutoComplete
             input={tracker.include}
             scroller
+            expandNote={false}
             on:select={async (evt) => {
               tracker.include = evt.detail.note + ''
             }}
           />
+          {#if tracker.include}
+            <div class="px-4 py-2 space-y-1">
+              {#each parseIncludeItems(tracker.include) as item}
+                <div class="text-sm">
+                  <span class="font-medium dark:text-white">{item.label}</span>
+                  {#if item.includes && item.includes.length > 0}
+                    <span class="text-gray-500 dark:text-gray-400 text-xs ml-1">
+                      ({item.includes.join(', ')})
+                    </span>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
         {/if}
       </List>
 
