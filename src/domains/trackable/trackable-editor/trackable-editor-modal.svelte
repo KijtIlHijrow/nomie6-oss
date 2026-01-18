@@ -325,10 +325,7 @@
     if (newTag) {
       const safeTag = strToTagSafe(newTag)
       if ($TrackableStore.trackables[`${workingTrackable.prefix}${safeTag}`]) {
-        await wait(200)
         await Interact.error(`${workingTrackable.prefix}${safeTag} already exists. Try another`)
-        await wait(200)
-        editTag()
       } else {
         ogTag = undefined
         workingTag = safeTag
