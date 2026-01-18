@@ -1260,6 +1260,11 @@ Tap #${tracker.tag} to log a serving anytime!`
     showManualEntry = true
   }
 
+  function handleScannerManualEntry() {
+    showBarcodeScanner = false
+    showManualEntry = true
+  }
+
   /**
    * Ensure nutrition trackers exist, create if missing
    * Returns mapping of intended tag to resolved tag (for alias matching)
@@ -2322,6 +2327,7 @@ View your entry in the timeline to see all tracked nutrients.`
   <BarcodeScannerModal
     onScan={handleBarcodeScanned}
     onCancel={handleScannerCancel}
+    onManualEntry={handleScannerManualEntry}
     onError={(err) => {
       console.error('Barcode scanner error:', err)
       showBarcodeScanner = false

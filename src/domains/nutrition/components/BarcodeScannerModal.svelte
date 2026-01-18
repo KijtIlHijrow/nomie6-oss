@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
-  import { Html5Qrcode } from 'html5-qrcode'
+  import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
   import { nutritionService } from '../nutrition-service'
 
   export let onScan: (barcode: string) => void
   export let onCancel: () => void
   export let onError: (error: string) => void
+  export let onManualEntry: (() => void) | undefined = undefined
 
   let scanner: Html5Qrcode | null = null
   let scanning = false
@@ -35,8 +36,12 @@
       scanning = true
       errorMessage = ''
 
+      console.log('[BarcodeScannerModal] Starting scanner...')
+
       // Create scanner instance
       scanner = new Html5Qrcode(SCANNER_ID)
+
+      console.log('[BarcodeScannerModal] Scanner instance created, starting camera...')
 
       // Start scanning with rear camera
       await scanner.start(
@@ -44,13 +49,21 @@
         {
           fps: 10, // Scans per second
           qrbox: { width: 250, height: 250 }, // Scanning area
-          aspectRatio: 1.0
+          aspectRatio: 1.0,
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E
+          ]
         },
         onScanSuccess,
         onScanFailure
       )
+      console.log('[BarcodeScannerModal] Scanner started successfully')
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
+      console.error('[BarcodeScannerModal] Failed to start scanner:', error)
       errorMessage = `Failed to start camera: ${msg}`
       onError(errorMessage)
     }
@@ -70,15 +83,20 @@
   }
 
   function onScanSuccess(decodedText: string, decodedResult: any) {
+    console.log('[BarcodeScannerModal] Barcode detected:', decodedText, decodedResult)
+
     // Validate barcode
     const validation = nutritionService.validateBarcode(decodedText)
+    console.log('[BarcodeScannerModal] Validation result:', validation)
 
     if (validation.valid) {
       // Stop scanner and return result
+      console.log('[BarcodeScannerModal] Valid barcode, stopping scanner')
       stopScanning()
       onScan(decodedText)
     } else {
       // Invalid barcode format, keep scanning
+      console.warn('[BarcodeScannerModal] Invalid barcode format:', validation.error)
       errorMessage = validation.error || 'Invalid barcode format'
       setTimeout(() => {
         errorMessage = ''
@@ -90,13 +108,20 @@
     // This is called continuously while scanning, ignore
     // Only log actual errors, not "No barcode found" messages
     if (!error.includes('NotFoundException')) {
-      console.warn('Scan error:', error)
+      console.warn('[BarcodeScannerModal] Scan error:', error)
     }
   }
 
   function handleCancel() {
     stopScanning()
     onCancel()
+  }
+
+  function handleManualEntry() {
+    stopScanning()
+    if (onManualEntry) {
+      onManualEntry()
+    }
   }
 </script>
 
@@ -129,6 +154,11 @@
         <button class="btn-cancel" on:click={handleCancel}>
           Cancel
         </button>
+        {#if onManualEntry}
+          <button class="btn-manual" on:click={handleManualEntry}>
+            Enter Manually
+          </button>
+        {/if}
       </div>
     </div>
   </div>
@@ -254,22 +284,38 @@
     border-top: 1px solid var(--color-border, #333);
     display: flex;
     justify-content: center;
+    gap: 12px;
   }
 
-  .btn-cancel {
+  .btn-cancel,
+  .btn-manual {
     padding: 12px 32px;
-    background: var(--color-bg-secondary, #2a2a2a);
-    border: 1px solid var(--color-border, #444);
     border-radius: 8px;
-    color: var(--color-text-primary, #fff);
     font-size: 16px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
   }
 
+  .btn-cancel {
+    background: var(--color-bg-secondary, #2a2a2a);
+    border: 1px solid var(--color-border, #444);
+    color: var(--color-text-primary, #fff);
+  }
+
   .btn-cancel:hover {
     background: var(--color-bg-tertiary, #333);
+  }
+
+  .btn-manual {
+    background: var(--primary_color, #07B2F5);
+    border: none;
+    color: white;
+  }
+
+  .btn-manual:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
   }
 
   @media (max-width: 600px) {

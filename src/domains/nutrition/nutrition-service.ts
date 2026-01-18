@@ -335,7 +335,8 @@ export class NutritionService {
       return { valid: false, error: 'Barcode is required' }
     }
 
-    const cleaned = barcode.trim()
+    // Strip spaces, dashes, and other common formatting characters
+    const cleaned = barcode.trim().replace(/[\s\-_]/g, '')
 
     // Check if numeric
     if (!/^\d+$/.test(cleaned)) {
