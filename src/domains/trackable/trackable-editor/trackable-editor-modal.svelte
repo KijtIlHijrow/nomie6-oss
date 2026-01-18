@@ -487,8 +487,9 @@
 
 {#if showTrackerMatchModal && pendingTrackerCreation}
   <TrackerMatchModal
+    visible={showTrackerMatchModal}
+    inputName={pendingTrackerCreation.tag}
     matches={pendingTrackerCreation.matches}
-    searchTerm={pendingTrackerCreation.tag}
     on:useExisting={handleUseExistingTracker}
     on:createNew={handleCreateNewTracker}
   />
