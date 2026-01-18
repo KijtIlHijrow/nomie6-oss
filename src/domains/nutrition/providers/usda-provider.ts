@@ -66,10 +66,12 @@ export class USDAProvider implements NutritionProvider {
 
   /**
    * Search for products by name
+   * Searches across all food types (Branded, Foundation, SR Legacy, Survey)
    */
   async search(query: string): Promise<NutritionData[]> {
     try {
-      const url = `${this.baseUrl}/foods/search?query=${encodeURIComponent(query)}&dataType=Branded&pageSize=10&api_key=${this.apiKey}`
+      // Don't filter by dataType - search all food types to include Foundation foods like raw fruits/vegetables
+      const url = `${this.baseUrl}/foods/search?query=${encodeURIComponent(query)}&pageSize=10&api_key=${this.apiKey}`
       const response = await fetch(url)
 
       if (!response.ok) {
@@ -99,6 +101,8 @@ export class USDAProvider implements NutritionProvider {
 
   /**
    * Normalize USDA response to our NutritionData format
+   * IMPORTANT: Branded foods have nutrients per serving, must scale to per-100g
+   * Foundation/SR Legacy foods are already per 100g
    */
   private normalizeResponse(barcode: string, food: any): NutritionData | null {
     if (!food) return null
@@ -117,14 +121,22 @@ export class USDAProvider implements NutritionProvider {
       : []
 
     // Build nutrient profile from foodNutrients array
+    // Handle both Branded (nutrientId, value) and Foundation (nutrient.id, amount) formats
     const nutrientMap = new Map()
     if (food.foodNutrients) {
       for (const nutrient of food.foodNutrients) {
-        nutrientMap.set(nutrient.nutrientId || nutrient.nutrientNumber, nutrient.value || 0)
+        // Branded foods: nutrientId directly on object
+        const id = nutrient.nutrientId || nutrient.nutrientNumber || nutrient.nutrient?.id
+        const value = nutrient.value ?? nutrient.amount ?? 0
+        if (id) {
+          nutrientMap.set(id, value)
+        }
       }
     }
 
     // USDA Nutrient IDs (standardized across FoodData Central)
+    // Note: Despite derivationDescription saying "per serving", the API
+    // normalizes all values to per 100g for consistency
     const nutrients = {
       // Macros
       calories: nutrientMap.get(1008) || 0, // Energy (kcal)

@@ -207,33 +207,36 @@
     try {
       let allResults: NutritionData[] = []
 
-      // Primary: OpenFoodFacts (via nutritionService)
-      try {
-        const offResults = await withTimeout(
-          nutritionService.search(productName),
-          10000 // 10s timeout
-        )
-        allResults.push(...offResults)
-      } catch (error) {
-        console.warn('OpenFoodFacts search failed:', error)
+      // Search both providers in parallel for better results
+      const [offResults, usdaResults] = await Promise.allSettled([
+        withTimeout(nutritionService.search(productName), 10000),
+        withTimeout(usdaProvider.search(productName), 10000)
+      ])
+
+      // Collect results from both providers
+      if (offResults.status === 'fulfilled') {
+        allResults.push(...offResults.value)
+      } else {
+        console.warn('OpenFoodFacts search failed:', offResults.reason)
       }
 
-      // If <3 results, try USDA
-      if (allResults.length < 3) {
-        try {
-          const usdaResults = await withTimeout(
-            usdaProvider.search(productName),
-            10000
-          )
-          allResults.push(...usdaResults)
-        } catch (error) {
-          console.warn('USDA search failed:', error)
-        }
+      if (usdaResults.status === 'fulfilled') {
+        allResults.push(...usdaResults.value)
+      } else {
+        console.warn('USDA search failed:', usdaResults.reason)
       }
 
       // Deduplicate by product name + brand
       const unique = deduplicateResults(allResults)
-      searchResults = unique.slice(0, 5) // Top 5
+      // Prioritize USDA Foundation/Survey foods over Branded products
+      const sorted = unique.sort((a, b) => {
+        const aIsFoundation = a.source === 'usda' && !a.brand
+        const bIsFoundation = b.source === 'usda' && !b.brand
+        if (aIsFoundation && !bIsFoundation) return -1
+        if (!aIsFoundation && bIsFoundation) return 1
+        return 0
+      })
+      searchResults = sorted.slice(0, 5) // Top 5
 
       if (searchResults.length === 0) {
         searchError = `No results found for "${productName}"`
