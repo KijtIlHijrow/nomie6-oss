@@ -228,8 +228,16 @@
 
       // Deduplicate by product name + brand
       const unique = deduplicateResults(allResults)
+      // Filter for complete macros only
+      const withCompleteMacros = unique.filter(item => {
+        const n = item.nutrients
+        return n.calories > 0 &&
+               n.protein_g != null && n.protein_g >= 0 &&
+               n.carbs_g != null && n.carbs_g >= 0 &&
+               n.fat_g != null && n.fat_g >= 0
+      })
       // Prioritize USDA Foundation/Survey foods over Branded products
-      const sorted = unique.sort((a, b) => {
+      const sorted = withCompleteMacros.sort((a, b) => {
         const aIsFoundation = a.source === 'usda' && !a.brand
         const bIsFoundation = b.source === 'usda' && !b.brand
         if (aIsFoundation && !bIsFoundation) return -1
