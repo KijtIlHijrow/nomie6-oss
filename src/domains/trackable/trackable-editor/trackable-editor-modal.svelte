@@ -176,6 +176,12 @@
           trackable: workingTrackable,
           known: $TrackableStore.trackables,
         })
+
+        // Update ogTag after saving new tracker to prevent duplicate detection
+        if (!ogTag) {
+          ogTag = workingTag
+        }
+
         // Toast the Place!
         close()
         InitTrackableStore()
@@ -260,6 +266,11 @@
           trackable: workingTrackable,
           known: $TrackableStore.trackables,
         })
+
+        // Update ogTag after saving new tracker to prevent duplicate detection
+        if (!ogTag) {
+          ogTag = workingTag
+        }
 
         close()
         InitTrackableStore()
