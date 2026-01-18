@@ -6,7 +6,7 @@
   import EmojiSearchResults from './EmojiSearchResults.svelte'
   import VariantPopup from './VariantPopup.svelte'
 
-  import emojiData from './data/emoji-light'
+  import emojiData from './data/emoji-full'
   import ButtonGroup from '../button-group/button-group.svelte'
   import Panel from '../panel/panel.svelte'
 

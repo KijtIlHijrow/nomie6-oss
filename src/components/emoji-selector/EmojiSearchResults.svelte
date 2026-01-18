@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
   import EmojiList from './EmojiList.svelte'
-  import emojiData from './data/emoji-light'
+  import emojiData from './data/emoji-full'
 
   import Empty from '../empty/empty.svelte'
   export let searchText = ''
