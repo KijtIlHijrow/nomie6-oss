@@ -145,6 +145,13 @@
     productData?: NutritionData
   } | null = null
 
+  // Tracker update state
+  let pendingTrackerUpdate: {
+    tracker: any
+    newInclude: string
+    productData: NutritionData
+  } | null = null
+
   /**
    * Wraps a promise with a timeout
    */
@@ -293,33 +300,48 @@
       // Create tracker tag from product name
       const trackerTag = toTag(selectedProduct.productName)
 
-      // Calculate nutrition per serving
-      const nutrients = {
-        calories: Math.round(selectedProduct.nutrients.calories),
-        protein: Math.round(selectedProduct.nutrients.protein_g),
-        carbs: Math.round(selectedProduct.nutrients.carbs_g),
-        fat: Math.round(selectedProduct.nutrients.fat_g),
-        sodium: Math.round(selectedProduct.nutrients.sodium_mg),
+      // Build comprehensive nutrition includes with value-based scaling
+      // Nutrition data from OpenFoodFacts is per 100g, so we calculate per-gram factors
+      const n = selectedProduct.nutrients
+      const includes: string[] = []
+
+      // Helper to add include if nutrient exists
+      const addInclude = (tag: string, value: number | undefined, precision: number = 4) => {
+        if (value !== undefined && value !== 0) {
+          const factor = (value / 100).toFixed(precision)
+          includes.push(`#${tag}({value}*${factor})`)
+        }
       }
 
-      // Build include string with resolved nutrition trackers
-      const includeString = [
-        `#${resolvedTags.calories}(${nutrients.calories})`,
-        `#${resolvedTags.protein}(${nutrients.protein})`,
-        `#${resolvedTags.carbs}(${nutrients.carbs})`,
-        `#${resolvedTags.fat}(${nutrients.fat})`,
-        `#${resolvedTags.sodium}(${nutrients.sodium})`,
-      ].join(' ')
+      // Core macros (always present)
+      addInclude(resolvedTags.calories, n.calories, 4)
+      addInclude(resolvedTags.protein, n.protein_g, 4)
+      addInclude(resolvedTags.carbs, n.carbs_g, 4)
+      addInclude(resolvedTags.fat, n.fat_g, 4)
+
+      // Extended macros (if available)
+      if (n.sugar_g !== undefined) addInclude('sugars', n.sugar_g, 4)
+      if (n.fiber_g !== undefined) addInclude('fibre', n.fiber_g, 4)
+      if (n.saturated_fat_g !== undefined) addInclude('satfat', n.saturated_fat_g, 5)
+      if (n.monounsaturated_fat_g !== undefined) addInclude('monofat', n.monounsaturated_fat_g, 5)
+      if (n.polyunsaturated_fat_g !== undefined) addInclude('polyfat', n.polyunsaturated_fat_g, 5)
+
+      // Other nutrients
+      if (n.cholesterol_mg !== undefined) addInclude('cholesterol', n.cholesterol_mg / 1000, 5) // Convert mg to g
+      if (n.alcohol_g !== undefined) addInclude('alcohol', n.alcohol_g, 4)
+      if (n.sodium_mg !== undefined) addInclude(resolvedTags.sodium, n.sodium_mg / 1000, 5) // Convert mg to g
+
+      const includeString = includes.join(' ')
 
       console.log('🔍 [PRODUCT] Built include string:', includeString)
 
-      // Build tracker configuration
+      // Build tracker configuration with gram-based UOM for value scaling
       const trackerConfig = {
         label: productLabel,
         type: 'value' as const,
         emoji: '🍽️',
-        uom: mapServingUnitToUOM(selectedProduct.servingUnit),
-        default: parseFloat(selectedProduct.servingSize) || 1,
+        uom: 'gram', // Use gram for per-gram factor calculations
+        default: 100, // Default to 100g serving
         color: '#FF6B6B',
         include: includeString,
         math: 'sum' as const,
@@ -351,22 +373,78 @@
         await InitTrackableStore()
       }
 
-      // Display success message
+      // Check if existing tracker has different (improved) nutrition data
+      if (result.usedExisting && result.tracker.include !== includeString) {
+        const currentIncludes = result.tracker.include || 'None'
+        const newIncludes = includeString
+
+        // Compare nutrient count
+        const currentCount = currentIncludes === 'None' ? 0 : currentIncludes.split('#').length - 1
+        const newCount = includes.length
+
+        const updatePrompt = `🔄 **Better Nutrition Data Available!**
+
+📦 **Product:** ${productLabel}
+
+**Current tracker has:** ${currentCount} nutrients
+**New data has:** ${newCount} nutrients
+
+**Current includes:**
+\`${currentIncludes}\`
+
+**New includes:**
+\`${newIncludes}\`
+
+Would you like to update #${productTracker.tag} with the improved nutrition data?`
+
+        messages = [...messages, {
+          id: generateMessageId('assistant'),
+          role: 'assistant',
+          content: updatePrompt,
+          timestamp: new Date(),
+        }]
+
+        // Store pending update for user response
+        pendingTrackerUpdate = {
+          tracker: productTracker,
+          newInclude: includeString,
+          productData: selectedProduct
+        }
+
+        scrollToBottom()
+        loading = false
+        return // Wait for user decision
+      }
+
+      // Display success message with comprehensive nutrition info
       const productInfo = `${productLabel}${selectedProduct.brand ? ` (${toTitleCase(selectedProduct.brand)})` : ''}`
       const actionText = result.usedExisting ? '**Using Existing Tracker!**' : '**Tracker Created!**'
+
+      // Build nutrition display for per 100g (omit zero values)
+      const nutritionLines: string[] = []
+      if (n.calories && n.calories > 0) nutritionLines.push(`🔥 Calories: ${n.calories.toFixed(1)} kcal`)
+      if (n.protein_g && n.protein_g > 0) nutritionLines.push(`💪 Protein: ${n.protein_g.toFixed(1)}g`)
+      if (n.carbs_g && n.carbs_g > 0) nutritionLines.push(`🍞 Carbs: ${n.carbs_g.toFixed(1)}g`)
+      if (n.sugar_g !== undefined && n.sugar_g > 0) nutritionLines.push(`  ├─ Sugars: ${n.sugar_g.toFixed(1)}g`)
+      if (n.fiber_g !== undefined && n.fiber_g > 0) nutritionLines.push(`  └─ Fibre: ${n.fiber_g.toFixed(1)}g`)
+      if (n.fat_g && n.fat_g > 0) nutritionLines.push(`🥑 Fat: ${n.fat_g.toFixed(1)}g`)
+      if (n.saturated_fat_g !== undefined && n.saturated_fat_g > 0) nutritionLines.push(`  ├─ Saturated: ${n.saturated_fat_g.toFixed(1)}g`)
+      if (n.monounsaturated_fat_g !== undefined && n.monounsaturated_fat_g > 0) nutritionLines.push(`  ├─ Monounsaturated: ${n.monounsaturated_fat_g.toFixed(1)}g`)
+      if (n.polyunsaturated_fat_g !== undefined && n.polyunsaturated_fat_g > 0) nutritionLines.push(`  └─ Polyunsaturated: ${n.polyunsaturated_fat_g.toFixed(1)}g`)
+      if (n.cholesterol_mg !== undefined && n.cholesterol_mg > 0) nutritionLines.push(`💊 Cholesterol: ${n.cholesterol_mg.toFixed(1)}mg`)
+      if (n.sodium_mg !== undefined && n.sodium_mg > 0) nutritionLines.push(`🧂 Sodium: ${n.sodium_mg.toFixed(1)}mg`)
+      if (n.alcohol_g !== undefined && n.alcohol_g > 0) nutritionLines.push(`🍺 Alcohol: ${n.alcohol_g.toFixed(1)}g`)
+
       const nutritionDisplay = `✅ ${actionText}
 
 📦 **Product:** ${productInfo}
-📏 **Serving:** ${selectedProduct.servingSize}${selectedProduct.servingUnit}
 
-**Nutrition per serving:**
-🔥 Calories: ${nutrients.calories} cal
-💪 Protein: ${nutrients.protein}g
-🍞 Carbs: ${nutrients.carbs}g
-🥑 Fat: ${nutrients.fat}g
-🧂 Sodium: ${nutrients.sodium}mg
+**Nutrition per 100g:**
+${nutritionLines.join('\n')}
 
-Tap #${productTracker.tag} to log a serving anytime!`
+**Auto-tracked macros:** ${includes.length} nutrients with value scaling
+
+Tap #${productTracker.tag} to log by grams!`
 
       messages = [...messages, {
         id: generateMessageId('assistant'),
@@ -462,6 +540,70 @@ Tap #${productTracker.tag} to log a serving anytime!`
       // Clean up
       pendingTrackerCreation = null
       showTrackerMatchModal = false
+      loading = false
+    }
+  }
+
+  /**
+   * Handle updating an existing tracker with new nutrition data
+   */
+  async function handleTrackerUpdate() {
+    if (!pendingTrackerUpdate) return
+
+    loading = true
+
+    try {
+      const { tracker, newInclude, productData } = pendingTrackerUpdate
+
+      // Update the tracker's include field
+      tracker.include = newInclude
+
+      // Save the updated tracker
+      await TrackerStore.upsert(tracker)
+      await InitTrackableStore()
+
+      // Build success message (omit zero values)
+      const n = productData.nutrients
+      const nutritionLines: string[] = []
+      if (n.calories && n.calories > 0) nutritionLines.push(`🔥 Calories: ${n.calories.toFixed(1)} kcal`)
+      if (n.protein_g && n.protein_g > 0) nutritionLines.push(`💪 Protein: ${n.protein_g.toFixed(1)}g`)
+      if (n.carbs_g && n.carbs_g > 0) nutritionLines.push(`🍞 Carbs: ${n.carbs_g.toFixed(1)}g`)
+      if (n.sugar_g !== undefined && n.sugar_g > 0) nutritionLines.push(`  ├─ Sugars: ${n.sugar_g.toFixed(1)}g`)
+      if (n.fiber_g !== undefined && n.fiber_g > 0) nutritionLines.push(`  └─ Fibre: ${n.fiber_g.toFixed(1)}g`)
+      if (n.fat_g && n.fat_g > 0) nutritionLines.push(`🥑 Fat: ${n.fat_g.toFixed(1)}g`)
+      if (n.saturated_fat_g !== undefined && n.saturated_fat_g > 0) nutritionLines.push(`  ├─ Saturated: ${n.saturated_fat_g.toFixed(1)}g`)
+      if (n.monounsaturated_fat_g !== undefined && n.monounsaturated_fat_g > 0) nutritionLines.push(`  ├─ Monounsaturated: ${n.monounsaturated_fat_g.toFixed(1)}g`)
+      if (n.polyunsaturated_fat_g !== undefined && n.polyunsaturated_fat_g > 0) nutritionLines.push(`  └─ Polyunsaturated: ${n.polyunsaturated_fat_g.toFixed(1)}g`)
+      if (n.cholesterol_mg !== undefined && n.cholesterol_mg > 0) nutritionLines.push(`💊 Cholesterol: ${n.cholesterol_mg.toFixed(1)}mg`)
+      if (n.sodium_mg !== undefined && n.sodium_mg > 0) nutritionLines.push(`🧂 Sodium: ${n.sodium_mg.toFixed(1)}mg`)
+
+      const nutrientCount = newInclude.split('#').length - 1
+
+      messages = [...messages, {
+        id: generateMessageId('assistant'),
+        role: 'assistant',
+        content: `✅ **Tracker Updated!**
+
+#${tracker.tag} now tracks ${nutrientCount} nutrients with value scaling
+
+**Updated nutrition (per 100g):**
+${nutritionLines.join('\n')}
+
+Ready to log!`,
+        timestamp: new Date(),
+      }]
+
+      scrollToBottom()
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      messages = [...messages, {
+        id: generateMessageId('error'),
+        role: 'error',
+        content: `❌ Error updating tracker: ${errorMessage}`,
+        timestamp: new Date(),
+      }]
+    } finally {
+      pendingTrackerUpdate = null
       loading = false
     }
   }
@@ -1306,6 +1448,25 @@ View your entry in the timeline to see all tracked nutrients.`
     const questionToAsk = question.trim()
     question = '' // Clear input immediately
 
+    // Check for pending tracker update first
+    if (pendingTrackerUpdate) {
+      const lowerResponse = questionToAsk.toLowerCase()
+      if (lowerResponse === 'yes' || lowerResponse === 'y' || lowerResponse === 'update') {
+        await handleTrackerUpdate()
+        return
+      } else if (lowerResponse === 'no' || lowerResponse === 'n' || lowerResponse === 'skip') {
+        messages = [...messages, {
+          id: generateMessageId('assistant'),
+          role: 'assistant',
+          content: `Keeping existing #${pendingTrackerUpdate.tracker.tag} tracker unchanged.`,
+          timestamp: new Date(),
+        }]
+        pendingTrackerUpdate = null
+        scrollToBottom()
+        return
+      }
+    }
+
     // Check for pending value request first
     // Also check if the last message has needs_value action (fallback)
     let valueRequestMessage = null
@@ -2093,7 +2254,7 @@ View your entry in the timeline to see all tracked nutrients.`
               {#if result.brand}
                 <div class="product-brand text-gray-600 dark:text-gray-400">{result.brand}</div>
               {/if}
-              <div class="product-serving text-gray-500 dark:text-gray-500">{result.servingSize}{result.servingUnit}</div>
+              <div class="product-serving text-gray-500 dark:text-gray-500">Per 100g: {result.nutrients.calories.toFixed(0)} cal | {result.nutrients.protein_g.toFixed(1)}g protein | {result.nutrients.carbs_g.toFixed(1)}g carbs | {result.nutrients.fat_g.toFixed(1)}g fat</div>
             </div>
             <div class="product-source-badge">{result.source}</div>
           </button>

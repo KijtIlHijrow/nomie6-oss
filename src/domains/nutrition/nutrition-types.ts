@@ -38,6 +38,8 @@ export interface NutrientProfile {
   sugar_g?: number
   saturated_fat_g?: number
   trans_fat_g?: number
+  monounsaturated_fat_g?: number
+  polyunsaturated_fat_g?: number
 
   // Minerals (mg unless noted)
   sodium_mg?: number

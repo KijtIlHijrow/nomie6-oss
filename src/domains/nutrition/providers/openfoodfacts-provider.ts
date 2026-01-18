@@ -198,6 +198,8 @@ export class OpenFoodFactsProvider implements NutritionProvider {
       sugar_g: nutriments.sugars,
       saturated_fat_g: nutriments['saturated-fat'],
       trans_fat_g: nutriments['trans-fat'],
+      monounsaturated_fat_g: nutriments['monounsaturated-fat'],
+      polyunsaturated_fat_g: nutriments['polyunsaturated-fat'],
 
       // Minerals (OpenFoodFacts uses g, we need mg)
       sodium_mg: nutriments.sodium ? nutriments.sodium * 1000 : nutriments.salt ? (nutriments.salt * 1000) / 2.5 : undefined,
@@ -223,6 +225,7 @@ export class OpenFoodFactsProvider implements NutritionProvider {
       // Other
       cholesterol_mg: nutriments.cholesterol ? nutriments.cholesterol * 1000 : undefined,
       caffeine_mg: nutriments.caffeine ? nutriments.caffeine * 1000 : undefined,
+      alcohol_g: nutriments.alcohol,
     }
 
     return {
