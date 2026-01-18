@@ -291,6 +291,10 @@
       } else {
         ogTag = undefined
         workingTag = safeTag
+        workingTrackable.tag = safeTag
+        if (workingTrackable.type === 'tracker') {
+          workingTrackable.tracker.tag = safeTag
+        }
       }
     }
   }
