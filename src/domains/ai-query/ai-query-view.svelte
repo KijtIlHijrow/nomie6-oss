@@ -1353,7 +1353,7 @@ Tap #${tracker.tag} to log a serving anytime!`
       // Step 2: Creating nutrition trackers
       messages = messages.map(m =>
         m.id === loadingMessageId
-          ? { ...m, content: `✓ Found: ${nutritionData.productName}\n\n⚙️ Setting up nutrition trackers...` }
+          ? { ...m, content: `✓ Found: ${nutritionData.productName}\n\n⚙️ Creating product tracker...` }
           : m
       )
       scrollToBottom()
@@ -1362,41 +1362,82 @@ Tap #${tracker.tag} to log a serving anytime!`
       const resolvedTags = await ensureNutritionTrackers()
       console.log('🔍 [BARCODE] Resolved tags:', resolvedTags)
 
-      // Step 3: Preparing entry
+      // Step 3: Create product-specific tracker with nutrition includes
+      const productLabel = toTitleCase(nutritionData.productName)
+      const trackerTag = toTag(nutritionData.productName)
+
+      // Build comprehensive nutrition includes with value-based scaling
+      // Use serving size as the base unit
+      const n = nutritionData.nutrients
+      const servingSize = nutritionData.servingSize || 1
+      const includes: string[] = []
+
+      // Helper to add include if nutrient exists
+      const addInclude = (tag: string, value: number | undefined, precision: number = 4) => {
+        if (value !== undefined && value !== 0) {
+          const factor = (value / servingSize).toFixed(precision)
+          includes.push(`#${tag}({value}*${factor})`)
+        }
+      }
+
+      // Core macros (always present)
+      addInclude(resolvedTags.calories, n.calories, 4)
+      addInclude(resolvedTags.protein, n.protein_g, 4)
+      addInclude(resolvedTags.carbs, n.carbs_g, 4)
+      addInclude(resolvedTags.fat, n.fat_g, 4)
+      addInclude(resolvedTags.sodium, n.sodium_mg, 4)
+
+      // Extended nutrients if available
+      if (n.sugar_g !== undefined) addInclude('sugars', n.sugar_g, 4)
+      if (n.fiber_g !== undefined) addInclude('fibre', n.fiber_g, 4)
+      if (n.saturated_fat_g !== undefined) addInclude('satfat', n.saturated_fat_g, 5)
+
+      const includeString = includes.join(' ')
+
+      console.log('🔍 [BARCODE] Built include string:', includeString)
+
+      // Build tracker configuration
+      const trackerConfig = {
+        label: productLabel,
+        type: 'value' as const,
+        emoji: '📦',
+        uom: nutritionData.servingUnit || 'serving',
+        default: servingSize,
+        color: '#FF6B6B',
+        include: includeString,
+        math: 'sum' as const,
+      }
+
+      // Use getOrCreate to check for similar trackers
+      const result: GetOrCreateResult = await getOrCreate(trackerTag, trackerConfig)
+
+      // Use existing or new tracker
+      const productTracker = result.usedExisting
+        ? result.tracker
+        : await TrackerStore.upsert(result.tracker).then(() => result.tracker)
+
+      // If new tracker was created, initialize trackable store
+      if (!result.usedExisting) {
+        await InitTrackableStore()
+      }
+
+      // Step 4: Auto-log the scanned quantity
       messages = messages.map(m =>
         m.id === loadingMessageId
-          ? { ...m, content: `✓ Found: ${nutritionData.productName}\n✓ Trackers ready\n\n💾 Creating entry...` }
+          ? { ...m, content: `✓ Found: ${nutritionData.productName}\n✓ Tracker created\n\n💾 Logging entry...` }
           : m
       )
       scrollToBottom()
 
-      // Calculate scaled nutrient values
-      const nutrients = {
-        calories: Math.round(nutritionData.nutrients.calories * quantity),
-        protein: Math.round(nutritionData.nutrients.protein_g * quantity),
-        carbs: Math.round(nutritionData.nutrients.carbs_g * quantity),
-        fat: Math.round(nutritionData.nutrients.fat_g * quantity),
-        sodium: Math.round(nutritionData.nutrients.sodium_mg * quantity),
-      }
+      // Calculate serving quantity (quantity parameter represents number of servings)
+      const servingQuantity = quantity * servingSize
 
-      // Build note string with resolved nutrition trackers
-      const noteValues = [
-        `#${resolvedTags.calories}(${nutrients.calories})`,
-        `#${resolvedTags.protein}(${nutrients.protein})`,
-        `#${resolvedTags.carbs}(${nutrients.carbs})`,
-        `#${resolvedTags.fat}(${nutrients.fat})`,
-        `#${resolvedTags.sodium}(${nutrients.sodium})`,
-      ].join(' ')
-
-      console.log('🔍 [BARCODE] Built note values:', noteValues)
-
-      // Add product information
+      // Create log entry using the new tracker
       const productInfo = `${nutritionData.productName}${nutritionData.brand ? ` (${nutritionData.brand})` : ''}`
       const servingInfo = quantity > 1 ? ` - ${quantity}x ${nutritionData.servingSize}${nutritionData.servingUnit}` : ` - ${nutritionData.servingSize}${nutritionData.servingUnit}`
 
-      const fullNote = `${noteValues}\n\n${productInfo}${servingInfo}`
+      const fullNote = `#${productTracker.tag}(${servingQuantity})\n\n${productInfo}${servingInfo}`
 
-      // Create and save log entry
       const log = new NLog({
         note: fullNote,
         end: new Date(),
@@ -1408,8 +1449,18 @@ Tap #${tracker.tag} to log a serving anytime!`
       // Remove loading message
       messages = messages.filter(m => m.id !== loadingMessageId)
 
-      // Display enhanced success message with nutrition breakdown
-      const nutritionDisplay = `✅ **Entry Logged Successfully!**
+      // Calculate actual nutrients for display
+      const nutrients = {
+        calories: Math.round(n.calories * quantity),
+        protein: Math.round(n.protein_g * quantity),
+        carbs: Math.round(n.carbs_g * quantity),
+        fat: Math.round(n.fat_g * quantity),
+        sodium: Math.round(n.sodium_mg * quantity),
+      }
+
+      // Display enhanced success message
+      const actionText = result.usedExisting ? '**Using Existing Tracker!**' : '**Tracker Created!**'
+      const nutritionDisplay = `✅ ${actionText}
 
 📦 **Product:** ${productInfo}
 📏 **Serving:** ${quantity > 1 ? `${quantity}x ` : ''}${nutritionData.servingSize}${nutritionData.servingUnit}
@@ -1421,7 +1472,8 @@ Tap #${tracker.tag} to log a serving anytime!`
 🥑 Fat: ${nutrients.fat}g
 🧂 Sodium: ${nutrients.sodium}mg
 
-View your entry in the timeline to see all tracked nutrients.`
+**🎯 Reusable tracker #${productTracker.tag} created!**
+Tap it anytime to log this product quickly.`
 
       messages = [...messages, {
         id: generateMessageId('assistant'),
