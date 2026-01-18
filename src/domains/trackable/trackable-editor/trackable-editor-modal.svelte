@@ -59,6 +59,7 @@
   let workingTag: string
   let label: string = 'Label'
   let tagExists: boolean = false
+  let hasShownDuplicatePopup: boolean = false
 
   let saving: boolean = false
 
@@ -90,8 +91,37 @@
         canSave = false
         tagExists = true
         console.error('That tag already exists!')
+        if (!hasShownDuplicatePopup) {
+          hasShownDuplicatePopup = true
+          handleDuplicateTag()
+        }
       } else {
         tagExists = false
+        hasShownDuplicatePopup = false
+      }
+    }
+  }
+
+  /**
+   * Handle duplicate tag detection
+   * Shows a popup offering to open the existing tracker
+   */
+  const handleDuplicateTag = async () => {
+    const fullTag = `${workingTrackable.prefix}${workingTag}`
+    const existingTrackable = $TrackableStore.trackables[fullTag]
+
+    if (existingTrackable) {
+      const confirmed = await Interact.confirm(
+        'Tag Already Exists',
+        `A tracker with tag ${fullTag} already exists. Would you like to open it instead?`,
+        'Open Existing',
+        'Cancel'
+      )
+
+      if (confirmed) {
+        close()
+        await wait(200)
+        openTrackableEditor(existingTrackable)
       }
     }
   }
