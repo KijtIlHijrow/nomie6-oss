@@ -23,6 +23,7 @@
 
   import { TrackableStore } from '../TrackableStore'
   import type { TrackableSelectorProps } from './TrackableSelectorStore'
+  import { onMount, onDestroy } from 'svelte'
 
   export let id: string
   export let payload: TrackableSelectorProps
@@ -47,6 +48,21 @@
     headerGroups[key] = true
     return exists
   }
+
+  const handleEscape = (evt: KeyboardEvent) => {
+    if (evt.key === 'Escape' && searchTerm) {
+      // Prevent backdrop from closing modal when search has text
+      evt.stopImmediatePropagation()
+    }
+  }
+
+  onMount(() => {
+    window.addEventListener('keydown', handleEscape, true)
+  })
+
+  onDestroy(() => {
+    window.removeEventListener('keydown', handleEscape, true)
+  })
 
   $: if (searchTerm) {
     headerGroups = {}
@@ -177,6 +193,7 @@
       <SearchBar
         autocomplete
         compact
+        autofocus={true}
         showClose={true}
         className="p-0 px-2 mt-1"
         on:clear={() => {
