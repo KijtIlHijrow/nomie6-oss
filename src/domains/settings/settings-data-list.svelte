@@ -104,14 +104,10 @@
 
 <BackupListItems />
 
-<div class="n-list">
-  <div class="n-item">
-    <div class="title">Auto-Backups</div>
-    <div class="description">Automatic daily backups and backups on close</div>
-  </div>
-
+<List solo className="mb-3 mt-4" outside>
+  <ListItem title={Lang.t('settings.auto-backups', 'Auto-Backups')} description="Automatic daily backups and backups on close" />
   <AutoBackupUI />
-</div>
+</List>
 
 <List solo className="mb-3 mt-4" outside>
   <ListItem
