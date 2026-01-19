@@ -1,4 +1,5 @@
-import { autoBackupStorage, AutoBackup } from './auto-backup-storage'
+import { autoBackupStorage } from './auto-backup-storage'
+import type { AutoBackup } from './auto-backup-storage'
 import Storage from '../storage/storage'
 import dayjs from 'dayjs'
 import { AppVersion } from '../../modules/app-version/app-version'
