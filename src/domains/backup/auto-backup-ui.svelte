@@ -252,7 +252,6 @@
     text-align: center;
     padding: 40px;
     color: var(--color-solid);
-    opacity: 0.6;
   }
 
   .status-card {
@@ -282,7 +281,6 @@
   .stat .label {
     font-size: 12px;
     color: var(--color-solid);
-    opacity: 0.6;
     margin-bottom: 8px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -333,7 +331,6 @@
     color: var(--color-solid);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    opacity: 0.6;
   }
 
   td {
@@ -350,7 +347,6 @@
   .date-cell .secondary {
     font-size: 12px;
     color: var(--color-solid);
-    opacity: 0.6;
   }
 
   .badge {
