@@ -50,7 +50,6 @@
   // import Logo from '../../components/logo/logo.svelte'
   import { showToast } from '../../components/toast/ToastStore'
 
-  import ChatboxOutline from '../../n-icons/ChatboxOutline.svelte'
   import Badge from '../../components/badge/badge.svelte'
   import { openTemplateManager } from '../templates/templates-svelte-helpers'
   import { openAnalytics } from '../templates/templates-svelte-helpers'
@@ -120,43 +119,6 @@
 </script>
 
 <NLayout pageTitle="Settings" showCapture={false}>
-  <div slot="header" class="z-40">
-    <Container>
-      <ToolbarGrid>
-        <!-- <Button
-          slot="left"
-          clear
-          icon
-          title={Lang.t('general.messages', 'Messages')}
-          className={$Prefs.hideMessages ? 'hidden' : ''}
-          on:click={() => {
-            navigate('/messages')
-          }}
-        >
-          <IonIcon
-            icon={$MessageStore.unseen ? MailUnreadOutline : MailOutline}
-            className={$MessageStore.unseen ? 'text-red-500 animate-pulse' : 'text-gray-500'}
-          />
-        </Button> -->
-
-        <!-- <Logo size={22} /> -->
-
-        <div slot="right">
-          <!-- {#if !hasChatInstalled} -->
-          <a
-            title="Find a bug? Want to provide feedback?"
-            href={`mailto:${config.support_email}?subject=Nomie ${AppVersion} `}
-            class="font-semibold text-black dark:text-white text-sm flex items-center space-x-2"
-            target="_blank"
-          >
-            <span>{Lang.t('general.feedback', 'Feedback')}</span>
-            <ChatboxOutline />
-          </a>
-          <!-- {/if} -->
-        </div>
-      </ToolbarGrid>
-    </Container>
-  </div>
 
   <div slot="content" class="pt-2 z-10 relative  lg:px-4">
     <Container>
