@@ -97,12 +97,10 @@ export const bootNomie = async ($Prefs: PreferencesStateType) => {
           console.error('Migration failed, but continuing boot:', error)
         }
 
-        // Initialize auto-backup scheduler
-        try {
-          await BackupScheduler.init()
-        } catch (error) {
-          console.error('BackupScheduler failed to initialize:', error)
-        }
+        // Initialize auto-backup scheduler (non-blocking to prevent boot delay)
+        BackupScheduler.init().catch(error => {
+          console.error('BackupScheduler failed to initialize - auto-backups disabled for this session:', error)
+        })
 
         bootCoreComponents(trackables)
         // If not ready, we don't have an account firing
