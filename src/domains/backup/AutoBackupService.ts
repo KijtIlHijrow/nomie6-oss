@@ -4,10 +4,41 @@ import dayjs from 'dayjs'
 import { AppVersion } from '../../modules/app-version/app-version'
 import { MD5 } from 'crypto-js'
 
+interface BackupStatus {
+  lastAttempt: number
+  lastSuccess: number
+  failureCount: number
+  lastError: string
+}
+
 class AutoBackupServiceClass {
   private lastBackupHash: string | null = null
+  private readonly STATUS_KEY = 'auto-backup-status'
+  private readonly MAX_RETRIES = 1
 
-  async createBackup(type: 'daily' | 'close'): Promise<void> {
+  private getStatus(): BackupStatus {
+    const stored = localStorage.getItem(this.STATUS_KEY)
+    if (stored) {
+      return JSON.parse(stored)
+    }
+    return {
+      lastAttempt: 0,
+      lastSuccess: 0,
+      failureCount: 0,
+      lastError: ''
+    }
+  }
+
+  private setStatus(status: BackupStatus): void {
+    localStorage.setItem(this.STATUS_KEY, JSON.stringify(status))
+  }
+
+  async createBackup(type: 'daily' | 'close', isRetry = false): Promise<void> {
+    // Get and update status
+    const status = this.getStatus()
+    status.lastAttempt = Date.now()
+    this.setStatus(status)
+
     try {
       // Get all storage data
       const files: Array<string> = await Storage.list()
@@ -60,9 +91,39 @@ class AutoBackupServiceClass {
 
       // Run rotation after creating backup
       await this.rotateBackups()
+
+      // Update status on success
+      status.lastSuccess = Date.now()
+      status.failureCount = 0
+      status.lastError = ''
+      this.setStatus(status)
     } catch (error) {
       console.error('[AutoBackup] Failed to create backup:', error)
-      throw error
+
+      // Update failure status
+      status.failureCount++
+      status.lastError = error instanceof Error ? error.message : String(error)
+      this.setStatus(status)
+
+      // Check for quota exceeded errors
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const isQuotaError = errorMessage.toLowerCase().includes('quota') ||
+                          errorMessage.includes('QuotaExceededError')
+
+      if (isQuotaError && !isRetry) {
+        console.log('[AutoBackup] Quota exceeded, freeing space and retrying...')
+        await this.freeSpace()
+        await this.createBackup(type, true)
+      } else if (!isRetry) {
+        console.log('[AutoBackup] Will retry in 30 seconds...')
+        setTimeout(() => {
+          this.createBackup(type, true).catch(err => {
+            console.error('[AutoBackup] Retry failed:', err)
+          })
+        }, 30000)
+      } else {
+        throw error
+      }
     }
   }
 
@@ -122,6 +183,29 @@ class AutoBackupServiceClass {
 
     if (toDelete.length > 0) {
       console.log(`[AutoBackup] Rotation complete: kept ${toKeep.length}, deleted ${toDelete.length}`)
+    }
+  }
+
+  async freeSpace(): Promise<void> {
+    const backups = await this.listBackups()
+    // Sort oldest first
+    const sorted = backups.sort((a, b) => a.timestamp - b.timestamp)
+    // Delete oldest 5 backups
+    const toDelete = sorted.slice(0, 5)
+
+    for (const backup of toDelete) {
+      await this.deleteBackup(backup.id)
+    }
+
+    console.log(`[AutoBackup] Freed space by deleting ${toDelete.length} old backups`)
+  }
+
+  getBackupHealth(): { healthy: boolean; failureCount: number; lastError: string } {
+    const status = this.getStatus()
+    return {
+      healthy: status.failureCount < 3,
+      failureCount: status.failureCount,
+      lastError: status.lastError
     }
   }
 }
