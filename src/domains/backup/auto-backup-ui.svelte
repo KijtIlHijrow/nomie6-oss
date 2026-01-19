@@ -362,16 +362,14 @@
     text-transform: capitalize;
   }
 
-  .badge-automatic {
-    background: var(--color-primary);
-    opacity: 0.2;
-    color: var(--color-primary);
+  .badge-daily {
+    background: var(--color-primary-bright);
+    color: var(--color-inverse);
   }
 
-  .badge-manual {
-    background: var(--color-solid);
-    opacity: 0.1;
-    color: var(--color-solid);
+  .badge-close {
+    background: var(--color-secondary);
+    color: var(--color-inverse);
   }
 
   .actions {
@@ -395,35 +393,32 @@
   }
 
   .btn-small {
-    background: var(--color-primary);
-    opacity: 0.2;
-    color: var(--color-primary);
-  }
-
-  .btn-small:hover {
-    opacity: 0.3;
-  }
-
-  .btn-restore {
-    background: var(--color-solid);
-    opacity: 0.15;
+    background: var(--color-faded-2);
     color: var(--color-solid);
   }
 
+  .btn-small:hover {
+    background: var(--color-faded-3);
+  }
+
+  .btn-restore {
+    background: var(--color-primary);
+    color: var(--color-inverse);
+  }
+
   .btn-restore:hover {
-    opacity: 0.25;
+    background: var(--color-primary-bright);
   }
 
   .btn-danger {
     background: transparent;
-    color: var(--color-solid);
-    opacity: 0.4;
+    color: var(--color-red);
+    border: 1px solid var(--color-red);
   }
 
   .btn-danger:hover {
-    opacity: 0.6;
-    background: var(--color-solid);
-    opacity: 0.1;
+    background: var(--color-red);
+    color: var(--color-inverse);
   }
 
   .settings-section {
@@ -445,8 +440,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 12px 0;
-    border-top: 1px solid var(--color-solid);
-    opacity: 0.1;
+    border-top: 1px solid var(--color-faded-2);
   }
 
   .setting-row:first-of-type {
@@ -469,7 +463,6 @@
   .setting-label .description {
     margin: 0;
     font-size: 12px;
-    color: var(--color-solid);
-    opacity: 0.6;
+    color: var(--color-solid-faded);
   }
 </style>
