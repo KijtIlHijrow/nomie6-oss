@@ -258,9 +258,8 @@
   .status-card {
     margin-bottom: 24px;
     padding: 20px;
-    background: var(--color-solid);
+    background: var(--color-faded-1);
     border-radius: 12px;
-    opacity: 0.1;
   }
 
   .status-card h3 {
@@ -296,10 +295,9 @@
   }
 
   .backup-list {
-    background: var(--color-solid);
+    background: var(--color-faded-1);
     border-radius: 12px;
     overflow: hidden;
-    opacity: 0.1;
   }
 
   .empty-state {
@@ -324,8 +322,7 @@
   }
 
   thead {
-    background: var(--color-solid);
-    opacity: 0.05;
+    background: var(--color-faded-2);
   }
 
   th {
@@ -341,8 +338,7 @@
 
   td {
     padding: 16px;
-    border-top: 1px solid var(--color-solid);
-    opacity: 0.1;
+    border-top: 1px solid var(--color-faded-2);
   }
 
   .date-cell .primary {
@@ -433,9 +429,8 @@
   .settings-section {
     margin-bottom: 24px;
     padding: 20px;
-    background: var(--color-solid);
+    background: var(--color-faded-1);
     border-radius: 12px;
-    opacity: 0.1;
   }
 
   .settings-section h4 {
