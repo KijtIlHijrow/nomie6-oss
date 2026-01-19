@@ -336,6 +336,7 @@
   td {
     padding: 16px;
     border-top: 1px solid var(--color-faded-2);
+    color: var(--color-solid);
   }
 
   .date-cell .primary {
@@ -359,13 +360,13 @@
   }
 
   .badge-daily {
-    background: var(--color-primary-bright);
-    color: var(--color-inverse);
+    background: #3b82f6;
+    color: white;
   }
 
   .badge-close {
-    background: var(--color-secondary);
-    color: var(--color-inverse);
+    background: #10b981;
+    color: white;
   }
 
   .actions {
@@ -398,12 +399,12 @@
   }
 
   .btn-restore {
-    background: var(--color-primary);
-    color: var(--color-inverse);
+    background: #3b82f6;
+    color: white;
   }
 
   .btn-restore:hover {
-    background: var(--color-primary-bright);
+    background: #2563eb;
   }
 
   .btn-danger {
@@ -459,6 +460,6 @@
   .setting-label .description {
     margin: 0;
     font-size: 12px;
-    color: var(--color-solid-faded);
+    color: #9ca3af;
   }
 </style>
