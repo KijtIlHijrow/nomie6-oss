@@ -5,6 +5,8 @@
   import dayjs from 'dayjs';
   import relativeTime from 'dayjs/plugin/relativeTime';
   import { Interact } from '../../store/interact';
+  import { autoBackupSettings } from './auto-backup-settings';
+  import ToggleSwitch from '../../components/toggle-switch/toggle-switch.svelte';
 
   dayjs.extend(relativeTime);
 
@@ -119,6 +121,32 @@
   {#if loading}
     <div class="loading">Loading backups...</div>
   {:else}
+    <div class="settings-section">
+      <h4>Backup Settings</h4>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Daily Backups</strong>
+          <p class="description">Automatic backup once per day</p>
+        </div>
+        <ToggleSwitch
+          title="Daily Backups"
+          value={$autoBackupSettings.dailyEnabled}
+          on:change={(e) => autoBackupSettings.setDailyEnabled(e.detail)}
+        />
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">
+          <strong>Backups on Close</strong>
+          <p class="description">Backup when closing the app</p>
+        </div>
+        <ToggleSwitch
+          title="Backups on Close"
+          value={$autoBackupSettings.closeEnabled}
+          on:change={(e) => autoBackupSettings.setCloseEnabled(e.detail)}
+        />
+      </div>
+    </div>
+
     <div class="status-card">
       <h3>Auto-Backup Status</h3>
       <div class="status-info">
@@ -400,5 +428,53 @@
     opacity: 0.6;
     background: var(--color-solid);
     opacity: 0.1;
+  }
+
+  .settings-section {
+    margin-bottom: 24px;
+    padding: 20px;
+    background: var(--color-solid);
+    border-radius: 12px;
+    opacity: 0.1;
+  }
+
+  .settings-section h4 {
+    margin: 0 0 20px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-solid);
+  }
+
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-top: 1px solid var(--color-solid);
+    opacity: 0.1;
+  }
+
+  .setting-row:first-of-type {
+    border-top: none;
+    padding-top: 0;
+  }
+
+  .setting-label {
+    flex: 1;
+  }
+
+  .setting-label strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-solid);
+    margin-bottom: 4px;
+  }
+
+  .setting-label .description {
+    margin: 0;
+    font-size: 12px;
+    color: var(--color-solid);
+    opacity: 0.6;
   }
 </style>

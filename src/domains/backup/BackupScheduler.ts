@@ -1,4 +1,6 @@
 import { AutoBackupService } from './AutoBackupService'
+import { get } from 'svelte/store'
+import { autoBackupSettings } from './auto-backup-settings'
 
 const LAST_DAILY_BACKUP_KEY = 'auto-backup-last-daily'
 const PENDING_CLOSE_BACKUP_KEY = 'auto-backup-pending-close'
@@ -24,6 +26,12 @@ class BackupSchedulerClass {
   }
 
   private async checkDailyBackup(): Promise<void> {
+    const settings = get(autoBackupSettings)
+    if (!settings.dailyEnabled) {
+      console.log('[BackupScheduler] Daily backups disabled')
+      return
+    }
+
     try {
       const lastDaily = localStorage.getItem(LAST_DAILY_BACKUP_KEY)
       const now = Date.now()
@@ -77,6 +85,11 @@ class BackupSchedulerClass {
 
   private setupCloseHandler(): void {
     window.addEventListener('beforeunload', () => {
+      const settings = get(autoBackupSettings)
+      if (!settings.closeEnabled) {
+        console.log('[BackupScheduler] Close backups disabled')
+        return
+      }
       // Set flag for backup to be created on next startup
       // Note: beforeunload is synchronous, so we can't await
       console.log('[BackupScheduler] Window closing, setting pending backup flag')

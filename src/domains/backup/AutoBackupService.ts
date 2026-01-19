@@ -256,7 +256,7 @@ class AutoBackupServiceClass {
       }
 
       // Import the backup data
-      const { importStorageArchive } = await import('../storage/import')
+      const { importStorageArchive } = await import('../storage/import-export')
       await importStorageArchive(backup.data, false)
 
       // Reload the page after a short delay
