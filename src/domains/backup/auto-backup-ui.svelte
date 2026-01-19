@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import AutoBackupService from './auto-backup-service';
-  import type { AutoBackup } from './auto-backup-service';
+  import { AutoBackupService } from './AutoBackupService';
+  import type { AutoBackup } from './auto-backup-storage';
   import dayjs from 'dayjs';
   import relativeTime from 'dayjs/plugin/relativeTime';
   import { Interact } from '../../store/interact';
@@ -74,22 +74,25 @@
     <div class="loading">Loading backups...</div>
   {:else}
     <div class="status-card">
-      <div class="stat">
-        <div class="label">Total Backups</div>
-        <div class="value">{backups.length}</div>
-      </div>
-      <div class="stat">
-        <div class="label">Storage Used</div>
-        <div class="value">{formatSize(storageUsage)}</div>
-      </div>
-      <div class="stat">
-        <div class="label">Last Backup</div>
-        <div class="value">
-          {#if backups.length > 0}
-            {dayjs(backups[0].timestamp).fromNow()}
-          {:else}
-            Never
-          {/if}
+      <h3>Auto-Backup Status</h3>
+      <div class="status-info">
+        <div class="stat">
+          <div class="label">Total Backups</div>
+          <div class="value">{backups.length}</div>
+        </div>
+        <div class="stat">
+          <div class="label">Storage Used</div>
+          <div class="value">{formatSize(storageUsage)}</div>
+        </div>
+        <div class="stat">
+          <div class="label">Last Backup</div>
+          <div class="value">
+            {#if backups.length > 0}
+              {dayjs(backups[0].timestamp).fromNow()}
+            {:else}
+              Never
+            {/if}
+          </div>
         </div>
       </div>
     </div>
@@ -127,10 +130,10 @@
                 <td>{formatSize(backup.size)}</td>
                 <td>
                   <div class="actions">
-                    <button class="btn-download" on:click={() => downloadBackup(backup)}>
+                    <button class="btn-small" on:click={() => downloadBackup(backup)}>
                       Download
                     </button>
-                    <button class="btn-delete" on:click={() => deleteBackup(backup)}>
+                    <button class="btn-small btn-danger" on:click={() => deleteBackup(backup)}>
                       Delete
                     </button>
                   </div>
@@ -157,14 +160,24 @@
   }
 
   .status-card {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
     margin-bottom: 24px;
     padding: 20px;
     background: var(--color-solid);
     border-radius: 12px;
     opacity: 0.1;
+  }
+
+  .status-card h3 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-solid);
+  }
+
+  .status-info {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
   }
 
   .stat {
@@ -284,23 +297,23 @@
     border: none;
   }
 
-  .btn-download {
+  .btn-small {
     background: var(--color-primary);
     opacity: 0.2;
     color: var(--color-primary);
   }
 
-  .btn-download:hover {
+  .btn-small:hover {
     opacity: 0.3;
   }
 
-  .btn-delete {
+  .btn-danger {
     background: transparent;
     color: var(--color-solid);
     opacity: 0.4;
   }
 
-  .btn-delete:hover {
+  .btn-danger:hover {
     opacity: 0.6;
     background: var(--color-solid);
     opacity: 0.1;
