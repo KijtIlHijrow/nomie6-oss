@@ -11,6 +11,8 @@
   let backups: AutoBackup[] = [];
   let storageUsage = 0;
   let loading = true;
+  let downloadingId: string | null = null;
+  let deletingId: string | null = null;
 
   async function loadBackups() {
     loading = true;
@@ -26,18 +28,22 @@
   }
 
   async function downloadBackup(backup: AutoBackup) {
+    downloadingId = backup.id;
     try {
-      const blob = new Blob([backup.data], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(backup.data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `nomie-backup-${backup.id}.json`;
       a.click();
       URL.revokeObjectURL(url);
+      a.remove();
       Interact.toast('Backup downloaded');
     } catch (error) {
       console.error('Failed to download backup:', error);
       Interact.error('Failed to download backup');
+    } finally {
+      downloadingId = null;
     }
   }
 
@@ -47,6 +53,7 @@
       'This action cannot be undone.'
     );
     if (confirmed) {
+      deletingId = backup.id;
       try {
         await AutoBackupService.deleteBackup(backup.id);
         await loadBackups();
@@ -54,6 +61,8 @@
       } catch (error) {
         console.error('Failed to delete backup:', error);
         Interact.error('Failed to delete backup');
+      } finally {
+        deletingId = null;
       }
     }
   }
@@ -130,11 +139,19 @@
                 <td>{formatSize(backup.size)}</td>
                 <td>
                   <div class="actions">
-                    <button class="btn-small" on:click={() => downloadBackup(backup)}>
-                      Download
+                    <button
+                      class="btn-small"
+                      on:click={() => downloadBackup(backup)}
+                      disabled={downloadingId === backup.id || deletingId === backup.id}
+                    >
+                      {downloadingId === backup.id ? 'Downloading...' : 'Download'}
                     </button>
-                    <button class="btn-small btn-danger" on:click={() => deleteBackup(backup)}>
-                      Delete
+                    <button
+                      class="btn-small btn-danger"
+                      on:click={() => deleteBackup(backup)}
+                      disabled={downloadingId === backup.id || deletingId === backup.id}
+                    >
+                      {deletingId === backup.id ? 'Deleting...' : 'Delete'}
                     </button>
                   </div>
                 </td>
@@ -295,6 +312,11 @@
     cursor: pointer;
     transition: all 0.2s;
     border: none;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .btn-small {
