@@ -79,8 +79,49 @@ class AutoBackupServiceClass {
   }
 
   async rotateBackups(): Promise<void> {
-    // Placeholder - will implement in Phase 3
-    console.log('[AutoBackup] Rotation not yet implemented')
+    const backups = await this.listBackups()
+    const now = Date.now()
+    const DAY_MS = 24 * 60 * 60 * 1000
+
+    // Group backups by day
+    const byDay = new Map<string, AutoBackup[]>()
+
+    backups.forEach(backup => {
+      const day = dayjs(backup.timestamp).format('YYYY-MM-DD')
+      if (!byDay.has(day)) {
+        byDay.set(day, [])
+      }
+      byDay.get(day)!.push(backup)
+    })
+
+    const toKeep: AutoBackup[] = []
+
+    byDay.forEach((dayBackups, day) => {
+      const dayTimestamp = dayjs(day).valueOf()
+      const dayAge = (now - dayTimestamp) / DAY_MS
+
+      if (dayAge <= 7) {
+        // Keep all from last 7 days
+        toKeep.push(...dayBackups)
+      } else if (dayAge <= 30) {
+        // Keep newest from each day 8-30
+        const sorted = dayBackups.sort((a, b) => b.timestamp - a.timestamp)
+        toKeep.push(sorted[0])
+      }
+      // Days >30 are not kept (will be deleted)
+    })
+
+    // Delete backups not in toKeep list
+    const toDelete = backups.filter(b => !toKeep.some(keep => keep.id === b.id))
+
+    for (const backup of toDelete) {
+      console.log(`[AutoBackup] Rotating out old backup: ${backup.id}`)
+      await this.deleteBackup(backup.id)
+    }
+
+    if (toDelete.length > 0) {
+      console.log(`[AutoBackup] Rotation complete: kept ${toKeep.length}, deleted ${toDelete.length}`)
+    }
   }
 }
 
