@@ -105,14 +105,15 @@ class AutoBackupServiceClass {
         toKeep.push(...dayBackups)
       } else if (dayAge <= 30) {
         // Keep newest from each day 8-30
-        const sorted = dayBackups.sort((a, b) => b.timestamp - a.timestamp)
+        const sorted = [...dayBackups].sort((a, b) => b.timestamp - a.timestamp)
         toKeep.push(sorted[0])
       }
       // Days >30 are not kept (will be deleted)
     })
 
-    // Delete backups not in toKeep list
-    const toDelete = backups.filter(b => !toKeep.some(keep => keep.id === b.id))
+    // Delete backups not in toKeep list (using Set for O(n) lookup)
+    const keepIds = new Set(toKeep.map(b => b.id))
+    const toDelete = backups.filter(b => !keepIds.has(b.id))
 
     for (const backup of toDelete) {
       console.log(`[AutoBackup] Rotating out old backup: ${backup.id}`)
