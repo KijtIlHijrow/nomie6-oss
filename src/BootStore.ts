@@ -13,6 +13,7 @@ import { closeModal } from './components/backdrop/BackdropStore2'
 import { initAwardStore } from './domains/awards/AwardsStore'
 import { migrateNutritionTrackerReferences } from './domains/tracker/tracker-migration'
 import { migrateSatfatToSaturatedFat } from './domains/tracker/migrate-satfat-to-saturated-fats'
+import { BackupScheduler } from './domains/backup/BackupScheduler'
 
 import { initUniboardStore } from './domains/board/UniboardStore'
 import { loadToday } from './domains/usage/today/TodayStore'
@@ -94,6 +95,13 @@ export const bootNomie = async ($Prefs: PreferencesStateType) => {
           await migrateSatfatToSaturatedFat()
         } catch (error) {
           console.error('Migration failed, but continuing boot:', error)
+        }
+
+        // Initialize auto-backup scheduler
+        try {
+          await BackupScheduler.init()
+        } catch (error) {
+          console.error('BackupScheduler failed to initialize:', error)
         }
 
         bootCoreComponents(trackables)
