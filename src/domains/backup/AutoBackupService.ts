@@ -15,11 +15,22 @@ class AutoBackupServiceClass {
   private lastBackupHash: string | null = null
   private readonly STATUS_KEY = 'auto-backup-status'
   private readonly MAX_RETRIES = 1
+  private retryTimer: NodeJS.Timeout | null = null
 
   private getStatus(): BackupStatus {
     const stored = localStorage.getItem(this.STATUS_KEY)
     if (stored) {
-      return JSON.parse(stored)
+      try {
+        return JSON.parse(stored)
+      } catch (error) {
+        console.warn('[AutoBackup] Failed to parse status from localStorage:', error)
+        return {
+          lastAttempt: 0,
+          lastSuccess: 0,
+          failureCount: 0,
+          lastError: ''
+        }
+      }
     }
     return {
       lastAttempt: 0,
@@ -34,6 +45,12 @@ class AutoBackupServiceClass {
   }
 
   async createBackup(type: 'daily' | 'close', isRetry = false): Promise<void> {
+    // Clear any pending retry timer
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer)
+      this.retryTimer = null
+    }
+
     // Get and update status
     const status = this.getStatus()
     status.lastAttempt = Date.now()
@@ -92,18 +109,20 @@ class AutoBackupServiceClass {
       // Run rotation after creating backup
       await this.rotateBackups()
 
-      // Update status on success
-      status.lastSuccess = Date.now()
-      status.failureCount = 0
-      status.lastError = ''
-      this.setStatus(status)
+      // Update status on success (re-read to avoid race conditions)
+      const successStatus = this.getStatus()
+      successStatus.lastSuccess = Date.now()
+      successStatus.failureCount = 0
+      successStatus.lastError = ''
+      this.setStatus(successStatus)
     } catch (error) {
       console.error('[AutoBackup] Failed to create backup:', error)
 
-      // Update failure status
-      status.failureCount++
-      status.lastError = error instanceof Error ? error.message : String(error)
-      this.setStatus(status)
+      // Update failure status (re-read to avoid race conditions)
+      const failureStatus = this.getStatus()
+      failureStatus.failureCount++
+      failureStatus.lastError = error instanceof Error ? error.message : String(error)
+      this.setStatus(failureStatus)
 
       // Check for quota exceeded errors
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -114,16 +133,22 @@ class AutoBackupServiceClass {
         console.log('[AutoBackup] Quota exceeded, freeing space and retrying...')
         await this.freeSpace()
         await this.createBackup(type, true)
-      } else if (!isRetry) {
+        return // Don't schedule another retry or throw
+      }
+
+      if (!isRetry) {
         console.log('[AutoBackup] Will retry in 30 seconds...')
-        setTimeout(() => {
+        this.retryTimer = setTimeout(() => {
+          this.retryTimer = null
           this.createBackup(type, true).catch(err => {
             console.error('[AutoBackup] Retry failed:', err)
           })
         }, 30000)
-      } else {
-        throw error
+        return // Don't throw, let retry handle it
       }
+
+      // This is a retry that failed - throw the error
+      throw error
     }
   }
 
