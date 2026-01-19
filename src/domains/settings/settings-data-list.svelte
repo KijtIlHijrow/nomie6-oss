@@ -26,6 +26,7 @@
   import { showToast } from '../../components/toast/ToastStore'
 
   import BackupListItems from '../../components/backup-message/backup-list-items.svelte'
+  import AutoBackupUI from '../backup/auto-backup-ui.svelte'
 
   // let fileInputF
   // let showImporter = false
@@ -102,6 +103,15 @@
 {/if} -->
 
 <BackupListItems />
+
+<div class="n-list">
+  <div class="n-item">
+    <div class="title">Auto-Backups</div>
+    <div class="description">Automatic daily backups and backups on close</div>
+  </div>
+
+  <AutoBackupUI />
+</div>
 
 <List solo className="mb-3 mt-4" outside>
   <ListItem
