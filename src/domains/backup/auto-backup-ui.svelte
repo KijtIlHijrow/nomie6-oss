@@ -13,6 +13,8 @@
   let loading = true;
   let downloadingId: string | null = null;
   let deletingId: string | null = null;
+  let previewingId: string | null = null;
+  let restoringId: string | null = null;
 
   async function loadBackups() {
     loading = true;
@@ -63,6 +65,41 @@
         Interact.error('Failed to delete backup');
       } finally {
         deletingId = null;
+      }
+    }
+  }
+
+  async function previewBackup(backup: AutoBackup) {
+    previewingId = backup.id;
+    try {
+      const preview = await AutoBackupService.getBackupPreview(backup.id);
+      const date = dayjs(backup.timestamp).format('MMM D, YYYY h:mm A');
+      const message = `Backup from ${date}\n\nTrackers: ${preview.trackerCount}\nLogs: ${preview.logCount}\nBooks: ${preview.bookCount}\nPeople: ${preview.peopleCount}\nBoards: ${preview.boardCount}`;
+      await Interact.alert('Backup Preview', message);
+    } catch (error) {
+      console.error('Failed to preview backup:', error);
+      Interact.error('Failed to preview backup');
+    } finally {
+      previewingId = null;
+    }
+  }
+
+  async function restoreBackup(backup: AutoBackup) {
+    const confirmed = await Interact.confirm(
+      'Restore this backup?',
+      'This will replace all your current data. A safety backup will be created first. This action cannot be undone.'
+    );
+    if (confirmed) {
+      restoringId = backup.id;
+      const blocker = Interact.blocker('Creating safety backup...');
+      try {
+        await AutoBackupService.restoreBackup(backup.id);
+        // Page will reload, so we don't need to stop the blocker
+      } catch (error) {
+        blocker.close();
+        console.error('Failed to restore backup:', error);
+        Interact.error('Failed to restore backup');
+        restoringId = null;
       }
     }
   }
@@ -141,15 +178,29 @@
                   <div class="actions">
                     <button
                       class="btn-small"
+                      on:click={() => previewBackup(backup)}
+                      disabled={previewingId === backup.id || restoringId === backup.id || downloadingId === backup.id || deletingId === backup.id}
+                    >
+                      {previewingId === backup.id ? 'Loading...' : 'Preview'}
+                    </button>
+                    <button
+                      class="btn-small btn-restore"
+                      on:click={() => restoreBackup(backup)}
+                      disabled={previewingId === backup.id || restoringId === backup.id || downloadingId === backup.id || deletingId === backup.id}
+                    >
+                      {restoringId === backup.id ? 'Restoring...' : 'Restore'}
+                    </button>
+                    <button
+                      class="btn-small"
                       on:click={() => downloadBackup(backup)}
-                      disabled={downloadingId === backup.id || deletingId === backup.id}
+                      disabled={previewingId === backup.id || restoringId === backup.id || downloadingId === backup.id || deletingId === backup.id}
                     >
                       {downloadingId === backup.id ? 'Downloading...' : 'Download'}
                     </button>
                     <button
                       class="btn-small btn-danger"
                       on:click={() => deleteBackup(backup)}
-                      disabled={downloadingId === backup.id || deletingId === backup.id}
+                      disabled={previewingId === backup.id || restoringId === backup.id || downloadingId === backup.id || deletingId === backup.id}
                     >
                       {deletingId === backup.id ? 'Deleting...' : 'Delete'}
                     </button>
@@ -327,6 +378,16 @@
 
   .btn-small:hover {
     opacity: 0.3;
+  }
+
+  .btn-restore {
+    background: var(--color-solid);
+    opacity: 0.15;
+    color: var(--color-solid);
+  }
+
+  .btn-restore:hover {
+    opacity: 0.25;
   }
 
   .btn-danger {

@@ -233,6 +233,119 @@ class AutoBackupServiceClass {
       lastError: status.lastError
     }
   }
+
+  async restoreBackup(backupId: string): Promise<void> {
+    try {
+      // Get the backup from storage
+      const backups = await this.listBackups()
+      const backup = backups.find(b => b.id === backupId)
+
+      if (!backup) {
+        throw new Error(`Backup not found: ${backupId}`)
+      }
+
+      // Create a safety backup before restoring
+      await this.createBackup('daily')
+
+      // Rename the safety backup
+      const safetyBackups = await this.listBackups()
+      const latestBackup = safetyBackups.sort((a, b) => b.timestamp - a.timestamp)[0]
+      if (latestBackup && latestBackup.type === 'daily') {
+        latestBackup.id = `pre-restore-safety-${Date.now()}`
+        await autoBackupStorage.save(latestBackup)
+      }
+
+      // Import the backup data
+      const { importStorageArchive } = await import('../storage/import')
+      await importStorageArchive(backup.data, false)
+
+      // Reload the page after a short delay
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+    } catch (error) {
+      console.error('[AutoBackup] Failed to restore backup:', error)
+      throw error
+    }
+  }
+
+  async getBackupPreview(backupId: string): Promise<{
+    trackerCount: number
+    logCount: number
+    bookCount: number
+    peopleCount: number
+    boardCount: number
+  }> {
+    const backups = await this.listBackups()
+    const backup = backups.find(b => b.id === backupId)
+
+    if (!backup) {
+      throw new Error(`Backup not found: ${backupId}`)
+    }
+
+    const files = backup.data.files
+
+    // Count trackers
+    let trackerCount = 0
+    if (files['trackers.json']) {
+      try {
+        const trackers = JSON.parse(files['trackers.json'])
+        trackerCount = Object.keys(trackers).length
+      } catch (e) {
+        console.warn('Failed to parse trackers.json:', e)
+      }
+    }
+
+    // Count logs from all book files
+    let logCount = 0
+    Object.keys(files).forEach(key => {
+      if (key.startsWith('data/books/') && !key.endsWith('_last')) {
+        try {
+          const bookData = JSON.parse(files[key])
+          if (bookData.data && Array.isArray(bookData.data)) {
+            logCount += bookData.data.length
+          }
+        } catch (e) {
+          console.warn(`Failed to parse book file ${key}:`, e)
+        }
+      }
+    })
+
+    // Count books
+    const bookCount = Object.keys(files).filter(key =>
+      key.startsWith('data/books/') && !key.endsWith('_last')
+    ).length
+
+    // Count people
+    let peopleCount = 0
+    if (files['people.json']) {
+      try {
+        const people = JSON.parse(files['people.json'])
+        peopleCount = Array.isArray(people) ? people.length : 0
+      } catch (e) {
+        console.warn('Failed to parse people.json:', e)
+      }
+    }
+
+    // Count boards
+    let boardCount = 0
+    if (files['boards.json']) {
+      try {
+        const boards = JSON.parse(files['boards.json'])
+        boardCount = Array.isArray(boards) ? boards.length : 0
+      } catch (e) {
+        console.warn('Failed to parse boards.json:', e)
+      }
+    }
+
+    return {
+      trackerCount,
+      logCount,
+      bookCount,
+      peopleCount,
+      boardCount
+    }
+  }
 }
 
 export const AutoBackupService = new AutoBackupServiceClass()
