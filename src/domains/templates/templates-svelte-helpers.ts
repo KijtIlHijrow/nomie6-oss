@@ -42,10 +42,6 @@ export const openAnalytics = () => {
   navigate('/analytics')
 }
 
-export const openAfterNomie = () => {
-  navigate('/afternomie')
-}
-
 /**
  * It closes the template manager modal
  */

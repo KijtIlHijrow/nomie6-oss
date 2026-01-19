@@ -16,8 +16,6 @@
   import CubeOutline from '../../n-icons/CubeOutline.svelte'
   import CubeSolid from '../../n-icons/CubeSolid.svelte'
 
-  import QRCode from '../../n-icons/QRCode.svelte'
-  import QRCodeSolid from '../../n-icons/QRCodeSolid.svelte'
   import EaselSolid from '../../n-icons/EaselSolid.svelte'
   import RibbonSolid from '../../n-icons/RibbonSolid.svelte'
   import CalendarSolid from '../../n-icons/CalendarSolid.svelte'
@@ -113,13 +111,6 @@
       title: 'AI Query',
       icon: SparklesOutline,
       activeIcon: SparklesSolid,
-    },
-    {
-      id: 'afternomie',
-      path: '/afternomie',
-      title: Lang.t('tabs.afternomie', 'AfterNomie'),
-      icon: QRCode,
-      activeIcon: QRCodeSolid,
     },
     // {
     //   id: 'awards',
