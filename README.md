@@ -63,6 +63,37 @@ which would be converted into something like:
   - Natural language tracking
   - Tracker creation and management
 
+## Auto-Backup System
+
+Nomie automatically backs up your data:
+- **Daily**: Once per day when you open the app
+- **On Close**: When you close the browser
+
+Backups are stored in your browser (IndexedDB) and kept for 30 days.
+
+### Managing Backups
+
+Go to **Settings → Data → Auto-Backups** to:
+- View all automatic backups
+- Preview backup contents
+- Restore from any backup
+- Download backups to your computer
+- Enable/disable automatic backups
+
+### Safety Features
+
+- **Smart deduplication**: Skips backup if data hasn't changed
+- **30-day retention**: Keeps last 30 days of backups automatically
+- **Safety backups**: Creates emergency backup before restoring
+
+### Recovering Data
+
+If you lose data:
+1. Go to Settings → Data → Auto-Backups
+2. Find the most recent backup before data loss
+3. Click "Preview" to verify it has your data
+4. Click "Restore" to recover
+
 ## Coding Rules
 
 - **Keep it readable** - focus on writing code that new people can easily understand and follow. If the code can't do it, then do it with comments. There's no such thing as too much commenting. (yes, I should follow my own rules)
