@@ -1,7 +1,7 @@
 import { autoBackupStorage, AutoBackup } from './auto-backup-storage'
 import Storage from '../storage/storage'
 import dayjs from 'dayjs'
-import config from '../../config/appConfig'
+import { AppVersion } from '../../modules/app-version/app-version'
 import { MD5 } from 'crypto-js'
 
 class AutoBackupServiceClass {
@@ -23,7 +23,7 @@ class AutoBackupServiceClass {
 
       // Create backup payload
       const data = {
-        version: `${config.version}`,
+        version: AppVersion,
         created: new Date(),
         files: storage
       }
@@ -43,13 +43,13 @@ class AutoBackupServiceClass {
 
       // Create backup record
       const backup: AutoBackup = {
-        id: `backup-${dayjs().format('YYYY-MM-DD-HH-mm')}-${type}`,
+        id: `backup-${dayjs().format('YYYY-MM-DD-HH-mm-ss')}-${type}`,
         timestamp: Date.now(),
         type,
         data,
         size,
         dataHash,
-        version: config.version
+        version: AppVersion
       }
 
       // Save to IndexedDB
